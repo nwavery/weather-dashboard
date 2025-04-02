@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time & Weather Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="cards-container">
+            <!-- El Reno Card -->
+            <div class="card" id="card-elreno">
+                <div class="time-section">
+                    <h2>El Reno, OK</h2>
+                    <div id="current-time" class="display-value">Loading...</div>
+                </div>
+                <div class="weather-section">
+                    <div class="temp-and-icon">
+                        <div class="temp-display">
+                            <div id="weather-icon-elreno"></div>
+                            <div id="current-temp-elreno" class="display-value">Loading...</div>
+                        </div>
+                        <div class="temp-details">
+                            <span id="feels-like-elreno" class="feels-like">Feels like: --</span>
+                            <span id="historical-elreno" class="historical">vs. Historical: --</span>
+                        </div>
+                    </div>
+                    <div class="daily-forecast">
+                        <div id="daily-forecast-elreno" class="daily-forecast-container">
+                            <div class="daily-item-placeholder">Loading daily forecast...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="extra-metrics">
+                    <div class="metric">
+                        <i class="fas fa-tint"></i>
+                        <span id="humidity-elreno">--</span>
+                    </div>
+                    <div class="metric">
+                        <i class="fas fa-water"></i>
+                        <span id="dewpoint-elreno">--</span>
+                    </div>
+                    <div class="metric">
+                        <i class="fas fa-wind"></i>
+                        <span id="wind-elreno">--</span>
+                    </div>
+                    <div class="metric">
+                        <i class="fas fa-sun"></i>
+                        <span id="uv-elreno">--</span>
+                    </div>
+                </div>
+                <div class="hourly-forecast">
+                    <div id="hourly-forecast-elreno" class="hourly-forecast-container">
+                        <div class="hourly-item-placeholder">Loading hourly forecast...</div>
+                    </div>
+                </div>
+                <div class="alerts-container">
+                    <div id="alerts-elreno" class="alerts"></div>
+                </div>
+                <div class="refresh-info">
+                    <p>Auto-refreshes every minute</p>
+                    <div id="last-updated-elreno">Last updated: -</div>
+                </div>
+            </div>
+            
+            <!-- Philadelphia Card -->
+            <div class="card" id="card-philly">
+                <div class="time-section">
+                    <h2>Philadelphia, PA</h2>
+                    <div id="current-time-philly" class="display-value">Loading...</div>
+                </div>
+                <div class="weather-section">
+                    <div class="temp-and-icon">
+                        <div class="temp-display">
+                            <div id="weather-icon-philly"></div>
+                            <div id="current-temp-philly" class="display-value">Loading...</div>
+                        </div>
+                        <div class="temp-details">
+                            <span id="feels-like-philly" class="feels-like">Feels like: --</span>
+                            <span id="historical-philly" class="historical">vs. Historical: --</span>
+                        </div>
+                    </div>
+                    <div class="daily-forecast">
+                        <div id="daily-forecast-philly" class="daily-forecast-container">
+                            <div class="daily-item-placeholder">Loading daily forecast...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="extra-metrics">
+                    <div class="metric">
+                        <i class="fas fa-tint"></i>
+                        <span id="humidity-philly">--</span>
+                    </div>
+                    <div class="metric">
+                        <i class="fas fa-water"></i>
+                        <span id="dewpoint-philly">--</span>
+                    </div>
+                    <div class="metric">
+                        <i class="fas fa-wind"></i>
+                        <span id="wind-philly">--</span>
+                    </div>
+                    <div class="metric">
+                        <i class="fas fa-sun"></i>
+                        <span id="uv-philly">--</span>
+                    </div>
+                </div>
+                <div class="hourly-forecast">
+                    <div id="hourly-forecast-philly" class="hourly-forecast-container">
+                        <div class="hourly-item-placeholder">Loading hourly forecast...</div>
+                    </div>
+                </div>
+                <div class="alerts-container">
+                    <div id="alerts-philly" class="alerts"></div>
+                </div>
+                <div class="refresh-info">
+                    <p>Auto-refreshes every minute</p>
+                    <div id="last-updated-philly">Last updated: -</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
