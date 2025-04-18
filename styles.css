@@ -75,6 +75,10 @@ h2 {
     font-weight: 500;
     margin-bottom: 15px;
     font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 h3 {
@@ -535,4 +539,34 @@ h3 {
     .metric {
         flex: 1 0 30%;
     }
+}
+
+/* Location Editing Styles */
+.edit-location-btn {
+    background: none;
+    border: none;
+    color: #cccccc;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 5px;
+    vertical-align: middle;
+    transition: color 0.2s ease;
+}
+
+.edit-location-btn:hover {
+    color: #ffffff;
+}
+
+.location-input {
+    font-size: 1.3rem;
+    padding: 2px 5px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #eee;
+    border-radius: 4px;
+    margin-right: 5px;
+}
+
+.location-name {
+    margin-right: 5px;
 } 
