@@ -28,32 +28,32 @@ let LOCATIONS = { // Changed to let to allow modification
             dailyForecast: 'daily-forecast-elreno' // Added for element helper
         }
     },
-    philadelphia: {
-        name: "Philadelphia, PA",
-        latitude: 39.9484,
-        longitude: -75.2284,
-        timeZone: 'America/New_York', // Eastern Time
+    salem: { // Changed from philadelphia
+        name: "Salem, WI", // Changed name
+        latitude: 42.5686, // Changed latitude
+        longitude: -88.108417, // Changed longitude
+        timeZone: 'America/Chicago', // Changed timeZone
         elementIds: {
-            time: "current-time-philly",
-            temp: "current-temp-philly",
-            icon: "weather-icon-philly",
-            // description: "weather-description-philly",
-            lastUpdated: "last-updated-philly",
-            feelsLike: "feels-like-philly",
-            humidity: "humidity-philly",
-            wind: "wind-philly",
-            uv: "uv-philly",
-            dewpoint: "dewpoint-philly",
-            // sunrise: "sunrise-philly",
-            // sunset: "sunset-philly",
-            historical: "historical-philly",
-            // alerts: "alerts-philly",
-            card: "card-philly",
-            nameDisplay: "location-name-philly", // Added for editing
-            nameInput: "location-input-philly", // Added for editing
-            editButton: "edit-btn-philly", // Added for editing
-            hourlyForecast: 'hourly-forecast-philly', // Added for element helper
-            dailyForecast: 'daily-forecast-philly' // Added for element helper
+            time: "current-time-salem", // Changed ID
+            temp: "current-temp-salem", // Changed ID
+            icon: "weather-icon-salem", // Changed ID
+            // description: "weather-description-philly", // Kept commented
+            lastUpdated: "last-updated-salem", // Changed ID
+            feelsLike: "feels-like-salem", // Changed ID
+            humidity: "humidity-salem", // Changed ID
+            wind: "wind-salem", // Changed ID
+            uv: "uv-salem", // Changed ID
+            dewpoint: "dewpoint-salem", // Changed ID
+            // sunrise: "sunrise-philly", // Kept commented
+            // sunset: "sunset-philly", // Kept commented
+            historical: "historical-salem", // Changed ID
+            // alerts: "alerts-philly", // Kept commented
+            card: "card-salem", // Changed ID
+            nameDisplay: "location-name-salem", // Added for editing
+            nameInput: "location-input-salem", // Added for editing
+            editButton: "edit-btn-salem", // Added for editing
+            hourlyForecast: 'hourly-forecast-salem', // Added for element helper
+            dailyForecast: 'daily-forecast-salem' // Added for element helper
         }
     }
 };
@@ -667,7 +667,6 @@ async function handleSaveClick(event) {
         elements.nameInput.select();
          // Keep save listener active, re-add keypress listener
          elements.nameInput.addEventListener('keypress', handleInputKeyPress);
-
     }
 }
 
@@ -722,4 +721,4 @@ function initApp() {
 }
 
 // Start the app when the DOM is fully loaded
-window.addEventListener('DOMContentLoaded', initApp); // Use DOMContentLoaded 
+window.addEventListener('DOMContentLoaded', initApp); // Use DOMContentLoaded

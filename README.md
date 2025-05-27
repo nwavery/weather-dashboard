@@ -24,7 +24,7 @@ A real-time weather dashboard that displays current conditions and forecasts for
 
 Starts with:
 - El Reno, OK (Central Time)
-- Philadelphia, PA (Eastern Time)
+- Salem, WI (Central Time)
 
 (These can be changed by the user at runtime.)
 
