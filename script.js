@@ -25,7 +25,8 @@ let LOCATIONS = { // Changed to let to allow modification
             nameInput: "location-input-elreno", // Added for editing
             editButton: "edit-btn-elreno", // Added for editing
             hourlyForecast: 'hourly-forecast-elreno', // Added for element helper
-            dailyForecast: 'daily-forecast-elreno' // Added for element helper
+            dailyForecast: 'daily-forecast-elreno', // Added for element helper
+            errorDisplay: 'error-display-elreno' // Added for error messages
         }
     },
     salem: { // Changed from philadelphia
@@ -53,7 +54,8 @@ let LOCATIONS = { // Changed to let to allow modification
             nameInput: "location-input-salem", // Added for editing
             editButton: "edit-btn-salem", // Added for editing
             hourlyForecast: 'hourly-forecast-salem', // Added for element helper
-            dailyForecast: 'daily-forecast-salem' // Added for element helper
+            dailyForecast: 'daily-forecast-salem', // Added for element helper
+            errorDisplay: 'error-display-salem' // Added for error messages
         }
     }
 };
@@ -61,6 +63,7 @@ let LOCATIONS = { // Changed to let to allow modification
 const REFRESH_INTERVAL = 60000; // 1 minute in milliseconds
 // Unit is fixed to imperial (Fahrenheit)
 const UNIT = 'imperial';
+let WEATHER_CODES = {}; // Will be loaded from JSON
 
 // DOM elements for El Reno (REMOVED - Now handled dynamically)
 // const elRenoTimeElement = ...;
@@ -70,48 +73,108 @@ const UNIT = 'imperial';
 // const phillyTimeElement = ...;
 // ... all other specific const declarations ...
 
+function createLocationCardHTML(locationKey, locationData) {
+    const ids = locationData.elementIds;
+    return `
+        <div class=\"card\" id=\"${ids.card}\" data-location-key=\"${locationKey}\">
+            <div class=\"time-section\">
+                <h2>
+                    <span class=\"location-name\" id=\"${ids.nameDisplay}\">${locationData.name}</span>
+                    <input type=\"text\" class=\"location-input\" id=\"${ids.nameInput}\" style=\"display: none;\">
+                    <button class=\"edit-location-btn\" id=\"${ids.editButton}\" data-location-key=\"${locationKey}\" title=\"Edit Location\">✏️</button>
+                </h2>
+                <div id=\"${ids.time}\" class=\"display-value\">Loading...</div>
+            </div>
+            <div class=\"weather-section\">
+                <div class=\"temp-and-icon\">
+                    <div class=\"temp-display\">
+                        <div id=\"${ids.icon}\"></div>
+                        <div id=\"${ids.temp}\" class=\"display-value\">Loading...</div>
+                    </div>
+                    <div class=\"temp-details\">
+                        <span id=\"${ids.feelsLike}\" class=\"feels-like\">Feels like: --</span>
+                        <span id=\"${ids.historical}\" class=\"historical\">vs. Historical: --</span>
+                    </div>
+                </div>
+                <div class=\"daily-forecast\">
+                    <div id=\"${ids.dailyForecast}\" class=\"daily-forecast-container\">
+                        <div class=\"daily-item-placeholder\">Loading daily forecast...</div>
+                    </div>
+                </div>
+            </div>
+            <div class=\"extra-metrics\">
+                <div class=\"metric\"><i class=\"fas fa-tint\"></i> <span id=\"${ids.humidity}\">--</span></div>
+                <div class=\"metric\"><i class=\"fas fa-water\"></i> <span id=\"${ids.dewpoint}\">--</span></div>
+                <div class=\"metric\"><i class=\"fas fa-wind\"></i> <span id=\"${ids.wind}\">--</span></div>
+                <div class=\"metric\"><i class=\"fas fa-sun\"></i> <span id=\"${ids.uv}\">--</span></div>
+            </div>
+            <div class=\"hourly-forecast\">
+                <div id=\"${ids.hourlyForecast}\" class=\"hourly-forecast-container\">
+                    <div class=\"hourly-item-placeholder\">Loading hourly forecast...</div>
+                </div>
+            </div>
+            <div class=\"error-display\" id=\"${ids.errorDisplay}\" style=\"display: none;\"><!-- For error messages --></div>
+            <div class=\"alerts-container\">
+                <!-- <div id=\"${ids.alerts}\" class=\"alerts\"></div> --> <!-- Alerts not fully implemented yet -->
+            </div>
+            <div class=\"refresh-info\">
+                <p>Auto-refreshes every minute</p>
+                <div id=\"${ids.lastUpdated}\">Last updated: -</div>
+            </div>
+        </div>
+    `;
+}
+
 // Helper function to get elements for a specific location
 function getElementsForLocation(locationKey) {
-    const ids = LOCATIONS[locationKey]?.elementIds;
-    if (!ids) {
-        console.error("Could not find element IDs for location key:", locationKey);
+    const locationConfig = LOCATIONS[locationKey];
+    if (!locationConfig || !locationConfig.elementIds) {
+        console.error("Could not find config or element IDs for location key:", locationKey);
         return null;
     }
+
     const elements = {};
-    for (const key in ids) {
-        elements[key] = document.getElementById(ids[key]);
-        if (!elements[key] && key !== 'alerts') { // Allow alerts element to be missing
-             console.warn(`Element with ID '${ids[key]}' not found for ${locationKey}.`);
+    const cardElement = document.getElementById(locationConfig.elementIds.card) || document.querySelector(`.card[data-location-key="${locationKey}"]`);
+
+    if (!cardElement) {
+        console.error(`Card element not found for location key: ${locationKey}`);
+        return null;
+    }
+    elements.card = cardElement;
+
+    const getElementByIdOrClass = (idKey, queryClassSuffix) => {
+        const elementId = locationConfig.elementIds[idKey];
+        if (elementId) {
+            const el = document.getElementById(elementId);
+            if (el) return el;
+        }
+        // Fallback to class query within the card if queryClassSuffix is provided
+        if (queryClassSuffix) {
+            return cardElement.querySelector(`.${idKey.replace(/([A-Z])/g, '-$1').toLowerCase()}${queryClassSuffix || ''}`);
+        }
+        return null;
+    };
+
+    for (const idKey in locationConfig.elementIds) {
+        elements[idKey] = getElementByIdOrClass(idKey);
+        if (!elements[idKey] && idKey !== 'alerts' && idKey !== 'errorDisplay') { // Allow alerts and errorDisplay to be missing initially
+            console.warn(`Element with ID '${locationConfig.elementIds[idKey]}' or class for key '${idKey}' not found for ${locationKey}.`);
         }
     }
-    // Add card element by data attribute as fallback/primary method
-    if (!elements.card) {
-        elements.card = document.querySelector(`.card[data-location-key="${locationKey}"]`);
-         if (!elements.card) {
-             console.error(`Card element not found for location key: ${locationKey}`);
-             return null; // Critical element missing
-         }
-    }
-     // Add name display/input/button by class within the card as fallback/primary method
-    if (!elements.nameDisplay) {
-         elements.nameDisplay = elements.card?.querySelector('.location-name');
-    }
-     if (!elements.nameInput) {
-         elements.nameInput = elements.card?.querySelector('.location-input');
-    }
-     if (!elements.editButton) {
-         elements.editButton = elements.card?.querySelector('.edit-location-btn');
+    
+    // Ensure errorDisplay element is specifically looked for by its ID if not found by general logic
+    if (!elements.errorDisplay && locationConfig.elementIds.errorDisplay) {
+        elements.errorDisplay = document.getElementById(locationConfig.elementIds.errorDisplay);
     }
 
-    // Validate essential elements needed for updates
-    const required = ['time', 'temp', 'icon', 'lastUpdated', 'feelsLike', 'humidity', 'wind', 'uv', 'dewpoint', 'historical', 'card', 'hourlyForecast', 'dailyForecast'];
-    for (const req of required) {
-        if (!elements[req]) {
-             console.error(`Missing required element '${req}' (ID: ${ids?.[req]}) for location ${locationKey}`);
-             // Optionally return null or a partial object depending on robustness needs
+    // Validate essential elements
+    const requiredElementKeys = ['time', 'temp', 'icon', 'lastUpdated', 'feelsLike', 'humidity', 'wind', 'uv', 'dewpoint', 'historical', 'card', 'hourlyForecast', 'dailyForecast', 'nameDisplay', 'nameInput', 'editButton'];
+    for (const reqKey of requiredElementKeys) {
+        if (!elements[reqKey]) {
+            console.error(`Missing required element '${reqKey}' (expected ID: ${locationConfig.elementIds[reqKey]}) for location ${locationKey}. This may break functionality.`);
+            // Optionally, handle this more gracefully in the UI, e.g., by disabling the card or showing a specific error on it.
         }
     }
-
     return elements;
 }
 
@@ -161,89 +224,47 @@ function getWindDirection(degrees) {
 
 // WMO Weather interpretation codes (for icons and descriptions)
 // https://open-meteo.com/en/docs
-const weatherCodes = {
-    0: { description: "Clear sky", icon: "01d", animation: null },
-    1: { description: "Mainly clear", icon: "01d", animation: null },
-    2: { description: "Partly cloudy", icon: "02d", animation: "cloudy" },
-    3: { description: "Overcast", icon: "04d", animation: "cloudy" },
-    45: { description: "Fog", icon: "50d", animation: "cloudy" },
-    48: { description: "Depositing rime fog", icon: "50d", animation: "cloudy" },
-    51: { description: "Light drizzle", icon: "09d", animation: "rain" },
-    53: { description: "Moderate drizzle", icon: "09d", animation: "rain" },
-    55: { description: "Dense drizzle", icon: "09d", animation: "rain" },
-    56: { description: "Light freezing drizzle", icon: "09d", animation: "rain" },
-    57: { description: "Dense freezing drizzle", icon: "09d", animation: "rain" },
-    61: { description: "Slight rain", icon: "10d", animation: "rain" },
-    63: { description: "Moderate rain", icon: "10d", animation: "rain" },
-    65: { description: "Heavy rain", icon: "10d", animation: "rain" },
-    66: { description: "Light freezing rain", icon: "13d", animation: "rain" },
-    67: { description: "Heavy freezing rain", icon: "13d", animation: "rain" },
-    71: { description: "Slight snow fall", icon: "13d", animation: "snow" },
-    73: { description: "Moderate snow fall", icon: "13d", animation: "snow" },
-    75: { description: "Heavy snow fall", icon: "13d", animation: "snow" },
-    77: { description: "Snow grains", icon: "13d", animation: "snow" },
-    80: { description: "Slight rain showers", icon: "09d", animation: "rain" },
-    81: { description: "Moderate rain showers", icon: "09d", animation: "rain" },
-    82: { description: "Violent rain showers", icon: "09d", animation: "rain" },
-    85: { description: "Slight snow showers", icon: "13d", animation: "snow" },
-    86: { description: "Heavy snow showers", icon: "13d", animation: "snow" },
-    95: { description: "Thunderstorm", icon: "11d", animation: "rain" },
-    96: { description: "Thunderstorm with slight hail", icon: "11d", animation: "rain" },
-    99: { description: "Thunderstorm with heavy hail", icon: "11d", animation: "rain" }
-};
 
 // Function to add weather animation
 function addWeatherAnimation(cardElement, animationType) {
-    // Clear any existing animations
     removeWeatherAnimations(cardElement);
-    
     if (!animationType) return;
     
+    const container = document.createElement('div');
+    container.className = `${animationType}-animation`;
+
+    let count = 0;
+    let particleClass = '';
+
     if (animationType === 'rain') {
-        const rainContainer = document.createElement('div');
-        rainContainer.className = 'rain-animation';
-        
-        // Create 20 rain drops with random positions and speeds
-        for (let i = 0; i < 20; i++) {
-            const raindrop = document.createElement('div');
-            raindrop.className = 'rain-drop';
-            raindrop.style.left = `${Math.random() * 100}%`;
-            raindrop.style.animationDuration = `${0.8 + Math.random() * 0.4}s`;
-            raindrop.style.animationDelay = `${Math.random() * 2}s`;
-            rainContainer.appendChild(raindrop);
-        }
-        
-        cardElement.appendChild(rainContainer);
+        count = 20;
+        particleClass = 'rain-drop';
     } else if (animationType === 'snow') {
-        const snowContainer = document.createElement('div');
-        snowContainer.className = 'snow-animation';
-        
-        // Create 30 snowflakes
-        for (let i = 0; i < 30; i++) {
-            const snowflake = document.createElement('div');
-            snowflake.className = 'snow-flake';
-            snowflake.style.left = `${Math.random() * 100}%`;
-            snowflake.style.animationDuration = `${2 + Math.random() * 3}s`;
-            snowflake.style.animationDelay = `${Math.random() * 2}s`;
-            snowContainer.appendChild(snowflake);
-        }
-        
-        cardElement.appendChild(snowContainer);
+        count = 30;
+        particleClass = 'snow-flake';
     } else if (animationType === 'cloudy') {
-        const cloudyContainer = document.createElement('div');
-        cloudyContainer.className = 'cloudy-animation';
-        
-        // Create 3 clouds
-        for (let i = 0; i < 3; i++) {
-            const cloud = document.createElement('div');
-            cloud.className = 'cloud';
-            cloud.style.top = `${20 + i * 30}%`;
-            cloud.style.animationDelay = `${i * -5}s`;
-            cloudyContainer.appendChild(cloud);
-        }
-        
-        cardElement.appendChild(cloudyContainer);
+        count = 3;
+        particleClass = 'cloud';
     }
+
+    for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.className = particleClass;
+        if (animationType === 'rain') {
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.animationDuration = `${0.8 + Math.random() * 0.4}s`;
+            particle.style.animationDelay = `${Math.random() * 2}s`;
+        } else if (animationType === 'snow') {
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.animationDuration = `${2 + Math.random() * 3}s`;
+            particle.style.animationDelay = `${Math.random() * 2}s`;
+        } else if (animationType === 'cloudy') {
+            particle.style.top = `${20 + i * 30}%`;
+            particle.style.animationDelay = `${i * -5}s`;
+        }
+        container.appendChild(particle);
+    }
+    cardElement.appendChild(container);
 }
 
 // Function to remove weather animations
@@ -252,27 +273,49 @@ function removeWeatherAnimations(cardElement) {
     animations.forEach(anim => anim.remove());
 }
 
+function displayErrorOnCard(locationKey, message) {
+    const elements = getElementsForLocation(locationKey);
+    if (elements && elements.errorDisplay) {
+        elements.errorDisplay.textContent = message;
+        elements.errorDisplay.style.display = 'block';
+        // Optionally hide other elements or clear the card
+        if (elements.temp) elements.temp.textContent = 'Error';
+        if (elements.icon) elements.icon.innerHTML = '';
+        // etc. for other elements you want to clear/hide
+    } else if (elements && elements.card) {
+        // Fallback if errorDisplay element is not found, but card is
+        const errorP = document.createElement('p');
+        errorP.className = 'error-message-fallback';
+        errorP.textContent = message;
+        // Clear card and append error or prepend error
+        elements.card.innerHTML = ''; // Example: clear card
+        elements.card.appendChild(errorP);
+    } else {
+        console.error(`Cannot display error on card for ${locationKey}: card or error display element not found. Error: ${message}`);
+    }
+}
+
+function clearErrorOnCard(locationKey) {
+    const elements = getElementsForLocation(locationKey);
+    if (elements && elements.errorDisplay) {
+        elements.errorDisplay.textContent = '';
+        elements.errorDisplay.style.display = 'none';
+    }
+}
+
 // Function to fetch weather data from Open-Meteo API
-async function fetchWeatherData(locationKey) { // Takes locationKey now
+async function fetchWeatherData(locationKey) {
     const location = LOCATIONS[locationKey];
     const elements = getElementsForLocation(locationKey);
 
     if (!location || !elements) {
         console.error("Missing location data or elements for key:", locationKey);
-        return; // Exit if essential parts are missing
+        displayErrorOnCard(locationKey, "Configuration error for this location.");
+        return;
     }
-
-    // Ensure required elements for display exist before fetching
-     const requiredElements = ['temp', 'icon', 'lastUpdated', 'feelsLike', 'humidity', 'wind', 'uv', 'dewpoint', 'historical', 'card', 'hourlyForecast', 'dailyForecast'];
-     for (const elKey of requiredElements) {
-         if (!elements[elKey]) {
-             console.error(`Cannot fetch weather for ${location.name}: Missing element ${elKey}`);
-             // Potentially update UI to show an error state for this card
-             elements.card.innerHTML = `<p class="error">Error: UI element '${elKey}' missing.</p>`;
-             return;
-         }
-     }
-
+    
+    clearErrorOnCard(locationKey); // Clear previous errors
+    if(elements.temp) elements.temp.textContent = "Loading..."; // Show loading state
 
     try {
         // Fetch current weather, hourly forecast, and daily data
@@ -289,88 +332,57 @@ async function fetchWeatherData(locationKey) { // Takes locationKey now
         );
 
         if (!response.ok) {
-            throw new Error(`Weather data fetch failed: ${response.statusText} (status code: ${response.status})`);
+            throw new Error(`API Error: ${response.statusText} (${response.status})`);
         }
 
         const data = await response.json();
 
         if (!data || !data.current || !data.daily || !data.hourly) {
-             throw new Error("Incomplete weather data received from API.");
+             throw new Error("Incomplete weather data from API.");
         }
 
         // Get current weather data
-        const temperature = data.current.temperature_2m;
-        const feelsLike = data.current.apparent_temperature;
-        const humidity = data.current.relative_humidity_2m;
-        const windSpeed = data.current.wind_speed_10m;
-        const windDirection = data.current.wind_direction_10m;
-        const uvIndex = data.current.uv_index;
-        const weatherCode = data.current.weather_code;
-        const dewpoint = data.current.dew_point_2m;
-
-        // Get sunrise/sunset times (No longer updating specific elements)
-        // const sunrise = data.daily.sunrise[0].split('T')[1].substring(0, 5);
-        // const sunset = data.daily.sunset[0].split('T')[1].substring(0, 5);
+        const weather_code = data.current.weather_code;
+        const weatherInfo = WEATHER_CODES[String(weather_code)] || { description: "Unknown", icon: "50d", animation: null };
 
         // Get temperature extremes for the day
         const maxTemp = data.daily.temperature_2m_max[0];
         const minTemp = data.daily.temperature_2m_min[0];
 
         // Update DOM elements with current weather data
-        elements.temp.textContent = formatTemperature(temperature);
-        elements.feelsLike.textContent = `Feels like: ${formatTemperature(feelsLike)}`;
+        elements.temp.textContent = formatTemperature(data.current.temperature_2m);
+        elements.feelsLike.textContent = `Feels like: ${formatTemperature(data.current.apparent_temperature)}`;
+        elements.icon.innerHTML = `<img src="https://openweathermap.org/img/wn/${weatherInfo.icon}@2x.png" alt="${weatherInfo.description}" title="${weatherInfo.description}">`;
 
-        // Get weather description and icon
-        const weather = weatherCodes[weatherCode] || { description: "Unknown", icon: "50d", animation: null };
-        elements.icon.innerHTML = `<img src="https://openweathermap.org/img/wn/${weather.icon}@2x.png" alt="${weather.description}" title="${weather.description}">`; // Add title attribute
+        addWeatherAnimation(elements.card, weatherInfo.animation);
 
+        elements.humidity.textContent = `${data.current.relative_humidity_2m}%`;
+        elements.wind.textContent = `${Math.round(data.current.wind_speed_10m)} mph ${getWindDirection(data.current.wind_direction_10m)}`;
+        elements.uv.textContent = `UV: ${Math.round(data.current.uv_index)}`;
+        elements.dewpoint.textContent = formatTemperature(data.current.dew_point_2m);
 
-        // Add weather animation
-        addWeatherAnimation(elements.card, weather.animation);
-
-        // Update additional metrics
-        elements.humidity.textContent = `${humidity}%`;
-        elements.wind.textContent = `${Math.round(windSpeed)} mph ${getWindDirection(windDirection)}`;
-        elements.uv.textContent = `UV: ${Math.round(uvIndex)}`;
-        elements.dewpoint.textContent = formatTemperature(dewpoint);
-
-        // Update daily forecast
         updateDailyForecast(data.daily, elements.dailyForecast, location.timeZone);
+        updateHourlyForecast(data.hourly, elements.hourlyForecast, location.timeZone);
 
-        // Update hourly forecast
-        updateHourlyForecast(data.hourly, elements.hourlyForecast, location.timeZone); // Pass timezone
-
-
-        // Update card temperature class based on temperature
-        const tempClass = getTempClass(temperature);
-        // Be careful when replacing class names, preserve base 'card' class
+        const tempClass = getTempClass(data.current.temperature_2m);
         elements.card.className = `card ${tempClass}`;
-        elements.card.dataset.locationKey = locationKey; // Ensure key is present
+        elements.card.dataset.locationKey = locationKey;
 
-
-        // Update historical comparison
-        const historicalDiff = Math.round(temperature - ((maxTemp + minTemp) / 2));
+        const historicalDiff = Math.round(data.current.temperature_2m - ((maxTemp + minTemp) / 2));
         const compareSymbol = historicalDiff > 0 ? '↑' : historicalDiff < 0 ? '↓' : '↔';
-        elements.historical.textContent = `vs. Hist: ${compareSymbol} ${Math.abs(historicalDiff)}° ${historicalDiff === 0 ? '' : historicalDiff > 0 ? ' warmer' : ' cooler'}`; // Shortened text
+        elements.historical.textContent = `vs. Hist: ${compareSymbol} ${Math.abs(historicalDiff)}° ${historicalDiff === 0 ? '' : historicalDiff > 0 ? 'warmer' : 'cooler'}`;
 
-        // Update last updated time with correct time zone
         const now = new Date();
         const localTimeString = now.toLocaleTimeString('en-US', {
             timeZone: location.timeZone,
             hour: 'numeric',
             minute: '2-digit'
         });
-        elements.lastUpdated.textContent = `Updated: ${localTimeString}`; // Shortened text
+        elements.lastUpdated.textContent = `Updated: ${localTimeString}`;
 
     } catch (error) {
         console.error(`Error updating weather data for ${location.name} (${locationKey}):`, error);
-        // Display error on the specific card
-        if (elements && elements.card) {
-             elements.card.innerHTML = `<p class="error">Could not load weather data. ${error.message}</p>`;
-        } else {
-             // Fallback if card element isn't available
-             alert(`Error loading weather for ${location.name}. Please check console.`);
-        }
+        displayErrorOnCard(locationKey, `Weather Error: ${error.message}`);
     }
 }
 
@@ -389,7 +401,7 @@ function updateDailyForecast(dailyData, forecastElement, timeZone) {
         let maxTemp = '--';
         let minTemp = '--';
         let weatherCode = null;
-        let weather = { description: "Unknown", icon: "50d" };
+        let weatherInfo = { description: "Unknown", icon: "50d" };
 
         try {
             // --- Date Formatting for Display ---
@@ -420,7 +432,7 @@ function updateDailyForecast(dailyData, forecastElement, timeZone) {
             minTemp = dailyData.temperature_2m_min[dataIndex];
             weatherCode = dailyData.weather_code[dataIndex];
 
-            weather = weatherCodes[weatherCode] || { description: "Unknown", icon: "50d" };
+            weatherInfo = WEATHER_CODES[String(weatherCode)] || { description: "Unknown", icon: "50d" };
 
         } catch(e) {
             console.error(`Error processing daily forecast item (dataIndex: ${dataIndex}, date: ${dailyData.time[dataIndex]}):`, e);
@@ -434,7 +446,7 @@ function updateDailyForecast(dailyData, forecastElement, timeZone) {
         dailyItem.innerHTML = `
             <div class="daily-date">${formattedDateFinal}</div>
             <div class="daily-icon">
-                <img src="https://openweathermap.org/img/wn/${weather.icon}.png" alt="${weather.description}" title="${weather.description}">
+                <img src="https://openweathermap.org/img/wn/${weatherInfo.icon}.png" alt="${weatherInfo.description}" title="${weatherInfo.description}">
             </div>
             <div class="daily-temp">${formattedMaxTemp}/${formattedMinTemp}</div>
         `;
@@ -493,7 +505,7 @@ function updateHourlyForecast(hourlyData, forecastElement, timeZone) { // Added 
         });
 
         // Get weather icon and description
-        const weather = weatherCodes[weatherCode] || { description: "Unknown", icon: "50d" };
+        const weatherInfo = WEATHER_CODES[String(weatherCode)] || { description: "Unknown", icon: "50d" };
 
         // Create hourly forecast item
         const hourlyItem = document.createElement('div');
@@ -501,7 +513,7 @@ function updateHourlyForecast(hourlyData, forecastElement, timeZone) { // Added 
         hourlyItem.innerHTML = `
             <div class="hourly-time">${formattedTime}</div>
             <div class="hourly-icon">
-                <img src="https://openweathermap.org/img/wn/${weather.icon}.png" alt="${weather.description}" title="${weather.description}">
+                <img src="https://openweathermap.org/img/wn/${weatherInfo.icon}.png" alt="${weatherInfo.description}" title="${weatherInfo.description}">
             </div>
             <div class="hourly-temp">${formatTemperature(temp)}</div>
         `;
@@ -512,15 +524,15 @@ function updateHourlyForecast(hourlyData, forecastElement, timeZone) { // Added 
 
 // Function to fetch weather data for a single location
 async function updateWeatherForLocation(locationKey) {
-    console.log(`Updating weather for ${locationKey}`);
+    console.log(`Updating weather for ${LOCATIONS[locationKey]?.name || locationKey}`);
     await fetchWeatherData(locationKey);
 }
 
 // Function to refresh weather data for ALL locations
-function refreshAllWeatherData() {
+async function refreshAllWeatherData() {
     console.log("Refreshing weather for all locations...");
     for (const key in LOCATIONS) {
-        updateWeatherForLocation(key);
+        await updateWeatherForLocation(key); // Ensure updates happen sequentially or handle promises if parallel
     }
 }
 
@@ -529,18 +541,15 @@ function refreshAllWeatherData() {
 // Geocode city name using Open-Meteo Geocoding API
 async function geocodeCity(cityName) {
     if (!cityName || typeof cityName !== 'string' || cityName.trim().length === 0) {
-        console.error("Invalid city name provided for geocoding.");
+        console.error("Invalid city name for geocoding.");
         return null;
     }
     try {
         const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName.trim())}&count=1&language=en&format=json`);
-        if (!response.ok) {
-            throw new Error(`Geocoding API request failed: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`Geocoding API Error: ${response.statusText}`);
         const data = await response.json();
         if (data && data.results && data.results.length > 0) {
             const result = data.results[0];
-            // Construct a display name, preferring city/town/village + admin1/country
             let displayName = result.name;
              if (result.admin1 && result.country_code && result.admin1 !== result.name) {
                  displayName += `, ${result.admin1}`;
@@ -555,11 +564,11 @@ async function geocodeCity(cityName) {
                 timeZone: result.timezone // Get timezone from geocoding result
             };
         } else {
-            console.warn(`Geocoding failed for "${cityName}": No results found.`);
+            console.warn(`Geocoding for "${cityName}" found no results.`);
             return null; // City not found
         }
     } catch (error) {
-        console.error(`Error during geocoding for "${cityName}":`, error);
+        console.error(`Error geocoding "${cityName}":`, error);
         return null; // API error
     }
 }
@@ -615,7 +624,7 @@ async function handleSaveClick(event) {
         elements.editButton.removeEventListener('click', handleSaveClick); // Remove save listener
         elements.editButton.addEventListener('click', handleEditClick); // Re-add edit listener
         if (!newCityName) {
-             alert("City name cannot be empty.");
+             displayErrorOnCard(locationKey, "City name cannot be empty.");
              elements.nameDisplay.textContent = oldCityName; // Ensure old name is displayed
         }
         return;
@@ -652,11 +661,11 @@ async function handleSaveClick(event) {
         elements.editButton.addEventListener('click', handleEditClick);
 
         // Fetch new weather data for this location only
-        updateWeatherForLocation(locationKey);
+        await updateWeatherForLocation(locationKey);
 
     } else {
         // Geocoding failed
-        alert(`Could not find location data for "${newCityName}". Please try a different name.`);
+        displayErrorOnCard(locationKey, `Could not find "${newCityName}". Try again.`);
         // Revert UI but keep input visible for correction
         elements.nameInput.style.display = 'inline-block'; // Or 'block'
         elements.nameDisplay.style.display = 'none';
@@ -682,43 +691,54 @@ function handleInputKeyPress(event) {
     }
 }
 
-
-// Function to initialize the app
-function initApp() {
-    // Initial time update
-    updateTime();
-
-    // Initial weather data fetch for all locations
-    refreshAllWeatherData();
-
-    // Set up intervals for updates
-    setInterval(updateTime, 1000); // Update time every second
-    setInterval(refreshAllWeatherData, REFRESH_INTERVAL); // Update weather every minute
-
-    // Add event listeners to edit buttons
-    const editButtons = document.querySelectorAll('.edit-location-btn');
-    editButtons.forEach(button => {
-        // Ensure the key exists before adding listener
-        const locationKey = button.dataset.locationKey;
-        if (LOCATIONS[locationKey]) {
-             button.addEventListener('click', handleEditClick);
-             // Set initial text content based on element IDs if available
-             const elements = getElementsForLocation(locationKey);
-             if (elements && elements.nameDisplay) {
-                 elements.nameDisplay.textContent = LOCATIONS[locationKey].name;
-             }
-        } else {
-             console.warn(`Edit button found for non-existent location key: ${locationKey}`);
+async function loadWeatherCodes() {
+    try {
+        const response = await fetch('weatherCodes.json');
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        WEATHER_CODES = await response.json();
+        console.log("Weather codes loaded successfully.");
+    } catch (error) {
+        console.error("Fatal Error: Could not load weather codes. Weather information will be incomplete.", error);
+        // Display a global error or on all cards if possible
+        for (const key in LOCATIONS) {
+            displayErrorOnCard(key, "Critical: Weather codes failed to load.");
         }
-    });
-
-    // Add listeners to initially hidden input fields (necessary for Enter key)
-     // Note: This might be redundant if handleEditClick adds the listener,
-     // but doesn't hurt if added once here. Revisit if causing issues.
-     // document.querySelectorAll('.location-input').forEach(input => {
-     //     input.addEventListener('keypress', handleInputKeyPress);
-     // });
+    }
 }
 
-// Start the app when the DOM is fully loaded
+async function initApp() {
+    await loadWeatherCodes(); // Wait for codes to load
+
+    const cardsContainer = document.querySelector('.cards-container');
+    if (!cardsContainer) {
+        console.error("Fatal: Could not find .cards-container element in the DOM.");
+        return;
+    }
+    cardsContainer.innerHTML = ''; // Clear any static content
+
+    for (const key in LOCATIONS) {
+        const cardHTML = createLocationCardHTML(key, LOCATIONS[key]);
+        cardsContainer.insertAdjacentHTML('beforeend', cardHTML);
+    }
+
+    updateTime();
+    await refreshAllWeatherData(); 
+    setInterval(updateTime, 1000);
+    setInterval(refreshAllWeatherData, REFRESH_INTERVAL);
+
+    document.querySelectorAll('.edit-location-btn').forEach(button => {
+        const locationKey = button.dataset.locationKey;
+        if (LOCATIONS[locationKey]) {
+            const elements = getElementsForLocation(locationKey);
+            if (elements && elements.nameDisplay) {
+                elements.nameDisplay.textContent = LOCATIONS[locationKey].name;
+            }
+            button.addEventListener('click', handleEditClick);
+        } else {
+            console.warn(`Edit button found for non-existent location key: ${locationKey}`);
+        }
+    });
+}
+
+window.addEventListener('DOMContentLoaded', initApp);
 window.addEventListener('DOMContentLoaded', initApp); // Use DOMContentLoaded
