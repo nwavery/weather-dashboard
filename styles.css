@@ -8,10 +8,12 @@ body {
     font-family: 'Roboto', sans-serif;
     background: black;
     color: #333;
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start;
     align-items: center;
+    padding: 16px 0;
 }
 
 .container {
@@ -26,6 +28,7 @@ body {
     justify-content: space-between;
     gap: 20px;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 .card {
@@ -34,8 +37,9 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     padding: 30px;
     transition: all 0.3s ease;
-    flex: 1;
-    min-width: 300px;
+    flex: 1 1 320px;
+    min-width: 280px;
+    max-width: 520px;
     position: relative;
 }
 
@@ -198,7 +202,7 @@ h3 {
     padding: 5px 0 0 0;
     scrollbar-width: thin;
     scrollbar-color: #777 #444;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .hourly-forecast-container::-webkit-scrollbar {
@@ -522,13 +526,45 @@ h3 {
 }
 
 /* Responsive styles */
+@media (max-width: 1024px) {
+    .container {
+        padding: 16px;
+    }
+    .cards-container {
+        gap: 16px;
+    }
+    .card {
+        padding: 26px;
+    }
+}
+
 @media (max-width: 768px) {
+    body {
+        padding: 12px 0;
+    }
+    .container {
+        padding: 12px;
+    }
     .cards-container {
         flex-direction: column;
+        gap: 16px;
     }
     
     .card {
-        margin-bottom: 10px;
+        margin-bottom: 4px;
+        width: 100%;
+        max-width: 100%;
+        padding: 22px;
+    }
+
+    h2 {
+        font-size: 1.25rem;
+    }
+    .display-value {
+        font-size: 2rem;
+    }
+    .feels-like, .historical {
+        font-size: 0.95rem;
     }
     
     .extra-metrics {
@@ -538,6 +574,39 @@ h3 {
     
     .metric {
         flex: 1 0 30%;
+    }
+
+    .hourly-item,
+    .daily-item {
+        padding: 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+    }
+    .card {
+        padding: 18px;
+        border-radius: 16px;
+    }
+    h2 {
+        font-size: 1.15rem;
+    }
+    .display-value {
+        font-size: 1.7rem;
+    }
+    .temp-display {
+        gap: 10px;
+    }
+    .hourly-item {
+        min-width: 54px;
+    }
+    .daily-forecast-container {
+        flex-direction: column;
+    }
+    .daily-item {
+        width: 100%;
     }
 }
 
