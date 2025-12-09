@@ -74,6 +74,7 @@ const SAVE_DEBOUNCE_MS = 1200;
 let WEATHER_CODES = {}; // Will be loaded from JSON
 let currentLocationStatusMessage = '';
 const lastSaveAttempt = {};
+let lastReverseGeocodeReason = '';
 
 // DOM elements for El Reno (REMOVED - Now handled dynamically)
 // const elRenoTimeElement = ...;
@@ -632,9 +633,13 @@ function getBrowserPosition(options = {}) {
 }
 
 async function reverseGeocodeCoordinates(latitude, longitude) {
+    lastReverseGeocodeReason = '';
     try {
         const response = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`);
-        if (!response.ok) throw new Error(`Reverse geocoding failed: ${response.statusText}`);
+        if (!response.ok) {
+            lastReverseGeocodeReason = `HTTP ${response.status} ${response.statusText}`;
+            throw new Error(`Reverse geocoding failed: ${response.statusText}`);
+        }
         const data = await response.json();
         if (data && data.results && data.results.length > 0) {
             const result = data.results[0];
@@ -650,9 +655,14 @@ async function reverseGeocodeCoordinates(latitude, longitude) {
                 longitude,
                 timeZone: result.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
             };
+        } else {
+            lastReverseGeocodeReason = 'No results returned for coordinates';
         }
     } catch (error) {
-        console.warn("Reverse geocoding failed, falling back to provided coordinates:", error);
+        if (!lastReverseGeocodeReason) {
+            lastReverseGeocodeReason = error?.message || 'Unknown error';
+        }
+        console.warn("Reverse geocoding failed, falling back to provided coordinates:", lastReverseGeocodeReason);
     }
     return null;
 }
@@ -679,7 +689,9 @@ async function resolveCurrentLocation() {
         }
         const resolved = await reverseGeocodeCoordinates(latitude, longitude);
         const chosenLocation = resolved || { ...FALLBACK_CURRENT_LOCATION, latitude, longitude };
-        currentLocationStatusMessage = resolved ? "Using your current location." : "Using coordinates with fallback naming.";
+        currentLocationStatusMessage = resolved
+            ? "Using your current location."
+            : `Using your coordinates; could not resolve a place name (${lastReverseGeocodeReason || 'no details'}).`;
         saveLocationCache(chosenLocation);
         return chosenLocation;
     } catch (error) {
