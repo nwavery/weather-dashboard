@@ -675,22 +675,35 @@ async function reverseGeocodeBDC(latitude, longitude) {
     });
 }
 
+function shouldPreferCORSFriendlyReverse() {
+    try {
+        const host = typeof location !== 'undefined' ? location.hostname : '';
+        return host.endsWith('github.io') || host === 'localhost' || host === '127.0.0.1';
+    } catch (e) {
+        return false;
+    }
+}
+
 async function reverseGeocodeCoordinates(latitude, longitude) {
     lastReverseGeocodeReason = '';
-    try {
-        return await reverseGeocodeOpenMeteo(latitude, longitude);
-    } catch (error) {
-        const isCors = error instanceof TypeError;
-        lastReverseGeocodeReason = isCors ? "Open-Meteo blocked by CORS" : (error?.message || "Open-Meteo reverse failed");
-        console.warn("Reverse geocoding via Open-Meteo failed:", lastReverseGeocodeReason);
+    const preferBDC = shouldPreferCORSFriendlyReverse();
+
+    const attempts = preferBDC
+        ? [reverseGeocodeBDC, reverseGeocodeOpenMeteo]
+        : [reverseGeocodeOpenMeteo, reverseGeocodeBDC];
+
+    for (const attempt of attempts) {
+        try {
+            return await attempt(latitude, longitude);
+        } catch (error) {
+            const isCors = error instanceof TypeError;
+            const reason = isCors ? 'blocked by CORS' : (error?.message || 'unknown error');
+            const name = attempt === reverseGeocodeOpenMeteo ? 'Open-Meteo' : 'BigDataCloud';
+            lastReverseGeocodeReason = `${lastReverseGeocodeReason ? lastReverseGeocodeReason + '; ' : ''}${name}: ${reason}`;
+            console.warn(`Reverse geocoding via ${name} failed:`, reason);
+        }
     }
-    try {
-        return await reverseGeocodeBDC(latitude, longitude);
-    } catch (error) {
-        const reason = error?.message || "BDC reverse failed";
-        lastReverseGeocodeReason = `${lastReverseGeocodeReason ? lastReverseGeocodeReason + '; ' : ''}${reason}`;
-        console.warn("Reverse geocoding via BDC failed:", reason);
-    }
+
     if (!lastReverseGeocodeReason) lastReverseGeocodeReason = 'All reverse geocoding attempts failed';
     return null;
 }
