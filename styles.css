@@ -306,11 +306,11 @@ h3 {
 }
 
 /* Weather icon styling */
-#weather-icon-elreno, #weather-icon-philly {
+#weather-icon-current, #weather-icon-boston {
     margin: 0;
 }
 
-#weather-icon-elreno img, #weather-icon-philly img {
+#weather-icon-current img, #weather-icon-boston img {
     width: 70px;
     height: 70px;
 }
@@ -337,7 +337,7 @@ h3 {
     margin-top: 10px;
 }
 
-#last-updated-elreno, #last-updated-philly {
+#last-updated-current, #last-updated-boston {
     margin-top: 1px;
     font-size: 0.8rem;
 }

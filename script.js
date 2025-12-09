@@ -1,61 +1,66 @@
 // Location settings
+const CURRENT_LOCATION_KEY = 'current';
+const FALLBACK_CURRENT_LOCATION = {
+    name: "Oklahoma City, OK",
+    latitude: 35.4676,
+    longitude: -97.5164,
+    timeZone: 'America/Chicago' // Central Time
+};
+
 let LOCATIONS = { // Changed to let to allow modification
-    elReno: {
-        name: "El Reno, OK",
-        latitude: 35.5205,
-        longitude: -97.9588,
-        timeZone: 'America/Chicago', // Central Time
+    [CURRENT_LOCATION_KEY]: {
+        ...FALLBACK_CURRENT_LOCATION,
         elementIds: {
             time: "current-time",
-            temp: "current-temp-elreno",
-            icon: "weather-icon-elreno",
-            // description: "weather-description-elreno", // Description is now handled by weather code
-            lastUpdated: "last-updated-elreno",
-            feelsLike: "feels-like-elreno",
-            humidity: "humidity-elreno",
-            wind: "wind-elreno",
-            uv: "uv-elreno",
-            dewpoint: "dewpoint-elreno",
-            // sunrise: "sunrise-elreno", // No longer separate elements
-            // sunset: "sunset-elreno", // No longer separate elements
-            historical: "historical-elreno",
-            // alerts: "alerts-elreno", // Alert handling not implemented yet
-            card: "card-elreno",
-            nameDisplay: "location-name-elreno", // Added for editing
-            nameInput: "location-input-elreno", // Added for editing
-            editButton: "edit-btn-elreno", // Added for editing
-            hourlyForecast: 'hourly-forecast-elreno', // Added for element helper
-            dailyForecast: 'daily-forecast-elreno', // Added for element helper
-            errorDisplay: 'error-display-elreno' // Added for error messages
+            temp: "current-temp-current",
+            icon: "weather-icon-current",
+            // description: "weather-description-current", // Description is now handled by weather code
+            lastUpdated: "last-updated-current",
+            feelsLike: "feels-like-current",
+            humidity: "humidity-current",
+            wind: "wind-current",
+            uv: "uv-current",
+            dewpoint: "dewpoint-current",
+            // sunrise: "sunrise-current", // No longer separate elements
+            // sunset: "sunset-current", // No longer separate elements
+            historical: "historical-current",
+            // alerts: "alerts-current", // Alert handling not implemented yet
+            card: "card-current",
+            nameDisplay: "location-name-current", // Added for editing
+            nameInput: "location-input-current", // Added for editing
+            editButton: "edit-btn-current", // Added for editing
+            hourlyForecast: 'hourly-forecast-current', // Added for element helper
+            dailyForecast: 'daily-forecast-current', // Added for element helper
+            errorDisplay: 'error-display-current' // Added for error messages
         }
     },
-    salem: { // Changed from philadelphia
-        name: "Salem, WI", // Changed name
-        latitude: 42.5686, // Changed latitude
-        longitude: -88.108417, // Changed longitude
-        timeZone: 'America/Chicago', // Changed timeZone
+    boston: {
+        name: "Boston, MA",
+        latitude: 42.3601,
+        longitude: -71.0589,
+        timeZone: 'America/New_York',
         elementIds: {
-            time: "current-time-salem", // Changed ID
-            temp: "current-temp-salem", // Changed ID
-            icon: "weather-icon-salem", // Changed ID
-            // description: "weather-description-philly", // Kept commented
-            lastUpdated: "last-updated-salem", // Changed ID
-            feelsLike: "feels-like-salem", // Changed ID
-            humidity: "humidity-salem", // Changed ID
-            wind: "wind-salem", // Changed ID
-            uv: "uv-salem", // Changed ID
-            dewpoint: "dewpoint-salem", // Changed ID
-            // sunrise: "sunrise-philly", // Kept commented
-            // sunset: "sunset-philly", // Kept commented
-            historical: "historical-salem", // Changed ID
-            // alerts: "alerts-philly", // Kept commented
-            card: "card-salem", // Changed ID
-            nameDisplay: "location-name-salem", // Added for editing
-            nameInput: "location-input-salem", // Added for editing
-            editButton: "edit-btn-salem", // Added for editing
-            hourlyForecast: 'hourly-forecast-salem', // Added for element helper
-            dailyForecast: 'daily-forecast-salem', // Added for element helper
-            errorDisplay: 'error-display-salem' // Added for error messages
+            time: "current-time-boston",
+            temp: "current-temp-boston",
+            icon: "weather-icon-boston",
+            // description: "weather-description-boston", // Description is now handled by weather code
+            lastUpdated: "last-updated-boston",
+            feelsLike: "feels-like-boston",
+            humidity: "humidity-boston",
+            wind: "wind-boston",
+            uv: "uv-boston",
+            dewpoint: "dewpoint-boston",
+            // sunrise: "sunrise-boston", // No longer separate elements
+            // sunset: "sunset-boston", // No longer separate elements
+            historical: "historical-boston",
+            // alerts: "alerts-boston", // Alert handling not implemented yet
+            card: "card-boston",
+            nameDisplay: "location-name-boston", // Added for editing
+            nameInput: "location-input-boston", // Added for editing
+            editButton: "edit-btn-boston", // Added for editing
+            hourlyForecast: 'hourly-forecast-boston', // Added for element helper
+            dailyForecast: 'daily-forecast-boston', // Added for element helper
+            errorDisplay: 'error-display-boston' // Added for error messages
         }
     }
 };
@@ -536,6 +541,60 @@ async function refreshAllWeatherData() {
     }
 }
 
+// --- Location Detection Functions ---
+
+function getBrowserPosition(options = {}) {
+    return new Promise((resolve, reject) => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            reject(new Error("Geolocation is not supported in this environment."));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+}
+
+async function reverseGeocodeCoordinates(latitude, longitude) {
+    try {
+        const response = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`);
+        if (!response.ok) throw new Error(`Reverse geocoding failed: ${response.statusText}`);
+        const data = await response.json();
+        if (data && data.results && data.results.length > 0) {
+            const result = data.results[0];
+            let displayName = result.name;
+            if (result.admin1 && result.country_code && result.admin1 !== result.name) {
+                displayName += `, ${result.admin1}`;
+            } else if (result.country && result.country !== result.name) {
+                displayName += `, ${result.country}`;
+            }
+            return {
+                name: displayName,
+                latitude,
+                longitude,
+                timeZone: result.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+        }
+    } catch (error) {
+        console.warn("Reverse geocoding failed, falling back to provided coordinates:", error);
+    }
+    return null;
+}
+
+async function resolveCurrentLocation() {
+    try {
+        const position = await getBrowserPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+        const { latitude, longitude } = position.coords || {};
+        if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+            throw new Error("Invalid coordinates returned from geolocation.");
+        }
+        const resolved = await reverseGeocodeCoordinates(latitude, longitude);
+        if (resolved) return resolved;
+        return { ...FALLBACK_CURRENT_LOCATION, latitude, longitude };
+    } catch (error) {
+        console.warn("Geolocation unavailable or denied. Using fallback location.", error);
+        return FALLBACK_CURRENT_LOCATION;
+    }
+}
+
 // --- Location Editing Functions ---
 
 // Geocode city name using Open-Meteo Geocoding API
@@ -707,6 +766,12 @@ async function loadWeatherCodes() {
 }
 
 async function initApp() {
+    const detectedLocation = await resolveCurrentLocation();
+    LOCATIONS[CURRENT_LOCATION_KEY] = {
+        ...LOCATIONS[CURRENT_LOCATION_KEY],
+        ...detectedLocation
+    };
+
     await loadWeatherCodes(); // Wait for codes to load
 
     const cardsContainer = document.querySelector('.cards-container');
@@ -741,4 +806,3 @@ async function initApp() {
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
-window.addEventListener('DOMContentLoaded', initApp); // Use DOMContentLoaded
