@@ -639,3 +639,16 @@ h3 {
 .location-name {
     margin-right: 5px;
 } 
+
+.location-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: rgba(64, 170, 255, 0.15);
+    border: 1px solid rgba(64, 170, 255, 0.4);
+    border-radius: 999px;
+    color: #cde8ff;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    vertical-align: middle;
+}

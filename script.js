@@ -73,6 +73,7 @@ const LOCATION_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const SAVE_DEBOUNCE_MS = 1200;
 let WEATHER_CODES = {}; // Will be loaded from JSON
 let currentLocationStatusMessage = '';
+let currentLocationBadgeText = '';
 const lastSaveAttempt = {};
 let lastReverseGeocodeReason = '';
 
@@ -345,6 +346,22 @@ function clearErrorOnCard(locationKey, options = {}) {
         elements.errorDisplay.style.border = '';
         delete elements.errorDisplay.dataset.isInfo;
     }
+}
+
+function applyLocationBadge(locationKey, text) {
+    const elements = getElementsForLocation(locationKey);
+    if (!elements || !elements.nameDisplay) return;
+
+    // Remove existing badge if any
+    const existing = elements.nameDisplay.parentElement?.querySelector('.location-badge');
+    if (existing) existing.remove();
+
+    if (!text) return;
+
+    const badge = document.createElement('span');
+    badge.className = 'location-badge';
+    badge.textContent = text;
+    elements.nameDisplay.insertAdjacentElement('afterend', badge);
 }
 
 // Function to fetch weather data from Open-Meteo API
@@ -719,6 +736,7 @@ async function resolveCurrentLocation() {
 
     if (permissionState === 'prompt' && cached) {
         currentLocationStatusMessage = "Using your last known location. Enable access for live updates.";
+        currentLocationBadgeText = '';
         return cached;
     }
 
@@ -733,6 +751,7 @@ async function resolveCurrentLocation() {
         currentLocationStatusMessage = resolved
             ? "Using your current location."
             : `Using your coordinates; could not resolve a place name (${lastReverseGeocodeReason || 'no details'}).`;
+        currentLocationBadgeText = resolved ? "Current Location" : '';
         saveLocationCache(chosenLocation);
         return chosenLocation;
     } catch (error) {
@@ -740,6 +759,7 @@ async function resolveCurrentLocation() {
         currentLocationStatusMessage = cached
             ? "Using last known location; live location unavailable."
             : "Using fallback: Oklahoma City (location access not available).";
+        currentLocationBadgeText = '';
         if (cached) return cached;
         saveLocationCache(FALLBACK_CURRENT_LOCATION);
         return FALLBACK_CURRENT_LOCATION;
@@ -944,7 +964,9 @@ async function initApp() {
         cardsContainer.insertAdjacentHTML('beforeend', cardHTML);
     }
 
-    if (currentLocationStatusMessage) {
+    if (currentLocationBadgeText) {
+        applyLocationBadge(CURRENT_LOCATION_KEY, currentLocationBadgeText);
+    } else if (currentLocationStatusMessage) {
         displayInfoOnCard(CURRENT_LOCATION_KEY, currentLocationStatusMessage);
     }
 
