@@ -68,7 +68,12 @@ let LOCATIONS = { // Changed to let to allow modification
 const REFRESH_INTERVAL = 60000; // 1 minute in milliseconds
 // Unit is fixed to imperial (Fahrenheit)
 const UNIT = 'imperial';
+const LOCATION_CACHE_KEY = 'weatherDashboardCurrentLocation';
+const LOCATION_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const SAVE_DEBOUNCE_MS = 1200;
 let WEATHER_CODES = {}; // Will be loaded from JSON
+let currentLocationStatusMessage = '';
+const lastSaveAttempt = {};
 
 // DOM elements for El Reno (REMOVED - Now handled dynamically)
 // const elRenoTimeElement = ...;
@@ -283,6 +288,10 @@ function displayErrorOnCard(locationKey, message) {
     if (elements && elements.errorDisplay) {
         elements.errorDisplay.textContent = message;
         elements.errorDisplay.style.display = 'block';
+        elements.errorDisplay.style.color = '#ff9f9f';
+        elements.errorDisplay.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+        elements.errorDisplay.style.border = '1px solid rgba(255, 0, 0, 0.3)';
+        delete elements.errorDisplay.dataset.isInfo;
         // Optionally hide other elements or clear the card
         if (elements.temp) elements.temp.textContent = 'Error';
         if (elements.icon) elements.icon.innerHTML = '';
@@ -300,11 +309,31 @@ function displayErrorOnCard(locationKey, message) {
     }
 }
 
-function clearErrorOnCard(locationKey) {
+function displayInfoOnCard(locationKey, message) {
     const elements = getElementsForLocation(locationKey);
     if (elements && elements.errorDisplay) {
+        elements.errorDisplay.textContent = message;
+        elements.errorDisplay.style.display = 'block';
+        elements.errorDisplay.style.color = '#a0e1ff';
+        elements.errorDisplay.style.backgroundColor = 'rgba(160, 225, 255, 0.08)';
+        elements.errorDisplay.style.border = '1px solid rgba(160, 225, 255, 0.3)';
+        elements.errorDisplay.dataset.isInfo = 'true';
+    }
+}
+
+function clearErrorOnCard(locationKey, options = {}) {
+    const { force = false } = options;
+    const elements = getElementsForLocation(locationKey);
+    if (elements && elements.errorDisplay) {
+        if (!force && elements.errorDisplay.dataset.isInfo === 'true') {
+            return;
+        }
         elements.errorDisplay.textContent = '';
         elements.errorDisplay.style.display = 'none';
+        elements.errorDisplay.style.color = '';
+        elements.errorDisplay.style.backgroundColor = '';
+        elements.errorDisplay.style.border = '';
+        delete elements.errorDisplay.dataset.isInfo;
     }
 }
 
@@ -536,12 +565,61 @@ async function updateWeatherForLocation(locationKey) {
 // Function to refresh weather data for ALL locations
 async function refreshAllWeatherData() {
     console.log("Refreshing weather for all locations...");
-    for (const key in LOCATIONS) {
-        await updateWeatherForLocation(key); // Ensure updates happen sequentially or handle promises if parallel
-    }
+    const locationKeys = Object.keys(LOCATIONS);
+    await Promise.all(locationKeys.map(key => updateWeatherForLocation(key)));
 }
 
 // --- Location Detection Functions ---
+
+function saveLocationCache(location) {
+    try {
+        if (typeof localStorage === 'undefined' || !location) return;
+        const payload = {
+            name: location.name,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timeZone: location.timeZone,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(payload));
+    } catch (error) {
+        console.warn("Could not cache location.", error);
+    }
+}
+
+function loadLocationCache() {
+    try {
+        if (typeof localStorage === 'undefined') return null;
+        const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.timestamp) return null;
+        if (Date.now() - parsed.timestamp > LOCATION_CACHE_TTL_MS) return null;
+        if (typeof parsed.latitude !== 'number' || typeof parsed.longitude !== 'number') return null;
+        return {
+            name: parsed.name || FALLBACK_CURRENT_LOCATION.name,
+            latitude: parsed.latitude,
+            longitude: parsed.longitude,
+            timeZone: parsed.timeZone || FALLBACK_CURRENT_LOCATION.timeZone
+        };
+    } catch (error) {
+        console.warn("Could not read cached location.", error);
+        return null;
+    }
+}
+
+async function getGeoPermissionState() {
+    if (typeof navigator === 'undefined' || !navigator.permissions || !navigator.permissions.query) {
+        return null;
+    }
+    try {
+        const result = await navigator.permissions.query({ name: 'geolocation' });
+        return result?.state || null;
+    } catch (error) {
+        console.warn("Could not read geolocation permission state.", error);
+        return null;
+    }
+}
 
 function getBrowserPosition(options = {}) {
     return new Promise((resolve, reject) => {
@@ -580,6 +658,19 @@ async function reverseGeocodeCoordinates(latitude, longitude) {
 }
 
 async function resolveCurrentLocation() {
+    const cached = loadLocationCache();
+    const permissionState = await getGeoPermissionState();
+
+    if (permissionState === 'denied') {
+        currentLocationStatusMessage = "Location access denied; using Oklahoma City.";
+        return cached || FALLBACK_CURRENT_LOCATION;
+    }
+
+    if (permissionState === 'prompt' && cached) {
+        currentLocationStatusMessage = "Using your last known location. Enable access for live updates.";
+        return cached;
+    }
+
     try {
         const position = await getBrowserPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
         const { latitude, longitude } = position.coords || {};
@@ -587,10 +678,17 @@ async function resolveCurrentLocation() {
             throw new Error("Invalid coordinates returned from geolocation.");
         }
         const resolved = await reverseGeocodeCoordinates(latitude, longitude);
-        if (resolved) return resolved;
-        return { ...FALLBACK_CURRENT_LOCATION, latitude, longitude };
+        const chosenLocation = resolved || { ...FALLBACK_CURRENT_LOCATION, latitude, longitude };
+        currentLocationStatusMessage = resolved ? "Using your current location." : "Using coordinates with fallback naming.";
+        saveLocationCache(chosenLocation);
+        return chosenLocation;
     } catch (error) {
         console.warn("Geolocation unavailable or denied. Using fallback location.", error);
+        currentLocationStatusMessage = cached
+            ? "Using last known location; live location unavailable."
+            : "Using fallback: Oklahoma City (location access not available).";
+        if (cached) return cached;
+        saveLocationCache(FALLBACK_CURRENT_LOCATION);
         return FALLBACK_CURRENT_LOCATION;
     }
 }
@@ -670,6 +768,13 @@ async function handleSaveClick(event) {
 
     const newCityName = elements.nameInput.value.trim();
     const oldCityName = LOCATIONS[locationKey].name;
+
+    const now = Date.now();
+    if (lastSaveAttempt[locationKey] && (now - lastSaveAttempt[locationKey]) < SAVE_DEBOUNCE_MS) {
+        displayErrorOnCard(locationKey, "Please wait a moment before trying again.");
+        return;
+    }
+    lastSaveAttempt[locationKey] = now;
 
     // Remove keypress listener immediately
     elements.nameInput.removeEventListener('keypress', handleInputKeyPress);
@@ -784,6 +889,10 @@ async function initApp() {
     for (const key in LOCATIONS) {
         const cardHTML = createLocationCardHTML(key, LOCATIONS[key]);
         cardsContainer.insertAdjacentHTML('beforeend', cardHTML);
+    }
+
+    if (currentLocationStatusMessage) {
+        displayInfoOnCard(CURRENT_LOCATION_KEY, currentLocationStatusMessage);
     }
 
     updateTime();
