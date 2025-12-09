@@ -76,6 +76,15 @@ let currentLocationStatusMessage = '';
 const lastSaveAttempt = {};
 let lastReverseGeocodeReason = '';
 
+function buildLocationObject({ name, latitude, longitude, timeZone }) {
+    return {
+        name,
+        latitude,
+        longitude,
+        timeZone: timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+}
+
 // DOM elements for El Reno (REMOVED - Now handled dynamically)
 // const elRenoTimeElement = ...;
 // ... all other specific const declarations ...
@@ -632,38 +641,57 @@ function getBrowserPosition(options = {}) {
     });
 }
 
+async function reverseGeocodeOpenMeteo(latitude, longitude) {
+    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Open-Meteo reverse HTTP ${response.status} ${response.statusText}`);
+    const data = await response.json();
+    if (!data || !data.results || !data.results.length) throw new Error("Open-Meteo reverse: no results returned");
+    const result = data.results[0];
+    let displayName = result.name;
+    if (result.admin1 && result.country_code && result.admin1 !== result.name) {
+        displayName += `, ${result.admin1}`;
+    } else if (result.country && result.country !== result.name) {
+        displayName += `, ${result.country}`;
+    }
+    return buildLocationObject({
+        name: displayName,
+        latitude,
+        longitude,
+        timeZone: result.timezone
+    });
+}
+
+async function reverseGeocodeBDC(latitude, longitude) {
+    const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`BDC reverse HTTP ${response.status} ${response.statusText}`);
+    const data = await response.json();
+    if (!data) throw new Error("BDC reverse: empty response");
+    const displayName = data.city || data.locality || data.principalSubdivision || data.countryName || "Your location";
+    return buildLocationObject({
+        name: displayName,
+        latitude,
+        longitude,
+        timeZone: data.timezone?.ianaTimeZone
+    });
+}
+
 async function reverseGeocodeCoordinates(latitude, longitude) {
     lastReverseGeocodeReason = '';
     try {
-        const response = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`);
-        if (!response.ok) {
-            lastReverseGeocodeReason = `HTTP ${response.status} ${response.statusText}`;
-            throw new Error(`Reverse geocoding failed: ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (data && data.results && data.results.length > 0) {
-            const result = data.results[0];
-            let displayName = result.name;
-            if (result.admin1 && result.country_code && result.admin1 !== result.name) {
-                displayName += `, ${result.admin1}`;
-            } else if (result.country && result.country !== result.name) {
-                displayName += `, ${result.country}`;
-            }
-            return {
-                name: displayName,
-                latitude,
-                longitude,
-                timeZone: result.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-            };
-        } else {
-            lastReverseGeocodeReason = 'No results returned for coordinates';
-        }
+        return await reverseGeocodeOpenMeteo(latitude, longitude);
     } catch (error) {
-        if (!lastReverseGeocodeReason) {
-            lastReverseGeocodeReason = error?.message || 'Unknown error';
-        }
-        console.warn("Reverse geocoding failed, falling back to provided coordinates:", lastReverseGeocodeReason);
+        const isCors = error instanceof TypeError;
+        lastReverseGeocodeReason = isCors ? "Open-Meteo blocked by CORS" : (error?.message || "Open-Meteo reverse failed");
+        console.warn("Reverse geocoding via Open-Meteo failed:", lastReverseGeocodeReason);
     }
+    try {
+        return await reverseGeocodeBDC(latitude, longitude);
+    } catch (error) {
+        const reason = error?.message || "BDC reverse failed";
+        lastReverseGeocodeReason = `${lastReverseGeocodeReason ? lastReverseGeocodeReason + '; ' : ''}${reason}`;
+        console.warn("Reverse geocoding via BDC failed:", reason);
+    }
+    if (!lastReverseGeocodeReason) lastReverseGeocodeReason = 'All reverse geocoding attempts failed';
     return null;
 }
 
