@@ -71,11 +71,14 @@ const UNIT = 'imperial';
 const LOCATION_CACHE_KEY = 'weatherDashboardCurrentLocation';
 const LOCATION_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const SAVE_DEBOUNCE_MS = 1200;
+const HISTORICAL_LOOKBACK_DAYS = 14;
+const HISTORICAL_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 let WEATHER_CODES = {}; // Will be loaded from JSON
 let currentLocationStatusMessage = '';
 let currentLocationBadgeText = '';
 const lastSaveAttempt = {};
 let lastReverseGeocodeReason = '';
+const recentTempBaselineCache = {};
 
 function buildLocationObject({ name, latitude, longitude, timeZone }) {
     return {
@@ -84,6 +87,86 @@ function buildLocationObject({ name, latitude, longitude, timeZone }) {
         longitude,
         timeZone: timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone
     };
+}
+
+function formatDateYYYYMMDD(date, timeZone) {
+    // en-CA yields YYYY-MM-DD
+    return date.toLocaleDateString('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+function getLocalHour24(timeZone) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour: '2-digit', hour12: false }).formatToParts(new Date());
+    const hourStr = parts.find(p => p.type === 'hour')?.value;
+    const hour = parseInt(hourStr || '', 10);
+    return Number.isFinite(hour) ? hour : null;
+}
+
+async function getRecentAverageTempAtCurrentHour(locationKey, location) {
+    const cacheKey = `${locationKey}:${location.latitude},${location.longitude}:${location.timeZone}`;
+    const cached = recentTempBaselineCache[cacheKey];
+    if (cached && (Date.now() - cached.timestamp) < HISTORICAL_CACHE_TTL_MS) {
+        return cached;
+    }
+
+    const timeZone = location.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const hour24 = getLocalHour24(timeZone);
+    if (hour24 === null) return null;
+
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() - 1); // yesterday (avoid partial current day)
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - HISTORICAL_LOOKBACK_DAYS);
+
+    const startStr = formatDateYYYYMMDD(startDate, timeZone);
+    const endStr = formatDateYYYYMMDD(endDate, timeZone);
+
+    const url =
+        `https://archive-api.open-meteo.com/v1/archive?` +
+        `latitude=${location.latitude}&longitude=${location.longitude}&` +
+        `hourly=temperature_2m&` +
+        `temperature_unit=fahrenheit&` +
+        `timezone=${encodeURIComponent(timeZone)}&` +
+        `start_date=${startStr}&end_date=${endStr}`;
+
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Archive API error: ${response.status} ${response.statusText}`);
+    const data = await response.json();
+    const times = data?.hourly?.time;
+    const temps = data?.hourly?.temperature_2m;
+    if (!Array.isArray(times) || !Array.isArray(temps) || times.length !== temps.length) {
+        throw new Error("Archive API returned unexpected hourly data.");
+    }
+
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < times.length; i++) {
+        const t = times[i];
+        const temp = temps[i];
+        if (typeof t !== 'string' || typeof temp !== 'number' || Number.isNaN(temp)) continue;
+        // time is in the requested timezone; hour is the HH after 'T'
+        const hourStr = t.length >= 13 ? t.substring(11, 13) : '';
+        const h = parseInt(hourStr, 10);
+        if (h === hour24) {
+            sum += temp;
+            count += 1;
+        }
+    }
+
+    if (count === 0) throw new Error("Archive API returned no matching hours for baseline.");
+
+    const labelTime = new Date().toLocaleTimeString('en-US', { timeZone, hour: 'numeric', hour12: true });
+    const result = {
+        timestamp: Date.now(),
+        baselineTemp: sum / count,
+        label: `${HISTORICAL_LOOKBACK_DAYS}d avg @ ${labelTime}`
+    };
+    recentTempBaselineCache[cacheKey] = result;
+    return result;
 }
 
 // DOM elements for El Reno (REMOVED - Now handled dynamically)
@@ -406,7 +489,7 @@ async function fetchWeatherData(locationKey) {
         const weather_code = data.current.weather_code;
         const weatherInfo = WEATHER_CODES[String(weather_code)] || { description: "Unknown", icon: "50d", animation: null };
 
-        // Get temperature extremes for the day
+        // Get temperature extremes for the day (fallback baseline if archive baseline fails)
         const maxTemp = data.daily.temperature_2m_max[0];
         const minTemp = data.daily.temperature_2m_min[0];
 
@@ -429,9 +512,23 @@ async function fetchWeatherData(locationKey) {
         elements.card.className = `card ${tempClass}`;
         elements.card.dataset.locationKey = locationKey;
 
-        const historicalDiff = Math.round(data.current.temperature_2m - ((maxTemp + minTemp) / 2));
-        const compareSymbol = historicalDiff > 0 ? '↑' : historicalDiff < 0 ? '↓' : '↔';
-        elements.historical.textContent = `vs. Hist: ${compareSymbol} ${Math.abs(historicalDiff)}° ${historicalDiff === 0 ? '' : historicalDiff > 0 ? 'warmer' : 'cooler'}`;
+        let baselineTemp = null;
+        let baselineLabel = '';
+        try {
+            const baseline = await getRecentAverageTempAtCurrentHour(locationKey, location);
+            baselineTemp = baseline?.baselineTemp;
+            baselineLabel = baseline?.label || '';
+        } catch (e) {
+            console.warn("Could not compute hourly baseline; falling back to day midpoint.", e);
+        }
+
+        const midpointBaseline = (maxTemp + minTemp) / 2;
+        const effectiveBaseline = (typeof baselineTemp === 'number' && !Number.isNaN(baselineTemp)) ? baselineTemp : midpointBaseline;
+        const labelPrefix = baselineLabel ? `vs. ${baselineLabel}` : 'vs. day mid';
+
+        const diff = Math.round(data.current.temperature_2m - effectiveBaseline);
+        const compareSymbol = diff > 0 ? '↑' : diff < 0 ? '↓' : '↔';
+        elements.historical.textContent = `${labelPrefix}: ${compareSymbol} ${Math.abs(diff)}° ${diff === 0 ? '' : diff > 0 ? 'warmer' : 'cooler'}`;
 
         const now = new Date();
         const localTimeString = now.toLocaleTimeString('en-US', {
