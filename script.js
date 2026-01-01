@@ -71,14 +71,14 @@ const UNIT = 'imperial';
 const LOCATION_CACHE_KEY = 'weatherDashboardCurrentLocation';
 const LOCATION_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const SAVE_DEBOUNCE_MS = 1200;
-const HISTORICAL_LOOKBACK_DAYS = 14;
-const HISTORICAL_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const HISTORICAL_LOOKBACK_YEARS = 10;
+const HISTORICAL_DAILY_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 let WEATHER_CODES = {}; // Will be loaded from JSON
 let currentLocationStatusMessage = '';
 let currentLocationBadgeText = '';
 const lastSaveAttempt = {};
 let lastReverseGeocodeReason = '';
-const recentTempBaselineCache = {};
+const historicalDailyAvgCache = {};
 
 function buildLocationObject({ name, latitude, longitude, timeZone }) {
     return {
@@ -99,28 +99,33 @@ function formatDateYYYYMMDD(date, timeZone) {
     });
 }
 
-function getLocalHour24(timeZone) {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone, hour: '2-digit', hour12: false }).formatToParts(new Date());
-    const hourStr = parts.find(p => p.type === 'hour')?.value;
-    const hour = parseInt(hourStr || '', 10);
-    return Number.isFinite(hour) ? hour : null;
+function getMonthDayMMDD(timeZone) {
+    const todayStr = formatDateYYYYMMDD(new Date(), timeZone);
+    return todayStr.substring(5); // "MM-DD"
 }
 
-async function getRecentAverageTempAtCurrentHour(locationKey, location) {
+function getYearNumber(timeZone) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric' }).formatToParts(new Date());
+    const yearStr = parts.find(p => p.type === 'year')?.value;
+    const year = parseInt(yearStr || '', 10);
+    return Number.isFinite(year) ? year : new Date().getFullYear();
+}
+
+async function getHistoricalDailyAverageForToday(locationKey, location) {
     const cacheKey = `${locationKey}:${location.latitude},${location.longitude}:${location.timeZone}`;
-    const cached = recentTempBaselineCache[cacheKey];
-    if (cached && (Date.now() - cached.timestamp) < HISTORICAL_CACHE_TTL_MS) {
+    const cached = historicalDailyAvgCache[cacheKey];
+    if (cached && (Date.now() - cached.timestamp) < HISTORICAL_DAILY_CACHE_TTL_MS) {
         return cached;
     }
 
     const timeZone = location.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const hour24 = getLocalHour24(timeZone);
-    if (hour24 === null) return null;
+    const currentYear = getYearNumber(timeZone);
+    const mmdd = getMonthDayMMDD(timeZone);
 
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() - 1); // yesterday (avoid partial current day)
+    endDate.setDate(endDate.getDate() - 1); // end at yesterday to avoid partial current day
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - HISTORICAL_LOOKBACK_DAYS);
+    startDate.setFullYear(startDate.getFullYear() - HISTORICAL_LOOKBACK_YEARS);
 
     const startStr = formatDateYYYYMMDD(startDate, timeZone);
     const endStr = formatDateYYYYMMDD(endDate, timeZone);
@@ -128,7 +133,7 @@ async function getRecentAverageTempAtCurrentHour(locationKey, location) {
     const url =
         `https://archive-api.open-meteo.com/v1/archive?` +
         `latitude=${location.latitude}&longitude=${location.longitude}&` +
-        `hourly=temperature_2m&` +
+        `daily=temperature_2m_mean&` +
         `temperature_unit=fahrenheit&` +
         `timezone=${encodeURIComponent(timeZone)}&` +
         `start_date=${startStr}&end_date=${endStr}`;
@@ -136,36 +141,35 @@ async function getRecentAverageTempAtCurrentHour(locationKey, location) {
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Archive API error: ${response.status} ${response.statusText}`);
     const data = await response.json();
-    const times = data?.hourly?.time;
-    const temps = data?.hourly?.temperature_2m;
-    if (!Array.isArray(times) || !Array.isArray(temps) || times.length !== temps.length) {
-        throw new Error("Archive API returned unexpected hourly data.");
+    const dates = data?.daily?.time;
+    const means = data?.daily?.temperature_2m_mean;
+    if (!Array.isArray(dates) || !Array.isArray(means) || dates.length !== means.length) {
+        throw new Error("Archive API returned unexpected daily data.");
     }
 
     let sum = 0;
     let count = 0;
-    for (let i = 0; i < times.length; i++) {
-        const t = times[i];
-        const temp = temps[i];
-        if (typeof t !== 'string' || typeof temp !== 'number' || Number.isNaN(temp)) continue;
-        // time is in the requested timezone; hour is the HH after 'T'
-        const hourStr = t.length >= 13 ? t.substring(11, 13) : '';
-        const h = parseInt(hourStr, 10);
-        if (h === hour24) {
-            sum += temp;
+    for (let i = 0; i < dates.length; i++) {
+        const dateStr = dates[i];
+        const mean = means[i];
+        if (typeof dateStr !== 'string' || typeof mean !== 'number' || Number.isNaN(mean)) continue;
+        if (dateStr.length < 10) continue;
+        const year = parseInt(dateStr.substring(0, 4), 10);
+        const md = dateStr.substring(5); // "MM-DD"
+        if (md === mmdd && year !== currentYear) {
+            sum += mean;
             count += 1;
         }
     }
 
-    if (count === 0) throw new Error("Archive API returned no matching hours for baseline.");
+    if (count === 0) throw new Error("No matching historical days found for baseline.");
 
-    const labelTime = new Date().toLocaleTimeString('en-US', { timeZone, hour: 'numeric', hour12: true });
     const result = {
         timestamp: Date.now(),
         baselineTemp: sum / count,
-        label: `${HISTORICAL_LOOKBACK_DAYS}d avg @ ${labelTime}`
+        label: `hist avg (${count}y)`
     };
-    recentTempBaselineCache[cacheKey] = result;
+    historicalDailyAvgCache[cacheKey] = result;
     return result;
 }
 
@@ -489,9 +493,10 @@ async function fetchWeatherData(locationKey) {
         const weather_code = data.current.weather_code;
         const weatherInfo = WEATHER_CODES[String(weather_code)] || { description: "Unknown", icon: "50d", animation: null };
 
-        // Get temperature extremes for the day (fallback baseline if archive baseline fails)
+        // Forecast daily average for today (predicted)
         const maxTemp = data.daily.temperature_2m_max[0];
         const minTemp = data.daily.temperature_2m_min[0];
+        const predictedDailyAvg = (maxTemp + minTemp) / 2;
 
         // Update DOM elements with current weather data
         elements.temp.textContent = formatTemperature(data.current.temperature_2m);
@@ -512,23 +517,25 @@ async function fetchWeatherData(locationKey) {
         elements.card.className = `card ${tempClass}`;
         elements.card.dataset.locationKey = locationKey;
 
-        let baselineTemp = null;
-        let baselineLabel = '';
+        let historicalDailyAvg = null;
+        let historicalLabel = '';
         try {
-            const baseline = await getRecentAverageTempAtCurrentHour(locationKey, location);
-            baselineTemp = baseline?.baselineTemp;
-            baselineLabel = baseline?.label || '';
+            const baseline = await getHistoricalDailyAverageForToday(locationKey, location);
+            historicalDailyAvg = baseline?.baselineTemp;
+            historicalLabel = baseline?.label || '';
         } catch (e) {
-            console.warn("Could not compute hourly baseline; falling back to day midpoint.", e);
+            console.warn("Could not compute historical daily average baseline.", e);
         }
 
-        const midpointBaseline = (maxTemp + minTemp) / 2;
-        const effectiveBaseline = (typeof baselineTemp === 'number' && !Number.isNaN(baselineTemp)) ? baselineTemp : midpointBaseline;
-        const labelPrefix = baselineLabel ? `vs. ${baselineLabel}` : 'vs. day mid';
-
-        const diff = Math.round(data.current.temperature_2m - effectiveBaseline);
-        const compareSymbol = diff > 0 ? '↑' : diff < 0 ? '↓' : '↔';
-        elements.historical.textContent = `${labelPrefix}: ${compareSymbol} ${Math.abs(diff)}° ${diff === 0 ? '' : diff > 0 ? 'warmer' : 'cooler'}`;
+        if (typeof historicalDailyAvg === 'number' && !Number.isNaN(historicalDailyAvg)) {
+            const diff = Math.round(predictedDailyAvg - historicalDailyAvg);
+            const compareSymbol = diff > 0 ? '↑' : diff < 0 ? '↓' : '↔';
+            const labelPrefix = historicalLabel ? `Today avg vs ${historicalLabel}` : 'Today avg vs hist avg';
+            elements.historical.textContent = `${labelPrefix}: ${compareSymbol} ${Math.abs(diff)}° ${diff === 0 ? '' : diff > 0 ? 'warmer' : 'cooler'}`;
+        } else {
+            // Fallback if no historical data: show predicted daily average explicitly
+            elements.historical.textContent = `Today avg: ${formatTemperature(predictedDailyAvg)}`;
+        }
 
         const now = new Date();
         const localTimeString = now.toLocaleTimeString('en-US', {
