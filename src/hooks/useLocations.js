@@ -43,6 +43,16 @@ function getPosition() {
   });
 }
 
+// The device's own timezone — the most accurate zone for the user's current
+// location, and a reliable fallback when reverse-geocoding doesn't supply one.
+function deviceTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
 // Resolve the "current" location: try the browser, fall back to cache, then OKC.
 async function resolveCurrent(setStatus) {
   const cached = loadCache();
@@ -51,7 +61,12 @@ async function resolveCurrent(setStatus) {
     const { latitude, longitude } = pos.coords || {};
     if (typeof latitude !== 'number' || typeof longitude !== 'number') throw new Error('bad coords');
     const resolved = await reverseGeocode(latitude, longitude);
-    const location = resolved || { ...FALLBACK, latitude, longitude };
+    // Always pin a valid IANA timezone (reverse geocoders may omit one);
+    // otherwise downstream Open-Meteo calls 400 on `timezone=undefined`.
+    const timeZone = resolved?.timeZone || deviceTimeZone() || FALLBACK.timeZone;
+    const location = resolved
+      ? { ...resolved, timeZone }
+      : { ...FALLBACK, latitude, longitude, timeZone };
     saveCache(location);
     setStatus(resolved ? '' : 'Using your coordinates; could not resolve a place name.');
     return { location, badge: resolved ? 'Current Location' : '' };

@@ -1,12 +1,16 @@
 import { aqiInfo, pollenClass } from '../lib/format.js';
 
 function PollenItem({ icon, label, info }) {
-  const cls = info ? pollenClass(info.value) : 'pollen-none';
-  const text = info ? info.category || 'n/a' : 'n/a';
-  const title =
-    info && typeof info.value === 'number'
-      ? `${label} pollen — ${text} (index ${info.value}/5)`
-      : `${label} pollen — ${text}`;
+  const hasValue = info && typeof info.value === 'number';
+  const cls = hasValue ? pollenClass(info.value) : 'pollen-none';
+  // Show the category when we have one ("Moderate", "Out of season", …);
+  // otherwise an em dash reads better than "n/a" for "no data right now".
+  const text = info?.category && info.category !== 'n/a' ? info.category : '—';
+  const title = hasValue
+    ? `${label} pollen — ${info.category} (index ${info.value}/5)`
+    : info?.category === 'Out of season'
+      ? `${label} pollen — out of season`
+      : `${label} pollen — no data right now`;
   return (
     <div className="metric pollen-metric" title={title}>
       <i className={`fas ${icon}`}></i>{' '}
