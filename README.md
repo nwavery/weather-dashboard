@@ -72,27 +72,34 @@ Weather and air quality work without any key. Pollen will return a friendly
 
 ## Deploy to Cloud Run
 
-Prerequisites: a GCP project with billing enabled, and `gcloud` authenticated
-(`gcloud auth login`). You'll also need a **Google Pollen API key** — the deploy
-script enables the Pollen API and stores your key in Secret Manager for you.
+Prerequisite: a GCP project with **billing enabled**. The easiest place to run
+this is **Google Cloud Shell** (browser terminal, already authenticated, with
+`gcloud`/`git` preinstalled) — no local setup required.
+
+In Cloud Shell:
 
 ```bash
-chmod +x deploy/deploy.sh
-PROJECT_ID=your-project-id ./deploy/deploy.sh
+git clone https://github.com/nwavery/weather-dashboard.git
+cd weather-dashboard
+gcloud config set project YOUR_PROJECT_ID
+chmod +x deploy/deploy.sh && ./deploy/deploy.sh
 ```
 
 The script will:
-1. Enable the `run`, `cloudbuild`, `secretmanager`, and `pollen` APIs.
-2. Prompt for your Pollen API key and store it as the `pollen-api-key` secret.
+1. Enable the `run`, `cloudbuild`, `secretmanager`, `apikeys`, and `pollen` APIs.
+2. **Create a Pollen-restricted API key** for you and store it as the
+   `pollen-api-key` secret in Secret Manager. (To use your own key instead, pass
+   `POLLEN_API_KEY=AIza...`; to reuse an existing secret, it's left untouched.)
 3. Grant the Cloud Run runtime service account `secretAccessor` on that secret.
 4. Build from source (Cloud Build) and deploy the service.
+5. **Auto-lock** the pollen proxy: set `ALLOWED_ORIGINS` to the new service URL
+   so only your site can call `/api/pollen`.
 
-After the first deploy, re-run with `ALLOWED_ORIGINS` set to your service URL to
-lock the pollen proxy to your site:
+To allow extra origins (e.g. a custom domain), re-run with `ALLOWED_ORIGINS` set:
 
 ```bash
 PROJECT_ID=your-project-id \
-ALLOWED_ORIGINS="https://weather-dashboard-xxxxx-uc.a.run.app" \
+ALLOWED_ORIGINS="https://weather-dashboard-xxxxx-uc.a.run.app,https://weather.example.com" \
 ./deploy/deploy.sh
 ```
 
