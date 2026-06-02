@@ -9,6 +9,13 @@ const HIST_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 const aqCache = new Map();
 const histCache = new Map();
 
+// Open-Meteo requires a valid IANA timezone. A missing/blank value would be
+// serialized as the literal string "undefined" and rejected with HTTP 400, so
+// fall back to `auto` (Open-Meteo infers the zone from the coordinates).
+function tzParam(timeZone) {
+  return timeZone && typeof timeZone === 'string' ? encodeURIComponent(timeZone) : 'auto';
+}
+
 export async function fetchWeather(location) {
   const { latitude, longitude, timeZone } = location;
   const url =
@@ -16,7 +23,7 @@ export async function fetchWeather(location) {
     `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,uv_index,dew_point_2m` +
     `&hourly=temperature_2m,weather_code` +
     `&daily=temperature_2m_max,temperature_2m_min,weather_code` +
-    `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${encodeURIComponent(timeZone)}&forecast_days=6`;
+    `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${tzParam(timeZone)}&forecast_days=6`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Weather API ${res.status}`);
   const data = await res.json();
@@ -31,7 +38,7 @@ export async function fetchAirQuality(location) {
 
   const url =
     `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${location.latitude}&longitude=${location.longitude}` +
-    `&current=us_aqi,pm2_5,ozone&timezone=${encodeURIComponent(location.timeZone)}`;
+    `&current=us_aqi,pm2_5,ozone&timezone=${tzParam(location.timeZone)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Air quality API ${res.status}`);
   const data = await res.json();
@@ -58,7 +65,7 @@ export async function fetchHistoricalAverage(location) {
 
   const url =
     `https://archive-api.open-meteo.com/v1/archive?latitude=${location.latitude}&longitude=${location.longitude}` +
-    `&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=${encodeURIComponent(tz)}` +
+    `&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=${tzParam(tz)}` +
     `&start_date=${formatDateYYYYMMDD(start, tz)}&end_date=${formatDateYYYYMMDD(end, tz)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Archive API ${res.status}`);
