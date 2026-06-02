@@ -10,8 +10,9 @@ const PORT = process.env.PORT || 8080;
 const app = express();
 app.disable('x-powered-by');
 
-// Health check for Cloud Run.
-app.get('/healthz', (_req, res) => res.json({ ok: true }));
+// Health check. Cloud Run's serving layer reserves /healthz, so expose it
+// under /api where requests actually reach the container.
+app.get('/api/healthz', (_req, res) => res.json({ ok: true }));
 
 // Pollen proxy — the only endpoint that touches the Google API key.
 app.get('/api/pollen', pollenHandler);

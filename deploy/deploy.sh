@@ -106,18 +106,26 @@ gcloud run deploy "${SERVICE}" \
   --platform managed \
   --allow-unauthenticated \
   --set-secrets "POLLEN_API_KEY=${SECRET_NAME}:latest" \
-  ${ALLOWED_ORIGINS:+--set-env-vars "ALLOWED_ORIGINS=${ALLOWED_ORIGINS}"} \
+  ${ALLOWED_ORIGINS:+--set-env-vars "^@^ALLOWED_ORIGINS=${ALLOWED_ORIGINS}"} \
   --project "${PROJECT_ID}"
 
 URL="$(gcloud run services describe "${SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"
 
 # ---- Lock the pollen proxy to this site by default ----
 if [[ -z "${ALLOWED_ORIGINS}" ]]; then
-  echo ">> Locking pollen proxy to ${URL} ..."
+  # Cloud Run can serve a service on two hostnames: the legacy hashed URL
+  # (status.url) and the deterministic SERVICE-PROJECTNUMBER.REGION.run.app one.
+  # Allow both so the proxy works no matter which URL is opened.
+  URL2="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
+  LOCK="${URL}"
+  [[ "${URL2}" != "${URL}" ]] && LOCK="${URL},${URL2}"
+  echo ">> Locking pollen proxy to: ${LOCK}"
+  # '^@^' tells gcloud to use '@' (not comma) as the env-var separator, so the
+  # comma-joined origins are stored as a single ALLOWED_ORIGINS value.
   gcloud run services update "${SERVICE}" \
     --region "${REGION}" --project "${PROJECT_ID}" \
-    --update-env-vars "ALLOWED_ORIGINS=${URL}" >/dev/null
-  echo ">> To also allow a custom domain later, re-run with ALLOWED_ORIGINS=\"${URL},https://your-domain\"."
+    --update-env-vars "^@^ALLOWED_ORIGINS=${LOCK}" >/dev/null
+  echo ">> To also allow a custom domain later, re-run with ALLOWED_ORIGINS=\"${LOCK},https://your-domain\"."
 fi
 
 echo
