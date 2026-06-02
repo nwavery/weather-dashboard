@@ -31,7 +31,8 @@ let LOCATIONS = { // Changed to let to allow modification
             editButton: "edit-btn-current", // Added for editing
             hourlyForecast: 'hourly-forecast-current', // Added for element helper
             dailyForecast: 'daily-forecast-current', // Added for element helper
-            errorDisplay: 'error-display-current' // Added for error messages
+            errorDisplay: 'error-display-current', // Added for error messages
+            airQuality: 'air-quality-current' // Added for air quality & allergens
         }
     },
     boston: {
@@ -60,7 +61,8 @@ let LOCATIONS = { // Changed to let to allow modification
             editButton: "edit-btn-boston", // Added for editing
             hourlyForecast: 'hourly-forecast-boston', // Added for element helper
             dailyForecast: 'daily-forecast-boston', // Added for element helper
-            errorDisplay: 'error-display-boston' // Added for error messages
+            errorDisplay: 'error-display-boston', // Added for error messages
+            airQuality: 'air-quality-boston' // Added for air quality & allergens
         }
     }
 };
@@ -79,6 +81,15 @@ let currentLocationBadgeText = '';
 const lastSaveAttempt = {};
 let lastReverseGeocodeReason = '';
 const historicalDailyAvgCache = {};
+
+// Air quality (Open-Meteo, keyless) + pollen (Google Pollen API, user-supplied key)
+const AIR_QUALITY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const airQualityCache = {};
+const POLLEN_API_KEY_STORAGE = 'weatherDashboardPollenApiKey';
+const POLLEN_CACHE_STORAGE = 'weatherDashboardPollenCache';
+const POLLEN_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours (daily forecast; keeps Google usage low)
+const pollenCache = {};
+let pollenKeyEditing = false;
 
 function buildLocationObject({ name, latitude, longitude, timeZone }) {
     return {
@@ -216,6 +227,9 @@ function createLocationCardHTML(locationKey, locationData) {
                 <div class=\"metric\"><i class=\"fas fa-wind\"></i> <span id=\"${ids.wind}\">--</span></div>
                 <div class=\"metric\"><i class=\"fas fa-sun\"></i> <span id=\"${ids.uv}\">--</span></div>
             </div>
+            <div class=\"air-quality\" id=\"${ids.airQuality}\">
+                <div class=\"aq-placeholder\">Loading air quality…</div>
+            </div>
             <div class=\"hourly-forecast\">
                 <div id=\"${ids.hourlyForecast}\" class=\"hourly-forecast-container\">
                     <div class=\"hourly-item-placeholder\">Loading hourly forecast...</div>
@@ -276,7 +290,7 @@ function getElementsForLocation(locationKey) {
     }
 
     // Validate essential elements
-    const requiredElementKeys = ['time', 'temp', 'icon', 'lastUpdated', 'feelsLike', 'humidity', 'wind', 'uv', 'dewpoint', 'historical', 'card', 'hourlyForecast', 'dailyForecast', 'nameDisplay', 'nameInput', 'editButton'];
+    const requiredElementKeys = ['time', 'temp', 'icon', 'lastUpdated', 'feelsLike', 'humidity', 'wind', 'uv', 'dewpoint', 'historical', 'card', 'hourlyForecast', 'dailyForecast', 'nameDisplay', 'nameInput', 'editButton', 'airQuality'];
     for (const reqKey of requiredElementKeys) {
         if (!elements[reqKey]) {
             console.error(`Missing required element '${reqKey}' (expected ID: ${locationConfig.elementIds[reqKey]}) for location ${locationKey}. This may break functionality.`);
@@ -449,6 +463,354 @@ function applyLocationBadge(locationKey, text) {
     badge.className = 'location-badge';
     badge.textContent = text;
     elements.nameDisplay.insertAdjacentElement('afterend', badge);
+}
+
+// --- Air Quality (Open-Meteo) & Allergen/Pollen (Google) Functions ---
+
+// US AQI category (0-500 scale)
+function getAqiInfo(aqi) {
+    if (typeof aqi !== 'number' || Number.isNaN(aqi)) return { label: 'N/A', cls: 'aqi-na' };
+    if (aqi <= 50) return { label: 'Good', cls: 'aqi-good' };
+    if (aqi <= 100) return { label: 'Moderate', cls: 'aqi-moderate' };
+    if (aqi <= 150) return { label: 'Unhealthy (Sensitive)', cls: 'aqi-usg' };
+    if (aqi <= 200) return { label: 'Unhealthy', cls: 'aqi-unhealthy' };
+    if (aqi <= 300) return { label: 'Very Unhealthy', cls: 'aqi-very-unhealthy' };
+    return { label: 'Hazardous', cls: 'aqi-hazardous' };
+}
+
+// Air quality from Open-Meteo (keyless, global): US AQI + key pollutants
+async function fetchAirQualityData(location) {
+    const cacheKey = `${location.latitude},${location.longitude}`;
+    const cached = airQualityCache[cacheKey];
+    if (cached && (Date.now() - cached.timestamp) < AIR_QUALITY_CACHE_TTL_MS) {
+        return cached.current;
+    }
+
+    const timeZone = location.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const url =
+        `https://air-quality-api.open-meteo.com/v1/air-quality?` +
+        `latitude=${location.latitude}&longitude=${location.longitude}&` +
+        `current=us_aqi,pm2_5,ozone&` +
+        `timezone=${encodeURIComponent(timeZone)}`;
+
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Air Quality API error: ${response.status} ${response.statusText}`);
+    const data = await response.json();
+    if (!data || !data.current) throw new Error("Incomplete air quality data from API.");
+
+    airQualityCache[cacheKey] = { timestamp: Date.now(), current: data.current };
+    return data.current;
+}
+
+// --- Google Pollen API key (stored in the browser only, never committed) ---
+function getPollenApiKey() {
+    try {
+        if (typeof localStorage === 'undefined') return '';
+        return localStorage.getItem(POLLEN_API_KEY_STORAGE) || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function setPollenApiKey(key) {
+    try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(POLLEN_API_KEY_STORAGE, key);
+    } catch (e) {
+        console.warn("Could not save pollen API key.", e);
+    }
+}
+
+function clearPollenApiKey() {
+    try {
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(POLLEN_API_KEY_STORAGE);
+    } catch (e) {
+        console.warn("Could not clear pollen API key.", e);
+    }
+}
+
+// Persisted pollen cache (Google pollen is a daily forecast; cache to stay well within free tier)
+function readPollenCache(cacheKey) {
+    const mem = pollenCache[cacheKey];
+    if (mem && (Date.now() - mem.timestamp) < POLLEN_CACHE_TTL_MS) return mem.result;
+    try {
+        if (typeof localStorage === 'undefined') return null;
+        const raw = localStorage.getItem(POLLEN_CACHE_STORAGE);
+        if (!raw) return null;
+        const all = JSON.parse(raw);
+        const entry = all && all[cacheKey];
+        if (entry && (Date.now() - entry.timestamp) < POLLEN_CACHE_TTL_MS) {
+            pollenCache[cacheKey] = entry; // warm in-memory cache
+            return entry.result;
+        }
+    } catch (e) {
+        /* ignore cache read errors */
+    }
+    return null;
+}
+
+function writePollenCache(cacheKey, result) {
+    const entry = { timestamp: Date.now(), result };
+    pollenCache[cacheKey] = entry;
+    try {
+        if (typeof localStorage === 'undefined') return;
+        const raw = localStorage.getItem(POLLEN_CACHE_STORAGE);
+        const all = raw ? JSON.parse(raw) : {};
+        all[cacheKey] = entry;
+        localStorage.setItem(POLLEN_CACHE_STORAGE, JSON.stringify(all));
+    } catch (e) {
+        /* ignore cache write errors */
+    }
+}
+
+function clearPollenCache() {
+    for (const k in pollenCache) delete pollenCache[k];
+    try {
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(POLLEN_CACHE_STORAGE);
+    } catch (e) {
+        /* ignore */
+    }
+}
+
+// Map Google's Universal Pollen Index value (0-5) to a CSS class
+function upiClass(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 'pollen-none';
+    if (value <= 0) return 'pollen-none';
+    if (value === 1) return 'pollen-verylow';
+    if (value === 2) return 'pollen-low';
+    if (value === 3) return 'pollen-moderate';
+    if (value === 4) return 'pollen-high';
+    return 'pollen-veryhigh';
+}
+
+const UPI_CATEGORIES = ['None', 'Very low', 'Low', 'Moderate', 'High', 'Very high'];
+function upiCategory(value) {
+    return (typeof value === 'number' && UPI_CATEGORIES[value]) ? UPI_CATEGORIES[value] : 'n/a';
+}
+
+function normalizePollenType(typeInfo) {
+    if (!typeInfo) return null;
+    const idx = typeInfo.indexInfo;
+    if (idx && typeof idx.value === 'number') {
+        return {
+            value: idx.value,
+            category: idx.category || upiCategory(idx.value),
+            inSeason: !!typeInfo.inSeason
+        };
+    }
+    // No index data (e.g., out of season) — still represent it so the UI can show a sensible label
+    return {
+        value: null,
+        category: typeInfo.inSeason === false ? 'Out of season' : 'n/a',
+        inSeason: !!typeInfo.inSeason
+    };
+}
+
+// Pollen from the Google Pollen API (keyed, global). Returns { needsKey: true } when no key is set.
+async function fetchPollenData(location) {
+    const apiKey = getPollenApiKey();
+    if (!apiKey) return { needsKey: true };
+
+    const cacheKey = `${location.latitude},${location.longitude}`;
+    const cachedResult = readPollenCache(cacheKey);
+    if (cachedResult) return cachedResult;
+
+    const url =
+        `https://pollen.googleapis.com/v1/forecast:lookup?` +
+        `key=${encodeURIComponent(apiKey)}&` +
+        `location.latitude=${location.latitude}&location.longitude=${location.longitude}&` +
+        `days=1&plantsDescription=false`;
+
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+        let detail = `${response.status} ${response.statusText}`;
+        try {
+            const errBody = await response.json();
+            if (errBody && errBody.error && errBody.error.message) detail = errBody.error.message;
+        } catch (e) {
+            /* ignore parse error */
+        }
+        throw new Error(detail);
+    }
+
+    const data = await response.json();
+    const day = data && Array.isArray(data.dailyInfo) ? data.dailyInfo[0] : null;
+    const types = day && Array.isArray(day.pollenTypeInfo) ? day.pollenTypeInfo : [];
+    const byCode = {};
+    types.forEach(t => { if (t && t.code) byCode[t.code] = t; });
+
+    const result = {
+        needsKey: false,
+        tree: normalizePollenType(byCode.TREE),
+        grass: normalizePollenType(byCode.GRASS),
+        weed: normalizePollenType(byCode.WEED)
+    };
+    writePollenCache(cacheKey, result);
+    return result;
+}
+
+function pollenTypeHTML(icon, label, info) {
+    const cls = info ? upiClass(info.value) : 'pollen-none';
+    const text = info ? (info.category || upiCategory(info.value)) : 'n/a';
+    const title = (info && typeof info.value === 'number')
+        ? `${label} pollen — ${text} (index ${info.value}/5)`
+        : `${label} pollen — ${text}`;
+    return `
+        <div class="metric pollen-metric" title="${title}">
+            <i class="fas ${icon}"></i>
+            <span>${label}: <strong class="pollen-level ${cls}">${text}</strong></span>
+        </div>`;
+}
+
+function buildPollenHTML(pollen, pollenError) {
+    if (pollen && pollen.needsKey) {
+        return `<div class="pollen-note"><i class="fas fa-key"></i> Add a Google Pollen API key below to see pollen levels.</div>`;
+    }
+    if (pollenError) {
+        const raw = String((pollenError && pollenError.message) || pollenError || '');
+        const keyIssue = /api key|api_key|permission|denied|invalid|unauthor|forbidden|400|401|403/i.test(raw);
+        return `<div class="pollen-note">Pollen unavailable — ${keyIssue ? 'check your API key.' : 'try again shortly.'}</div>`;
+    }
+    if (pollen && (pollen.tree || pollen.grass || pollen.weed)) {
+        return `
+            <div class="pollen-metrics">
+                ${pollenTypeHTML('fa-tree', 'Tree', pollen.tree)}
+                ${pollenTypeHTML('fa-seedling', 'Grass', pollen.grass)}
+                ${pollenTypeHTML('fa-cannabis', 'Weed', pollen.weed)}
+            </div>`;
+    }
+    return `<div class="pollen-note">Pollen data not available for this location.</div>`;
+}
+
+function renderAirQuality(container, air, pollen, pollenError) {
+    if (!container) return;
+
+    let airHTML;
+    if (air) {
+        const aqiInfo = getAqiInfo(air.us_aqi);
+        const aqiText = (typeof air.us_aqi === 'number' && !Number.isNaN(air.us_aqi)) ? Math.round(air.us_aqi) : '--';
+        const pm25Text = (typeof air.pm2_5 === 'number' && !Number.isNaN(air.pm2_5)) ? Math.round(air.pm2_5) : '--';
+        const ozoneText = (typeof air.ozone === 'number' && !Number.isNaN(air.ozone)) ? Math.round(air.ozone) : '--';
+        airHTML = `
+            <div class="aq-header">
+                <span class="aq-title"><i class="fas fa-lungs"></i> Air Quality &amp; Allergens</span>
+                <span class="aqi-badge ${aqiInfo.cls}" title="US Air Quality Index">AQI ${aqiText} · ${aqiInfo.label}</span>
+            </div>
+            <div class="aq-metrics">
+                <div class="metric" title="Fine particulate matter (PM2.5), µg/m³"><i class="fas fa-smog"></i> <span>PM2.5 ${pm25Text}</span></div>
+                <div class="metric" title="Ground-level ozone (O₃), µg/m³"><i class="fas fa-cloud"></i> <span>O₃ ${ozoneText}</span></div>
+            </div>`;
+    } else {
+        airHTML = `
+            <div class="aq-header">
+                <span class="aq-title"><i class="fas fa-lungs"></i> Air Quality &amp; Allergens</span>
+            </div>
+            <div class="pollen-note">Air quality data unavailable right now.</div>`;
+    }
+
+    container.innerHTML = airHTML + buildPollenHTML(pollen, pollenError);
+}
+
+async function updateAirQuality(locationKey) {
+    const location = LOCATIONS[locationKey];
+    const elements = getElementsForLocation(locationKey);
+    if (!location || !elements || !elements.airQuality) return;
+
+    const [aqResult, pollenResult] = await Promise.allSettled([
+        fetchAirQualityData(location),
+        fetchPollenData(location)
+    ]);
+
+    const air = aqResult.status === 'fulfilled' ? aqResult.value : null;
+    if (aqResult.status === 'rejected') {
+        console.warn(`Could not load air quality for ${location.name} (${locationKey}):`, aqResult.reason);
+    }
+
+    let pollen = null;
+    let pollenError = null;
+    if (pollenResult.status === 'fulfilled') {
+        pollen = pollenResult.value;
+    } else {
+        pollenError = pollenResult.reason;
+        console.warn(`Could not load pollen for ${location.name} (${locationKey}):`, pollenResult.reason);
+    }
+
+    renderAirQuality(elements.airQuality, air, pollen, pollenError);
+}
+
+// --- Pollen API key UI (global settings bar) ---
+function renderGlobalSettings() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+
+    let settings = document.getElementById('global-settings');
+    if (!settings) {
+        settings = document.createElement('div');
+        settings.className = 'global-settings';
+        settings.id = 'global-settings';
+        container.appendChild(settings);
+    }
+
+    const hasKey = !!getPollenApiKey();
+    const showInput = !hasKey || pollenKeyEditing;
+
+    if (!showInput) {
+        settings.innerHTML = `
+            <div class="pollen-key-row">
+                <span class="pollen-key-status ok"><i class="fas fa-seedling"></i> Pollen API key saved — pollen enabled</span>
+                <button class="pollen-key-btn" id="pollen-key-change" type="button">Change</button>
+                <button class="pollen-key-btn" id="pollen-key-remove" type="button">Remove</button>
+            </div>`;
+        document.getElementById('pollen-key-change').addEventListener('click', () => {
+            pollenKeyEditing = true;
+            renderGlobalSettings();
+        });
+        document.getElementById('pollen-key-remove').addEventListener('click', () => {
+            clearPollenApiKey();
+            clearPollenCache();
+            pollenKeyEditing = false;
+            renderGlobalSettings();
+            refreshAllWeatherData();
+        });
+        return;
+    }
+
+    settings.innerHTML = `
+        <div class="pollen-key-row">
+            <label for="pollen-key-input"><i class="fas fa-seedling"></i> Google Pollen API key</label>
+            <input type="password" id="pollen-key-input" class="pollen-key-input" placeholder="Paste key to enable pollen…" autocomplete="off" spellcheck="false">
+            <button class="pollen-key-btn" id="pollen-key-save" type="button">Save</button>
+            ${hasKey ? '<button class="pollen-key-btn" id="pollen-key-cancel" type="button">Cancel</button>' : ''}
+            <a class="pollen-key-help" href="https://developers.google.com/maps/documentation/pollen/get-api-key" target="_blank" rel="noopener">Get a key</a>
+        </div>`;
+
+    const input = document.getElementById('pollen-key-input');
+    const saveKey = () => {
+        const val = input.value.trim();
+        if (!val) {
+            input.focus();
+            return;
+        }
+        setPollenApiKey(val);
+        clearPollenCache();
+        pollenKeyEditing = false;
+        renderGlobalSettings();
+        refreshAllWeatherData();
+    };
+    document.getElementById('pollen-key-save').addEventListener('click', saveKey);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveKey();
+        }
+    });
+    const cancelBtn = document.getElementById('pollen-key-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            pollenKeyEditing = false;
+            renderGlobalSettings();
+        });
+    }
+    if (pollenKeyEditing) input.focus();
 }
 
 // Function to fetch weather data from Open-Meteo API
@@ -690,7 +1052,10 @@ function updateHourlyForecast(hourlyData, forecastElement, timeZone) { // Added 
 // Function to fetch weather data for a single location
 async function updateWeatherForLocation(locationKey) {
     console.log(`Updating weather for ${LOCATIONS[locationKey]?.name || locationKey}`);
-    await fetchWeatherData(locationKey);
+    await Promise.all([
+        fetchWeatherData(locationKey),
+        updateAirQuality(locationKey)
+    ]);
 }
 
 // Function to refresh weather data for ALL locations
@@ -1074,6 +1439,7 @@ async function initApp() {
         displayInfoOnCard(CURRENT_LOCATION_KEY, currentLocationStatusMessage);
     }
 
+    renderGlobalSettings();
     updateTime();
     await refreshAllWeatherData(); 
     setInterval(updateTime, 1000);
