@@ -124,27 +124,33 @@ automatically on every push to `main`, set up a Cloud Build trigger once.
 
 1. **Connect the repo** — Cloud Console → Cloud Build → Triggers → *Connect
    Repository* → GitHub → authorize and pick `nwavery/weather-dashboard`.
-2. **Let Cloud Build deploy to Cloud Run:**
+2. **Create a deployer service account** and grant it what the build needs. A
+   dedicated, least-privilege SA is best practice — and some orgs require a
+   user-managed SA for triggers.
    ```bash
    PROJECT_ID=$(gcloud config get-value project)
    PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
-   CB_SA="$PROJECT_NUMBER@cloudbuild.gserviceaccount.com"
-   RUNTIME_SA="$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
+   DEPLOYER_SA="wd-deployer@${PROJECT_ID}.iam.gserviceaccount.com"
+   RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+   CB_AGENT="service-${PROJECT_NUMBER}@gcp-sa-cloudbuild.iam.gserviceaccount.com"
 
-   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-     --member="serviceAccount:$CB_SA" --role="roles/run.admin"
-   gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
-     --member="serviceAccount:$CB_SA" --role="roles/iam.serviceAccountUser"
+   gcloud iam service-accounts create wd-deployer \
+     --display-name="weather-dashboard Cloud Build deployer"
+
+   # write build logs, push the image, deploy to Cloud Run
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$DEPLOYER_SA" --role="roles/logging.logWriter"
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$DEPLOYER_SA" --role="roles/artifactregistry.writer"
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$DEPLOYER_SA" --role="roles/run.admin"
+   # deploy the service AS the Cloud Run runtime SA
+   gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" --member="serviceAccount:$DEPLOYER_SA" --role="roles/iam.serviceAccountUser"
+   # let Cloud Build run builds AS this SA
+   gcloud beta services identity create --service=cloudbuild.googleapis.com >/dev/null 2>&1 || true
+   gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER_SA" --member="serviceAccount:$CB_AGENT" --role="roles/iam.serviceAccountTokenCreator"
    ```
-3. **Create the trigger** — in the Console (*Create trigger* → event: push to
-   branch `^main$` → config: `cloudbuild.yaml`), or, if the repo is connected via
-   the Cloud Build GitHub App:
-   ```bash
-   gcloud builds triggers create github \
-     --name=deploy-on-main \
-     --repo-owner=nwavery --repo-name=weather-dashboard \
-     --branch-pattern='^main$' --build-config=cloudbuild.yaml
-   ```
+3. **Create the trigger** — Cloud Console → Cloud Build → Triggers → *Create
+   trigger*: event **Push to a branch**, branch `^main$`, configuration **Cloud
+   Build configuration file** with path `cloudbuild.yaml`, and **Service account**
+   `wd-deployer@…`. Then **Create**.
 
 After that, merging to `main` builds and deploys automatically.
 
