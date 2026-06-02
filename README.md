@@ -113,6 +113,41 @@ ALLOWED_ORIGINS="https://weather-dashboard-xxxxx-uc.a.run.app,https://weather.ex
 | `POLLEN_RATE_LIMIT` / `POLLEN_RATE_WINDOW_MS` | Per-IP rate limit | `60` per `60000` ms |
 | `PORT` | Listen port | `8080` (set by Cloud Run) |
 
+## Continuous deployment (optional)
+
+`cloudbuild.yaml` builds the image and deploys it to Cloud Run. To run it
+automatically on every push to `main`, set up a Cloud Build trigger once.
+
+> Run `deploy/deploy.sh` at least once first — that creates the `pollen-api-key`
+> secret and sets `ALLOWED_ORIGINS`. CI deploys update only the image, so those
+> are preserved.
+
+1. **Connect the repo** — Cloud Console → Cloud Build → Triggers → *Connect
+   Repository* → GitHub → authorize and pick `nwavery/weather-dashboard`.
+2. **Let Cloud Build deploy to Cloud Run:**
+   ```bash
+   PROJECT_ID=$(gcloud config get-value project)
+   PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+   CB_SA="$PROJECT_NUMBER@cloudbuild.gserviceaccount.com"
+   RUNTIME_SA="$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
+
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+     --member="serviceAccount:$CB_SA" --role="roles/run.admin"
+   gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
+     --member="serviceAccount:$CB_SA" --role="roles/iam.serviceAccountUser"
+   ```
+3. **Create the trigger** — in the Console (*Create trigger* → event: push to
+   branch `^main$` → config: `cloudbuild.yaml`), or, if the repo is connected via
+   the Cloud Build GitHub App:
+   ```bash
+   gcloud builds triggers create github \
+     --name=deploy-on-main \
+     --repo-owner=nwavery --repo-name=weather-dashboard \
+     --branch-pattern='^main$' --build-config=cloudbuild.yaml
+   ```
+
+After that, merging to `main` builds and deploys automatically.
+
 ## Data sources
 
 - [Open-Meteo](https://open-meteo.com/) — forecast, air quality, archive, geocoding (keyless)

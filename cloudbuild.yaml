@@ -1,0 +1,44 @@
+# Continuous deployment: build the container and deploy it to Cloud Run.
+# Wire this up with a Cloud Build trigger on push to `main` (see README →
+# "Continuous deployment"). Deploying by --image updates only the image, so the
+# service's env vars (ALLOWED_ORIGINS) and the POLLEN_API_KEY secret are kept.
+substitutions:
+  _REGION: us-central1
+  _SERVICE: weather-dashboard
+  _REPO: cloud-run-source-deploy # Artifact Registry repo (created by the first source deploy)
+
+steps:
+  # Build the image, tagged with the commit SHA and `latest`.
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+      - .
+
+  # Push both tags to Artifact Registry.
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}
+
+  # Deploy the freshly built image to Cloud Run.
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --quiet
+
+options:
+  logging: CLOUD_LOGGING_ONLY
