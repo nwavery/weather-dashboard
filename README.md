@@ -1,75 +1,125 @@
 # Weather Dashboard
 
-A real-time weather dashboard that displays current conditions and forecasts for multiple locations. Built with HTML, CSS, and JavaScript using the Open-Meteo API.
+A real-time weather dashboard (live clock, current conditions, hourly & 5-day
+forecasts, **air quality**, and **pollen/allergen** levels) for multiple
+locations. Built with **React + Vite** and served by a small **Express**
+container on **Google Cloud Run**.
+
+## Architecture
+
+```
+Browser (React SPA)
+  ├─ weather / air quality / geocoding / history ──▶ Open-Meteo   (keyless, called directly)
+  └─ /api/pollen ──▶ Cloud Run (Express) ──▶ Google Pollen API    (key from Secret Manager)
+```
+
+- **Weather & air quality are keyless** (Open-Meteo) and called straight from the
+  browser — US AQI, PM2.5, and ozone work worldwide with no setup.
+- **Pollen needs a key.** Open-Meteo's pollen data is Europe-only, so pollen
+  (tree/grass/weed) comes from the **Google Pollen API**, which covers the US and
+  65+ countries. The key is **never** shipped to the browser or committed to the
+  repo — the front-end calls our own `/api/pollen`, and the Cloud Run server adds
+  the key (read from **Secret Manager**) when it forwards the request to Google.
+- The pollen proxy is protected by an **origin allowlist**, **caching** (pollen is
+  a once-daily forecast), and **per-IP rate limiting** so a public endpoint can't
+  be used to drain your quota/billing.
 
 ## Features
 
-- Real-time weather data for multiple locations.
-- **Editable Locations:** Click the pencil icon (✏️) next to a location name to change it. The dashboard uses the Open-Meteo Geocoding API to find coordinates and timezone for the new city.
-- Current temperature with "feels like" temperature.
-- Weather conditions with icons (from OpenWeatherMap icon set) and subtle animations (rain, snow, clouds).
-- Hourly forecast for the next ~12 hours.
-- 5-day daily forecast (including the current day).
-- Additional metrics:
-  - Humidity
-  - Dew point
-  - Wind speed and direction
-  - UV index
-- Historical comparison (current temp vs. daily average).
-- **Air quality & allergens:** US AQI, PM2.5, and ground-level ozone for every location (via Open-Meteo, keyless), plus tree/grass/weed **pollen** levels via the Google Pollen API (see [Pollen (Allergen) Data](#pollen-allergen-data)).
-- Correct handling of date display across different timezones.
-- Auto-refreshing data every minute.
-- Responsive design that works on both desktop and mobile.
+- Per-location live clock (timezone-aware) and current temperature / "feels like".
+- Hourly forecast (next ~12 h) and 5-day daily forecast.
+- Humidity, dew point, wind (speed + direction), UV index.
+- Historical comparison: today's predicted average vs. the 10-year average for the date.
+- **Air quality:** US AQI (with category), PM2.5, ground-level ozone.
+- **Pollen:** tree / grass / weed levels (Google Universal Pollen Index 0–5).
+- Editable locations (✏️ → geocoded via Open-Meteo) and current-location detection.
+- Weather-driven animations (rain / snow / clouds), temperature-tinted cards.
+- Auto-refresh every minute; responsive on desktop and mobile.
 
-## Default Locations
+## Project structure
 
-Starts with:
-- El Reno, OK (Central Time)
-- Salem, WI (Central Time)
+```
+index.html              Vite entry
+src/
+  main.jsx, App.jsx
+  components/            WeatherCard, Hourly/Daily forecasts, Metrics, AirQuality, …
+  hooks/                 useClock, useLocationWeather, useLocations
+  lib/                   openMeteo.js (keyless clients), pollen.js (calls /api), format.js
+  data/weatherCodes.js
+server/
+  index.js              Express: serves dist/ + /api/pollen + /healthz
+  pollen.js             Pollen proxy: key injection, cache, origin allowlist, rate limit
+Dockerfile              Multi-stage: build Vite, run Express
+deploy/deploy.sh        One-shot Cloud Run deploy (APIs, secret, IAM, deploy)
+```
 
-(These can be changed by the user at runtime.)
+## Local development
 
-## Technologies Used
+```bash
+npm install
 
-- HTML5
-- CSS3
-- JavaScript (ES6+)
-- Open-Meteo API (Weather & Geocoding)
-- Open-Meteo Air Quality API (AQI, PM2.5, ozone — keyless)
-- Google Pollen API (tree/grass/weed pollen — optional, requires your own API key)
-- OpenWeatherMap Icons (for visual representation)
-- Font Awesome icons (for metrics)
-- Google Fonts (Roboto)
+# Option A — full app on one port (builds, then serves dist + API on :8080):
+POLLEN_API_KEY=your_dev_key npm run serve
+#   open http://localhost:8080
 
-## Setup
+# Option B — hot-reloading UI + API in two terminals:
+POLLEN_API_KEY=your_dev_key npm start   # Express API on :8080
+npm run dev                             # Vite UI on :5173 (proxies /api -> :8080)
+```
 
-1. Clone the repository
-2. Open `index.html` in a web browser
-3. For development, use a local web server (e.g., `python -m http.server 8000`)
+Weather and air quality work without any key. Pollen will return a friendly
+"not configured" state until `POLLEN_API_KEY` is set.
 
-## API Data
+## Deploy to Cloud Run
 
-The dashboard uses the Open-Meteo API to fetch:
-- Current weather conditions
-- Hourly forecasts
-- Daily forecasts
-- Temperature, humidity, wind, and other meteorological data
+Prerequisite: a GCP project with **billing enabled**. The easiest place to run
+this is **Google Cloud Shell** (browser terminal, already authenticated, with
+`gcloud`/`git` preinstalled) — no local setup required.
 
-## Customization
+In Cloud Shell:
 
-Locations can now be edited directly in the browser by clicking the pencil icon next to the city name. Default locations can still be modified in the `LOCATIONS` object in `script.js` if needed.
+```bash
+git clone https://github.com/nwavery/weather-dashboard.git
+cd weather-dashboard
+gcloud config set project YOUR_PROJECT_ID
+chmod +x deploy/deploy.sh && ./deploy/deploy.sh
+```
 
-## Pollen (Allergen) Data
+The script will:
+1. Enable the `run`, `cloudbuild`, `secretmanager`, `apikeys`, and `pollen` APIs.
+2. **Create a Pollen-restricted API key** for you and store it as the
+   `pollen-api-key` secret in Secret Manager. (To use your own key instead, pass
+   `POLLEN_API_KEY=AIza...`; to reuse an existing secret, it's left untouched.)
+3. Grant the Cloud Run runtime service account `secretAccessor` on that secret.
+4. Build from source (Cloud Build) and deploy the service.
+5. **Auto-lock** the pollen proxy: set `ALLOWED_ORIGINS` to the new service URL
+   so only your site can call `/api/pollen`.
 
-Air-quality figures (US AQI, PM2.5, ozone) come from the keyless Open-Meteo Air Quality API and need no setup — they work for every location worldwide.
+To allow extra origins (e.g. a custom domain), re-run with `ALLOWED_ORIGINS` set:
 
-Pollen counts (tree, grass, weed) use the **Google Pollen API**, which covers the US and 65+ countries. Open-Meteo's pollen data is Europe-only, so Google is used to get pollen for US (and other) locations. To enable pollen:
+```bash
+PROJECT_ID=your-project-id \
+ALLOWED_ORIGINS="https://weather-dashboard-xxxxx-uc.a.run.app,https://weather.example.com" \
+./deploy/deploy.sh
+```
 
-1. Create a Google Cloud project, enable the **Pollen API**, and create an API key — restrict it to your site's domain/HTTP referrer. See Google's guide: <https://developers.google.com/maps/documentation/pollen/get-api-key>
-2. Open the dashboard and paste the key into the **"Google Pollen API key"** field at the bottom of the page.
+### Server environment variables
 
-The key is stored only in your browser's `localStorage` — it is never committed to the repository or sent anywhere except Google. Responses are cached locally for ~6 hours to stay well within the free tier. Without a key, the dashboard still shows air quality; the pollen row simply prompts you to add a key.
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `POLLEN_API_KEY` | Google Pollen API key (from Secret Manager) | — (pollen disabled if unset) |
+| `ALLOWED_ORIGINS` | Comma-separated origins allowed to call `/api/pollen` | unset = open (dev) |
+| `POLLEN_CACHE_TTL_MS` | Pollen cache lifetime | `21600000` (6 h) |
+| `POLLEN_RATE_LIMIT` / `POLLEN_RATE_WINDOW_MS` | Per-IP rate limit | `60` per `60000` ms |
+| `PORT` | Listen port | `8080` (set by Cloud Run) |
+
+## Data sources
+
+- [Open-Meteo](https://open-meteo.com/) — forecast, air quality, archive, geocoding (keyless)
+- [Google Pollen API](https://developers.google.com/maps/documentation/pollen) — tree/grass/weed pollen
+- BigDataCloud — reverse-geocoding fallback
+- OpenWeatherMap — weather icon images
 
 ## License
 
-This project is open source and available under the MIT License. 
+MIT.
