@@ -44,6 +44,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* #root must span the full width so the centered .container below has a
+   definite width to resolve against — otherwise it shrink-to-fits under
+   body's align-items:center and the card grid collapses toward one column. */
+#root {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ── Layout ────────────────────────────────────────────────── */
 .container {
   width: 100%;
@@ -53,9 +63,11 @@ body {
 
 .cards-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  grid-template-columns: 1fr;       /* phones: single column */
   gap: clamp(16px, 2vw, 28px);
   width: 100%;
+  max-width: 1200px;                /* keeps two columns a comfortable width */
+  margin-inline: auto;             /* centre the grid within the page */
 }
 
 /* ── Card ──────────────────────────────────────────────────── */
@@ -989,32 +1001,12 @@ h2 {
    ║                RESPONSIVE LAYOUT                         ║
    ╚═══════════════════════════════════════════════════════════╝ */
 
-/* 2-column at ≥800px, up to 4 columns on ultra-wide */
+/* ≥800px: two equal columns (four cards become a centered 2×2). The grid's
+   max-width + margin-inline:auto keep the columns centered at every width —
+   including ultra-wide — instead of hugging the left. Phones stay 1-column. */
 @media (min-width: 800px) {
   .cards-container {
     grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1200px) {
-  .cards-container {
-    grid-template-columns: repeat(2, 1fr);
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-}
-
-@media (min-width: 1600px) {
-  .cards-container {
-    grid-template-columns: repeat(4, 1fr);
-    max-width: 1700px;
-    margin: 0 auto;
-  }
-}
-
-@media (max-width: 799px) {
-  .cards-container {
-    grid-template-columns: 1fr;
   }
 }
 
