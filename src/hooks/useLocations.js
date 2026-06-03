@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { reverseGeocode, geocodeCity } from '../lib/openMeteo.js';
+import { isDemo, DEMO_LOCATIONS } from '../lib/demoData.js';
 
 const FALLBACK = {
   name: 'Oklahoma City, OK',
@@ -81,13 +82,19 @@ async function resolveCurrent(setStatus) {
 }
 
 export function useLocations() {
-  const [locations, setLocations] = useState(() => [
-    { key: 'current', ...FALLBACK, badge: '' },
-    { key: 'boston', name: 'Boston, MA', latitude: 42.3601, longitude: -71.0589, timeZone: 'America/New_York', badge: '' }
-  ]);
+  const demo = isDemo();
+  const [locations, setLocations] = useState(() =>
+    demo
+      ? DEMO_LOCATIONS
+      : [
+          { key: 'current', ...FALLBACK, badge: '' },
+          { key: 'boston', name: 'Boston, MA', latitude: 42.3601, longitude: -71.0589, timeZone: 'America/New_York', badge: '' }
+        ]
+  );
   const [status, setStatus] = useState('');
 
   useEffect(() => {
+    if (demo) return undefined;
     let cancelled = false;
     (async () => {
       const { location, badge } = await resolveCurrent(setStatus);
@@ -97,10 +104,11 @@ export function useLocations() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [demo]);
 
   // Rename/relocate a card by geocoding the typed city name.
   const updateLocation = useCallback(async (key, cityName) => {
+    if (demo) return { ok: false };
     try {
       const geo = await geocodeCity(cityName);
       if (!geo) return { ok: false };
@@ -109,7 +117,7 @@ export function useLocations() {
     } catch {
       return { ok: false };
     }
-  }, []);
+  }, [demo]);
 
   return { locations, status, updateLocation };
 }

@@ -1,7 +1,7 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
-import { formatTemperature, tempClass, formatClock, formatShortTime } from '../lib/format.js';
+import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { weatherInfo } from '../data/weatherCodes.js';
-import { WeatherAnimation } from './WeatherAnimation.jsx';
+import { WeatherAnimation, getSkyGradient } from './WeatherAnimation.jsx';
 import { EditableName } from './EditableName.jsx';
 import { DailyForecast } from './DailyForecast.jsx';
 import { HourlyForecast } from './HourlyForecast.jsx';
@@ -26,23 +26,43 @@ export function WeatherCard({ location, now, status, onRename }) {
   const current = wx.weather?.current;
   const info = current ? weatherInfo(current.weather_code) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
+  const timePhase = getTimePhase(now, location.timeZone);
+  const skyGrad = getSkyGradient(info?.animation || null, timePhase);
+  const animClass = info?.animation ? `anim-${info.animation}` : 'anim-clear';
 
   return (
-    <div className={`card ${cardClass}`}>
-      <WeatherAnimation type={info?.animation} />
+    <div
+      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass}`}
+      style={{ '--sky-gradient': skyGrad }}
+    >
+      {/* Full-bleed sky background */}
+      <div className="sky-bg" aria-hidden="true" />
+
+      {/* Animated weather layer */}
+      <WeatherAnimation
+        type={info?.animation}
+        timePhase={timePhase}
+        weatherCode={current?.weather_code}
+      />
+
+      {/* Gradient scrim for text legibility */}
+      <div className="card-scrim" aria-hidden="true" />
+
       <div className="card-content">
+        {/* Header: city + clock */}
         <div className="time-section">
           <h2>
             <EditableName name={location.name} onRename={onRename} />
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
-          <div className="display-value">{formatClock(now, location.timeZone)}</div>
+          <div className="display-value clock-value">{formatClock(now, location.timeZone)}</div>
         </div>
 
         {wx.weatherError ? (
           <div className="error-display">Weather error: {wx.weatherError}</div>
         ) : (
           <>
+            {/* Main temp + icon */}
             <div className="weather-section">
               <div className="temp-and-icon">
                 <div className="temp-display">
@@ -54,15 +74,22 @@ export function WeatherCard({ location, now, status, onRename }) {
                       title={info.description}
                     />
                   ) : null}
-                  <div className="display-value">
+                  <div className="display-value temp-value">
                     {current ? formatTemperature(current.temperature_2m) : 'Loading…'}
                   </div>
                 </div>
+                {info && (
+                  <div className="weather-desc">{info.description}</div>
+                )}
                 <div className="temp-details">
                   <span className="feels-like">
-                    Feels like: {current ? formatTemperature(current.apparent_temperature) : '--'}
+                    <i className="fas fa-thermometer-half"></i>
+                    {' '}Feels like {current ? formatTemperature(current.apparent_temperature) : '--'}
                   </span>
-                  <span className="historical">{historicalText(wx.weather, wx.historical)}</span>
+                  <span className="historical">
+                    <i className="fas fa-history"></i>
+                    {' '}{historicalText(wx.weather, wx.historical)}
+                  </span>
                 </div>
               </div>
               <DailyForecast daily={wx.weather?.daily} timeZone={location.timeZone} />

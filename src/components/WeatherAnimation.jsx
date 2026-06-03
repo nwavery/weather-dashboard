@@ -1,39 +1,441 @@
-import { useMemo } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 
-// Decorative rain/snow/cloud particles. Regenerated only when the type changes.
-export function WeatherAnimation({ type }) {
-  const particles = useMemo(() => {
-    if (type === 'rain') {
-      return Array.from({ length: 20 }, () => ({
-        left: `${Math.random() * 100}%`,
-        animationDuration: `${0.8 + Math.random() * 0.4}s`,
-        animationDelay: `${Math.random() * 2}s`
-      }));
-    }
-    if (type === 'snow') {
-      return Array.from({ length: 30 }, () => ({
-        left: `${Math.random() * 100}%`,
-        animationDuration: `${2 + Math.random() * 3}s`,
-        animationDelay: `${Math.random() * 2}s`
-      }));
-    }
-    if (type === 'cloudy') {
-      return Array.from({ length: 3 }, (_, i) => ({
-        top: `${20 + i * 30}%`,
-        animationDelay: `${i * -5}s`
-      }));
-    }
-    return [];
-  }, [type]);
+// ─── Sky gradient helper ────────────────────────────────────────────────────────
+// Returns CSS gradient strings for (dawn/day/dusk/night) × weather condition
+export function getSkyGradient(animation, timePhase) {
+  const gradients = {
+    clear: {
+      dawn:  'linear-gradient(to bottom, #0f0520 0%, #7d1f0e 18%, #c94414 32%, #e8722a 48%, #f5a623 65%, #2e78c7 85%, #4facde 100%)',
+      day:   'linear-gradient(to bottom, #0b3d6e 0%, #1565a8 22%, #2980c9 50%, #5ab4e8 78%, #82cef5 100%)',
+      dusk:  'linear-gradient(to bottom, #07061a 0%, #3a0d3a 18%, #8b1a1a 36%, #cc3b1a 52%, #e8831a 68%, #f2c96e 85%, #c8a04e 100%)',
+      night: 'linear-gradient(to bottom, #010205 0%, #030812 28%, #050f25 55%, #071535 78%, #0a1a42 100%)',
+    },
+    rain: {
+      dawn:  'linear-gradient(to bottom, #0f0f20 0%, #1c1c35 30%, #2a3040 55%, #354050 78%, #3e4e5e 100%)',
+      day:   'linear-gradient(to bottom, #0f1820 0%, #18283a 28%, #223648 55%, #2a4058 78%, #2e4a62 100%)',
+      dusk:  'linear-gradient(to bottom, #080810 0%, #12121e 30%, #1c1c2e 58%, #25253a 80%, #2e2e48 100%)',
+      night: 'linear-gradient(to bottom, #020306 0%, #060910 30%, #090e18 60%, #0d1220 85%, #101626 100%)',
+    },
+    snow: {
+      dawn:  'linear-gradient(to bottom, #12121e 0%, #1e2030 30%, #2e3448 58%, #404858 80%, #525e70 100%)',
+      day:   'linear-gradient(to bottom, #182030 0%, #243248 28%, #354862 55%, #4a607a 78%, #5e7a92 100%)',
+      dusk:  'linear-gradient(to bottom, #0a0a15 0%, #14142a 30%, #20203e 58%, #2c2c52 80%, #383860 100%)',
+      night: 'linear-gradient(to bottom, #04040a 0%, #08081a 35%, #0c0c22 65%, #10102e 88%, #141438 100%)',
+    },
+    cloudy: {
+      dawn:  'linear-gradient(to bottom, #0f0f20 0%, #1e1e30 35%, #2c2c42 65%, #3a3a52 88%, #484862 100%)',
+      day:   'linear-gradient(to bottom, #1a202e 0%, #28303e 30%, #343c4c 60%, #404858 85%, #4c5464 100%)',
+      dusk:  'linear-gradient(to bottom, #080812 0%, #141420 35%, #202032 65%, #2c2c42 88%, #383852 100%)',
+      night: 'linear-gradient(to bottom, #020204 0%, #060610 35%, #0a0a18 65%, #0e0e20 88%, #121228 100%)',
+    },
+    thunder: {
+      dawn:  'linear-gradient(to bottom, #060810 0%, #0e1020 35%, #181a2a 65%, #222235 88%, #2c2c42 100%)',
+      day:   'linear-gradient(to bottom, #080e18 0%, #101820 35%, #181e2e 60%, #20263a 82%, #283044 100%)',
+      dusk:  'linear-gradient(to bottom, #040408 0%, #0a0a14 35%, #121220 65%, #1a1a2c 88%, #222238 100%)',
+      night: 'linear-gradient(to bottom, #010102 0%, #030308 35%, #050510 65%, #08081a 88%, #0a0a22 100%)',
+    },
+    fog: {
+      dawn:  'linear-gradient(to bottom, #1e1e2e 0%, #2c2c3e 35%, #3a3a4c 65%, #484858 88%, #565666 100%)',
+      day:   'linear-gradient(to bottom, #2a2a3c 0%, #383848 35%, #464658 65%, #545468 88%, #626278 100%)',
+      dusk:  'linear-gradient(to bottom, #12121e 0%, #1e1e2e 35%, #2a2a3e 65%, #36364c 88%, #42425a 100%)',
+      night: 'linear-gradient(to bottom, #080810 0%, #0e0e1c 35%, #141428 65%, #1a1a32 88%, #20203c 100%)',
+    },
+  };
 
-  if (!type) return null;
-  const particleClass = type === 'rain' ? 'rain-drop' : type === 'snow' ? 'snow-flake' : 'cloud';
+  const typeKey =
+    animation === 'thunder' ? 'thunder' :
+    animation === 'rain'    ? 'rain' :
+    animation === 'snow'    ? 'snow' :
+    animation === 'fog'     ? 'fog' :
+    animation === 'cloudy'  ? 'cloudy' : 'clear';
+
+  return (gradients[typeKey] || gradients.clear)[timePhase] || gradients.clear.night;
+}
+
+// ─── Star canvas (for clear/night skies) ───────────────────────────────────────
+function StarCanvas({ dimmed = false }) {
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const STAR_COUNT = 120;
+    const TINY_COUNT = 80;
+    const SHOOT_INTERVAL = 4500;
+
+    function resize() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    // Bright twinkling stars
+    const stars = Array.from({ length: STAR_COUNT }, () => ({
+      x: Math.random(),
+      y: Math.random() * 0.85,
+      r: 0.4 + Math.random() * 2,
+      alpha: 0.5 + Math.random() * 0.5,
+      twinkleOffset: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.3 + Math.random() * 2,
+      warm: Math.random() < 0.15, // warm-tinted
+      cool: Math.random() > 0.85, // blue-tinted
+    }));
+
+    // Tiny background stars
+    const tiny = Array.from({ length: TINY_COUNT }, () => ({
+      x: Math.random(),
+      y: Math.random() * 0.8,
+      r: 0.15 + Math.random() * 0.5,
+      alpha: 0.15 + Math.random() * 0.3,
+    }));
+
+    let shooter = null;
+    let lastShoot = -SHOOT_INTERVAL * 0.5;
+
+    function spawnShooter(now) {
+      const sx = 0.05 + Math.random() * 0.65;
+      const sy = 0.02 + Math.random() * 0.25;
+      const angle = 0.35 + Math.random() * 0.25;
+      const length = 0.18 + Math.random() * 0.14;
+      shooter = { sx, sy, angle, length, startedAt: now, duration: 900 + Math.random() * 400 };
+    }
+
+    let startTime = null;
+
+    function draw(now) {
+      if (!startTime) startTime = now;
+      const elapsed = now - startTime;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Tiny background stars
+      for (const s of tiny) {
+        ctx.globalAlpha = s.alpha;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Bright twinkling stars
+      for (const s of stars) {
+        const twinkle = 0.5 + 0.5 * Math.sin(elapsed * 0.001 * s.twinkleSpeed + s.twinkleOffset);
+        const alpha = s.alpha * (0.55 + 0.45 * twinkle);
+        ctx.globalAlpha = alpha;
+        const r = s.warm ? 255 : s.cool ? 200 : 255;
+        const g = s.warm ? 235 : s.cool ? 215 : 255;
+        const b = s.warm ? 200 : s.cool ? 255 : 255;
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.beginPath();
+        ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
+        ctx.fill();
+        // Cross-flare for the biggest stars
+        if (s.r > 1.5) {
+          ctx.globalAlpha = alpha * 0.25;
+          ctx.strokeStyle = `rgba(${r},${g},${b},1)`;
+          ctx.lineWidth = 0.5;
+          const fl = s.r * 3.5;
+          ctx.beginPath();
+          ctx.moveTo(s.x * w - fl, s.y * h);
+          ctx.lineTo(s.x * w + fl, s.y * h);
+          ctx.moveTo(s.x * w, s.y * h - fl);
+          ctx.lineTo(s.x * w, s.y * h + fl);
+          ctx.stroke();
+        }
+      }
+
+      // Shooting star
+      if (!shooter && now - lastShoot > SHOOT_INTERVAL) {
+        spawnShooter(now);
+        lastShoot = now;
+      }
+      if (shooter) {
+        const age = now - shooter.startedAt;
+        const progress = age / shooter.duration;
+        if (progress >= 1) {
+          shooter = null;
+        } else {
+          const ex = (shooter.sx + progress * shooter.length * Math.cos(shooter.angle)) * w;
+          const ey = (shooter.sy + progress * shooter.length * Math.sin(shooter.angle)) * h;
+          const tailLen = Math.min(progress, 0.4) * shooter.length;
+          const tx = (shooter.sx + (progress - tailLen) * shooter.length * Math.cos(shooter.angle)) * w;
+          const ty = (shooter.sy + (progress - tailLen) * shooter.length * Math.sin(shooter.angle)) * h;
+
+          const fadeOut = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
+          const grad = ctx.createLinearGradient(tx, ty, ex, ey);
+          grad.addColorStop(0, 'rgba(255,255,255,0)');
+          grad.addColorStop(0.5, `rgba(220,235,255,${0.5 * fadeOut})`);
+          grad.addColorStop(1, `rgba(255,255,255,${0.95 * fadeOut})`);
+
+          ctx.globalAlpha = fadeOut;
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+
+          // Head glow
+          const hg = ctx.createRadialGradient(ex, ey, 0, ex, ey, 6);
+          hg.addColorStop(0, `rgba(255,255,255,${0.9 * fadeOut})`);
+          hg.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = hg;
+          ctx.beginPath();
+          ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.globalAlpha = 1;
+      rafRef.current = requestAnimationFrame(draw);
+    }
+
+    rafRef.current = requestAnimationFrame(draw);
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   return (
-    <div className={`${type}-animation`} aria-hidden="true">
-      {particles.map((style, i) => (
-        <div className={particleClass} key={i} style={style} />
+    <canvas
+      ref={canvasRef}
+      className="sky-canvas"
+      style={{ opacity: dimmed ? 0.35 : 1 }}
+      aria-hidden="true"
+    />
+  );
+}
+
+// ─── Sun glow (clear-day) ───────────────────────────────────────────────────────
+function SunGlow({ timePhase }) {
+  const isMorning = timePhase === 'dawn';
+  const isDusk = timePhase === 'dusk';
+  return (
+    <div className="sun-glow-wrap" aria-hidden="true">
+      <div className={`sun-orb ${isMorning ? 'sun-orb--dawn' : ''} ${isDusk ? 'sun-orb--dusk' : ''}`} />
+      <div className="sun-rays">
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} className="sun-ray" style={{ '--ray-i': i }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Cloud layers (parallax drift) ─────────────────────────────────────────────
+function CloudLayers({ density = 'medium' }) {
+  const clouds = useMemo(() => {
+    const count = density === 'heavy' ? 8 : density === 'light' ? 4 : 6;
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      top: 3 + (i / count) * 62,
+      scale: 0.5 + Math.random() * 0.9,
+      opacity: density === 'heavy' ? 0.18 + Math.random() * 0.22 : 0.10 + Math.random() * 0.16,
+      duration: 22 + Math.random() * 38,
+      delay: -(Math.random() * 45),
+      layer: i % 3,
+    }));
+  }, [density]);
+
+  return (
+    <div className="cloud-layer-wrap" aria-hidden="true">
+      {clouds.map((c) => (
+        <div
+          key={c.id}
+          className={`cloud-shape cloud-layer-${c.layer}`}
+          style={{
+            top: `${c.top}%`,
+            '--cloud-scale': c.scale,
+            '--cloud-opacity': c.opacity,
+            '--cloud-duration': `${c.duration}s`,
+            '--cloud-delay': `${c.delay}s`,
+          }}
+        />
       ))}
+    </div>
+  );
+}
+
+// ─── Rain particles ─────────────────────────────────────────────────────────────
+function RainLayer({ intensity = 'medium', hasThunder = false }) {
+  const drops = useMemo(() => {
+    const count = intensity === 'heavy' ? 70 : intensity === 'light' ? 30 : 50;
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      left: Math.random() * 115 - 7,
+      delay: Math.random() * 1.8,
+      duration: 0.48 + Math.random() * 0.32,
+      height: intensity === 'heavy' ? 28 + Math.random() * 18 : 18 + Math.random() * 12,
+      opacity: intensity === 'heavy' ? 0.55 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45,
+    }));
+  }, [intensity]);
+
+  const splashes = useMemo(() =>
+    Array.from({ length: Math.floor(drops.length / 4) }, (_, i) => ({
+      id: i,
+      left: 2 + Math.random() * 96,
+      delay: Math.random() * 1.8,
+      duration: 0.32 + Math.random() * 0.22,
+    })),
+    [drops.length]
+  );
+
+  return (
+    <div className="rain-layer-wrap" aria-hidden="true">
+      {hasThunder && <div className="lightning-flash" />}
+      {drops.map((d) => (
+        <div
+          key={d.id}
+          className="rain-streak"
+          style={{
+            left: `${d.left}%`,
+            '--rain-delay': `${d.delay}s`,
+            '--rain-duration': `${d.duration}s`,
+            '--rain-height': `${d.height}px`,
+            '--rain-opacity': d.opacity,
+          }}
+        />
+      ))}
+      {splashes.map((s) => (
+        <div
+          key={s.id}
+          className="rain-splash"
+          style={{
+            left: `${s.left}%`,
+            '--splash-delay': `${s.delay}s`,
+            '--splash-duration': `${s.duration}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Snow particles ─────────────────────────────────────────────────────────────
+function SnowLayer() {
+  const flakes = useMemo(() =>
+    Array.from({ length: 65 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 115 - 7,
+      size: 2.5 + Math.random() * 5.5,
+      delay: Math.random() * 6,
+      duration: 4 + Math.random() * 6,
+      drift: -20 + Math.random() * 40,
+      opacity: 0.55 + Math.random() * 0.45,
+    })),
+    []
+  );
+
+  return (
+    <div className="snow-layer-wrap" aria-hidden="true">
+      {flakes.map((f) => (
+        <div
+          key={f.id}
+          className="snow-flake-new"
+          style={{
+            left: `${f.left}%`,
+            '--flake-size': `${f.size}px`,
+            '--flake-delay': `${f.delay}s`,
+            '--flake-duration': `${f.duration}s`,
+            '--flake-drift': `${f.drift}px`,
+            '--flake-opacity': f.opacity,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Fog layer ──────────────────────────────────────────────────────────────────
+function FogLayer() {
+  return (
+    <div className="fog-layer-wrap" aria-hidden="true">
+      <div className="fog-band fog-band--1" />
+      <div className="fog-band fog-band--2" />
+      <div className="fog-band fog-band--3" />
+    </div>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────────
+export function WeatherAnimation({ type, timePhase = 'night', weatherCode }) {
+  const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
+  const isFog = weatherCode === 45 || weatherCode === 48;
+  const isNight = timePhase === 'night';
+
+  if (isFog || type === 'fog') {
+    return (
+      <div className="sky-anim-wrap" aria-hidden="true">
+        <CloudLayers density="light" />
+        <FogLayer />
+      </div>
+    );
+  }
+
+  if (isThunder || type === 'thunder') {
+    return (
+      <div className="sky-anim-wrap" aria-hidden="true">
+        <CloudLayers density="heavy" />
+        <RainLayer intensity="heavy" hasThunder={true} />
+      </div>
+    );
+  }
+
+  if (type === 'rain') {
+    return (
+      <div className="sky-anim-wrap" aria-hidden="true">
+        <CloudLayers density="medium" />
+        <RainLayer intensity="medium" hasThunder={false} />
+      </div>
+    );
+  }
+
+  if (type === 'snow') {
+    return (
+      <div className="sky-anim-wrap" aria-hidden="true">
+        <CloudLayers density="light" />
+        <SnowLayer />
+      </div>
+    );
+  }
+
+  if (type === 'cloudy') {
+    if (isNight) {
+      return (
+        <div className="sky-anim-wrap" aria-hidden="true">
+          <StarCanvas dimmed={true} />
+          <CloudLayers density="medium" />
+        </div>
+      );
+    }
+    return (
+      <div className="sky-anim-wrap" aria-hidden="true">
+        <CloudLayers density="medium" />
+      </div>
+    );
+  }
+
+  // Clear sky (type === null or undefined)
+  if (isNight) {
+    return (
+      <div className="sky-anim-wrap" aria-hidden="true">
+        <StarCanvas dimmed={false} />
+      </div>
+    );
+  }
+
+  // Dawn / day / dusk: sun glow + optional rays
+  return (
+    <div className="sky-anim-wrap" aria-hidden="true">
+      <SunGlow timePhase={timePhase} />
     </div>
   );
 }

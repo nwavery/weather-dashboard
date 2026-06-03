@@ -59,3 +59,18 @@ export function pollenClass(value) {
   if (value === 4) return 'pollen-high';
   return 'pollen-veryhigh';
 }
+
+// Returns 'dawn' | 'day' | 'dusk' | 'night' based on the local hour in the given timezone.
+export function getTimePhase(now, timeZone) {
+  if (!now || !timeZone) return 'night';
+  try {
+    const hourStr = now.toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone });
+    const h = parseInt(hourStr, 10);
+    if (h >= 5 && h < 8)   return 'dawn';
+    if (h >= 8 && h < 18)  return 'day';
+    if (h >= 18 && h < 21) return 'dusk';
+    return 'night';
+  } catch {
+    return 'night';
+  }
+}

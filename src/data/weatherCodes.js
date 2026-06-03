@@ -1,12 +1,13 @@
 // WMO weather interpretation codes -> icon (OpenWeatherMap set) + optional animation.
 // https://open-meteo.com/en/docs
+// animation values: null | 'rain' | 'snow' | 'cloudy' | 'fog' | 'thunder'
 export const WEATHER_CODES = {
   0: { description: 'Clear sky', icon: '01d', animation: null },
   1: { description: 'Mainly clear', icon: '01d', animation: null },
   2: { description: 'Partly cloudy', icon: '02d', animation: 'cloudy' },
   3: { description: 'Overcast', icon: '04d', animation: 'cloudy' },
-  45: { description: 'Fog', icon: '50d', animation: 'cloudy' },
-  48: { description: 'Depositing rime fog', icon: '50d', animation: 'cloudy' },
+  45: { description: 'Fog', icon: '50d', animation: 'fog' },
+  48: { description: 'Depositing rime fog', icon: '50d', animation: 'fog' },
   51: { description: 'Light drizzle', icon: '09d', animation: 'rain' },
   53: { description: 'Moderate drizzle', icon: '09d', animation: 'rain' },
   55: { description: 'Dense drizzle', icon: '09d', animation: 'rain' },
@@ -26,9 +27,9 @@ export const WEATHER_CODES = {
   82: { description: 'Violent rain showers', icon: '09d', animation: 'rain' },
   85: { description: 'Slight snow showers', icon: '13d', animation: 'snow' },
   86: { description: 'Heavy snow showers', icon: '13d', animation: 'snow' },
-  95: { description: 'Thunderstorm', icon: '11d', animation: 'rain' },
-  96: { description: 'Thunderstorm with slight hail', icon: '11d', animation: 'rain' },
-  99: { description: 'Thunderstorm with heavy hail', icon: '11d', animation: 'rain' }
+  95: { description: 'Thunderstorm', icon: '11d', animation: 'thunder' },
+  96: { description: 'Thunderstorm with slight hail', icon: '11d', animation: 'thunder' },
+  99: { description: 'Thunderstorm with heavy hail', icon: '11d', animation: 'thunder' }
 };
 
 export function weatherInfo(code) {
