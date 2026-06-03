@@ -257,6 +257,13 @@ html.tv-fit .container {
   mix-blend-mode: screen;
   z-index: 0;
 }
+
+/* Rotate-through-fictional-cities toggle (sits next to the ✏️) */
+.rotate-location-btn.active {
+  color: #7fd0ff;
+  background: rgba(127, 208, 255, 0.18);
+  border-radius: 8px;
+}
 .fic-hundred-acre-wood .sky-bg::before {
   content: '';
   position: absolute;

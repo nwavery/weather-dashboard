@@ -22,7 +22,7 @@ function historicalText(weather, historical) {
   return `vs ${historical.years}y avg: ${sym} ${Math.abs(diff)}° ${word}`;
 }
 
-export function WeatherCard({ location, now, status, onRename }) {
+export function WeatherCard({ location, now, status, onRename, rotating, onToggleRotate }) {
   const wx = useLocationWeather(location);
   const current = wx.weather?.current;
   const info = current ? weatherInfo(current.weather_code) : null;
@@ -57,7 +57,12 @@ export function WeatherCard({ location, now, status, onRename }) {
         {/* Header: city + clock */}
         <div className="time-section">
           <h2>
-            <EditableName name={location.name} onRename={onRename} />
+            <EditableName
+              name={location.name}
+              onRename={onRename}
+              rotating={rotating}
+              onToggleRotate={onToggleRotate}
+            />
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
           <div className="display-value clock-value">{formatClock(now, location.timeZone)}</div>

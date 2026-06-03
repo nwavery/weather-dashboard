@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FICTIONAL_NAMES } from '../lib/fictionalCities.js';
 
 // Click ✏️ to rename a card; the new name is geocoded by the parent (onRename).
-export function EditableName({ name, onRename }) {
+export function EditableName({ name, onRename, rotating, onToggleRotate }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
@@ -38,6 +38,16 @@ export function EditableName({ name, onRename }) {
         <button className="edit-location-btn" title="Edit location" onClick={start}>
           ✏️
         </button>
+        {onToggleRotate ? (
+          <button
+            className={`edit-location-btn rotate-location-btn${rotating ? ' active' : ''}`}
+            title={rotating ? 'Stop rotating fictional cities' : 'Rotate through fictional cities (every 10 min)'}
+            aria-pressed={!!rotating}
+            onClick={onToggleRotate}
+          >
+            🔁
+          </button>
+        ) : null}
       </span>
     );
   }
