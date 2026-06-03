@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchWeather, fetchAirQuality, fetchHistoricalAverage } from '../lib/openMeteo.js';
 import { fetchPollen } from '../lib/pollen.js';
+import { isDemo, demoStateFor } from '../lib/demoData.js';
 
 const REFRESH_MS = 60000;
 
@@ -18,7 +19,8 @@ const INITIAL = {
 // Fetches weather + air quality + pollen + historical baseline for one location,
 // independently (one failing never blanks the others), and refreshes every minute.
 export function useLocationWeather(location) {
-  const [state, setState] = useState(INITIAL);
+  const demo = isDemo();
+  const [state, setState] = useState(() => (demo ? demoStateFor(location?.key) || INITIAL : INITIAL));
 
   const lat = location?.latitude;
   const lng = location?.longitude;
@@ -46,6 +48,7 @@ export function useLocationWeather(location) {
   }, [lat, lng, tz]);
 
   useEffect(() => {
+    if (demo) return undefined;
     let active = true;
     setState((s) => ({ ...s, loading: true }));
     load();
@@ -56,7 +59,7 @@ export function useLocationWeather(location) {
       active = false;
       clearInterval(id);
     };
-  }, [load]);
+  }, [load, demo]);
 
   return state;
 }
