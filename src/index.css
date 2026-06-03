@@ -804,7 +804,7 @@ h2 {
   left: 50%;
   transform: translateX(-50%);
   width: clamp(100px, 20%, 180px);
-  height: clamp(100px, 20%, 180px);
+  aspect-ratio: 1 / 1; /* keep it a circle — % height would resolve to the (taller) card height */
   border-radius: 50%;
   background: radial-gradient(circle, #fff7c0 0%, #ffd060 35%, #ff9f00 65%, transparent 100%);
   box-shadow:
