@@ -7,6 +7,7 @@ export function DailyForecast({ daily, timeZone }) {
   if (!daily?.time) {
     return (
       <div className="daily-forecast">
+        <span className="section-label">5-Day Forecast</span>
         <div className="daily-forecast-container">
           <div className="daily-item-placeholder">Loading daily forecast…</div>
         </div>
@@ -31,7 +32,9 @@ export function DailyForecast({ daily, timeZone }) {
           <img src={`https://openweathermap.org/img/wn/${info.icon}.png`} alt={info.description} title={info.description} />
         </div>
         <div className="daily-temp">
-          {formatTemperature(daily.temperature_2m_max?.[i])}/{formatTemperature(daily.temperature_2m_min?.[i])}
+          <span className="daily-max">{formatTemperature(daily.temperature_2m_max?.[i])}</span>
+          <span className="daily-sep">/</span>
+          <span className="daily-min">{formatTemperature(daily.temperature_2m_min?.[i])}</span>
         </div>
       </div>
     );
@@ -39,6 +42,7 @@ export function DailyForecast({ daily, timeZone }) {
 
   return (
     <div className="daily-forecast">
+      <span className="section-label">5-Day Forecast</span>
       <div className="daily-forecast-container">{items}</div>
     </div>
   );

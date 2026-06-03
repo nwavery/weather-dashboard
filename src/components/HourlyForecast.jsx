@@ -7,6 +7,7 @@ export function HourlyForecast({ hourly, timeZone }) {
   if (!hourly?.time) {
     return (
       <div className="hourly-forecast">
+        <span className="section-label">Hourly</span>
         <div className="hourly-forecast-container">
           <div className="hourly-item-placeholder">Loading hourly forecast…</div>
         </div>
@@ -46,6 +47,7 @@ export function HourlyForecast({ hourly, timeZone }) {
 
   return (
     <div className="hourly-forecast">
+      <span className="section-label">Hourly</span>
       <div className="hourly-forecast-container">{items}</div>
     </div>
   );
