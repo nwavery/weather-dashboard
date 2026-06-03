@@ -1,6 +1,7 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { weatherInfo } from '../data/weatherCodes.js';
+import { isFictional, fictionalTheme } from '../lib/fictionalCities.js';
 import { WeatherAnimation, getSkyGradient } from './WeatherAnimation.jsx';
 import { EditableName } from './EditableName.jsx';
 import { DailyForecast } from './DailyForecast.jsx';
@@ -26,13 +27,17 @@ export function WeatherCard({ location, now, status, onRename }) {
   const current = wx.weather?.current;
   const info = current ? weatherInfo(current.weather_code) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
-  const timePhase = getTimePhase(now, location.timeZone);
-  const skyGrad = getSkyGradient(info?.animation || null, timePhase);
-  const animClass = info?.animation ? `anim-${info.animation}` : 'anim-clear';
+  // Fictional cities supply their own background gradient, animation, time-of-day
+  // phase, and condition text; real cities derive them from the live weather.
+  const fic = isFictional(location) ? fictionalTheme(location.theme) : null;
+  const timePhase = fic?.phase || getTimePhase(now, location.timeZone);
+  const animation = fic ? fic.anim : info?.animation || null;
+  const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
+  const animClass = animation ? `anim-${animation}` : 'anim-clear';
 
   return (
     <div
-      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass}`}
+      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''}`}
       style={{ '--sky-gradient': skyGrad }}
     >
       {/* Full-bleed sky background */}
@@ -40,7 +45,7 @@ export function WeatherCard({ location, now, status, onRename }) {
 
       {/* Animated weather layer */}
       <WeatherAnimation
-        type={info?.animation}
+        type={animation}
         timePhase={timePhase}
         weatherCode={current?.weather_code}
       />
@@ -79,7 +84,7 @@ export function WeatherCard({ location, now, status, onRename }) {
                   </div>
                 </div>
                 {info && (
-                  <div className="weather-desc">{info.description}</div>
+                  <div className="weather-desc">{fic?.condition || info.description}</div>
                 )}
                 <div className="temp-details">
                   <span className="feels-like">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FICTIONAL_NAMES } from '../lib/fictionalCities.js';
 
 // Click ✏️ to rename a card; the new name is geocoded by the parent (onRename).
 export function EditableName({ name, onRename }) {
@@ -48,6 +49,7 @@ export function EditableName({ name, onRename }) {
         value={value}
         autoFocus
         disabled={busy}
+        list="fictional-cities"
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
@@ -58,6 +60,11 @@ export function EditableName({ name, onRename }) {
           }
         }}
       />
+      <datalist id="fictional-cities">
+        {FICTIONAL_NAMES.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
       <button className="edit-location-btn" title="Save" onClick={save} disabled={busy}>
         {busy ? '⏳' : '💾'}
       </button>
