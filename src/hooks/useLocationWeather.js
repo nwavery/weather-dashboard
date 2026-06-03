@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchWeather, fetchAirQuality, fetchHistoricalAverage } from '../lib/openMeteo.js';
 import { fetchPollen } from '../lib/pollen.js';
 import { isDemo, demoStateFor } from '../lib/demoData.js';
@@ -24,54 +24,61 @@ export function useLocationWeather(location) {
   const demo = isDemo();
   const fictional = isFictional(location);
   const theme = location?.theme;
+  const lat = location?.latitude;
+  const lng = location?.longitude;
+  const tz = location?.timeZone;
+
   const [state, setState] = useState(() => {
     if (demo) return demoStateFor(location?.key) || INITIAL;
     if (fictional) return fictionalStateFor(theme) || INITIAL;
     return INITIAL;
   });
 
-  const lat = location?.latitude;
-  const lng = location?.longitude;
-  const tz = location?.timeZone;
-
-  const load = useCallback(async () => {
-    if (lat == null || lng == null) return;
-    const loc = { latitude: lat, longitude: lng, timeZone: tz };
-    const [w, a, p, h] = await Promise.allSettled([
-      fetchWeather(loc),
-      fetchAirQuality(loc),
-      fetchPollen(loc),
-      fetchHistoricalAverage(loc)
-    ]);
-    setState({
-      loading: false,
-      weather: w.status === 'fulfilled' ? w.value : null,
-      weatherError: w.status === 'rejected' ? w.reason?.message || 'error' : null,
-      air: a.status === 'fulfilled' ? a.value : null,
-      pollen: p.status === 'fulfilled' ? p.value : null,
-      pollenError: p.status === 'rejected' ? p.reason : null,
-      historical: h.status === 'fulfilled' ? h.value : null,
-      updatedAt: new Date()
-    });
-  }, [lat, lng, tz]);
-
   useEffect(() => {
     if (demo) return undefined;
+
+    // `active` guards against a stale in-flight fetch resolving after the location
+    // changed (e.g. switching a real city to a fictional one) and clobbering it.
+    let active = true;
+
     if (fictional) {
       setState(fictionalStateFor(theme) || INITIAL);
-      return undefined;
+      return () => {
+        active = false;
+      };
     }
-    let active = true;
+
+    if (lat == null || lng == null) return undefined;
+
+    const run = async () => {
+      const loc = { latitude: lat, longitude: lng, timeZone: tz };
+      const [w, a, p, h] = await Promise.allSettled([
+        fetchWeather(loc),
+        fetchAirQuality(loc),
+        fetchPollen(loc),
+        fetchHistoricalAverage(loc)
+      ]);
+      if (!active) return; // location changed mid-flight — drop the stale result
+      setState({
+        loading: false,
+        weather: w.status === 'fulfilled' ? w.value : null,
+        weatherError: w.status === 'rejected' ? w.reason?.message || 'error' : null,
+        air: a.status === 'fulfilled' ? a.value : null,
+        pollen: p.status === 'fulfilled' ? p.value : null,
+        pollenError: p.status === 'rejected' ? p.reason : null,
+        historical: h.status === 'fulfilled' ? h.value : null,
+        updatedAt: new Date()
+      });
+    };
+
     setState((s) => ({ ...s, loading: true }));
-    load();
-    const id = setInterval(() => {
-      if (active) load();
-    }, REFRESH_MS);
+    run();
+    const id = setInterval(run, REFRESH_MS);
     return () => {
       active = false;
       clearInterval(id);
     };
-  }, [load, demo, fictional, theme]);
+  }, [demo, fictional, theme, lat, lng, tz]);
 
   return state;
 }

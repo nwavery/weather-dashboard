@@ -217,6 +217,54 @@ html.tv-fit .container {
   mix-blend-mode: screen;
   z-index: 0;
 }
+.fic-emerald-city .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 55% at 50% 35%, rgba(60, 230, 120, 0.4) 0%, transparent 62%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.fic-coruscant .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 40% at 50% 108%, rgba(255, 170, 90, 0.45) 0%, rgba(255, 120, 60, 0.15) 38%, transparent 68%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.fic-rivendell .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 85% 50% at 50% 80%, rgba(245, 210, 130, 0.35) 0%, transparent 60%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.fic-atlantis .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 40% at 50% 20%, rgba(60, 200, 210, 0.3) 0%, transparent 60%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.fic-cloud-city .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 90% 45% at 50% 95%, rgba(255, 180, 90, 0.4) 0%, transparent 62%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.fic-hundred-acre-wood .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 85% 50% at 50% 88%, rgba(245, 205, 110, 0.32) 0%, transparent 60%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
 
 /* ── Per-condition ambient atmosphere layers ──────────────── */
 /* Rain: subtle blue ambient */
