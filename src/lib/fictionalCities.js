@@ -118,7 +118,7 @@ const CITIES = [
     gradient: 'linear-gradient(to bottom,#2e6fa8 0%,#5fa0d0 25%,#8fc4a0 55%,#7cb86a 78%,#9bd07a 100%)',
     anim: null, phase: 'day', condition: 'Pleasant · Second Breakfast',
     weather: makeWeather({ temp: 64, code: 1, feels: 65, humidity: 70, dew: 54, wind: 5, windDir: 230, uv: 5 }),
-    air: { us_aqi: 10, pm2_5: 2, ozone: 24 }, pollen: pollen(2, 3, 1), historical: { baseline: 62, years: 10 }
+    air: { us_aqi: 10, pm2_5: 2, ozone: 24 }, pollen: pollen(2, 3, 5), historical: { baseline: 62, years: 10 }
   },
   {
     id: 'mordor', name: 'Mordor', world: 'Middle-earth', timeZone: 'Asia/Istanbul',
