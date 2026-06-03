@@ -3,6 +3,7 @@ import { useLocations } from './hooks/useLocations.js';
 import { useClock } from './hooks/useClock.js';
 import { WeatherCard } from './components/WeatherCard.jsx';
 import { FullscreenButton } from './components/FullscreenButton.jsx';
+import { startKeepAwake, stopKeepAwake } from './lib/keepAwake.js';
 
 // Smart-TV / streaming-stick browsers (Fire TV Silk, Tizen, webOS, Google TV…)
 // get a `tv` class (overscan-safe insets, compaction) + fit-to-screen scaling.
@@ -16,6 +17,13 @@ export default function App() {
 
   useEffect(() => {
     if (IS_TV) document.documentElement.classList.add('tv');
+  }, []);
+
+  // On always-on TV displays, hold a screen wake lock so it doesn't sleep/black out.
+  useEffect(() => {
+    if (!IS_TV) return undefined;
+    startKeepAwake();
+    return () => stopKeepAwake();
   }, []);
 
   // TVs are wide but short, and the cards are tall — so scale the whole
