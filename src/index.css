@@ -121,6 +121,23 @@ html.tv .fullscreen-btn svg {
   height: 28px;
 }
 
+/* On a TV the hourly strip isn't usable (no precise pointer) and it's the
+   tallest tail section — drop it so the rest can be larger. */
+html.tv .hourly-forecast {
+  display: none;
+}
+
+/* Fit-to-screen: the dashboard is scaled to the viewport height in App.jsx
+   (TVs are short & wide). Clip the leftover layout box so there's no scroll
+   and nothing is cut off. */
+html.tv-fit,
+html.tv-fit body {
+  overflow: hidden;
+}
+html.tv-fit .container {
+  transform-origin: top center;
+}
+
 .cards-container {
   display: grid;
   grid-template-columns: 1fr;       /* phones: single column */
