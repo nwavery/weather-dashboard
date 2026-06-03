@@ -215,12 +215,14 @@ function StarCanvas({ dimmed = false }) {
 }
 
 // ─── Sun glow (clear-day) ───────────────────────────────────────────────────────
-function SunGlow({ timePhase }) {
+function SunGlow({ timePhase, twin = false }) {
   const isMorning = timePhase === 'dawn';
   const isDusk = timePhase === 'dusk';
   return (
     <div className="sun-glow-wrap" aria-hidden="true">
       <div className={`sun-orb ${isMorning ? 'sun-orb--dawn' : ''} ${isDusk ? 'sun-orb--dusk' : ''}`} />
+      {/* Tatooine's second sun */}
+      {twin ? <div className="sun-orb sun-orb--twin" /> : null}
       <div className="sun-rays">
         {Array.from({ length: 12 }, (_, i) => (
           <div key={i} className="sun-ray" style={{ '--ray-i': i }} />
@@ -366,7 +368,7 @@ function FogLayer() {
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────────
-export function WeatherAnimation({ type, timePhase = 'night', weatherCode }) {
+export function WeatherAnimation({ type, timePhase = 'night', weatherCode, twinSuns }) {
   const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
   const isFog = weatherCode === 45 || weatherCode === 48;
   const isNight = timePhase === 'night';
@@ -435,7 +437,7 @@ export function WeatherAnimation({ type, timePhase = 'night', weatherCode }) {
   // Dawn / day / dusk: sun glow + optional rays
   return (
     <div className="sky-anim-wrap" aria-hidden="true">
-      <SunGlow timePhase={timePhase} />
+      <SunGlow timePhase={timePhase} twin={twinSuns} />
     </div>
   );
 }

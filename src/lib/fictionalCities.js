@@ -60,7 +60,7 @@ const CITIES = [
     id: 'mos-eisley', name: 'Mos Eisley', world: 'Tatooine', timeZone: 'Africa/Nairobi',
     aliases: ['mos eisley', 'tatooine'],
     gradient: 'linear-gradient(to bottom,#3a1a06 0%,#9c4a12 22%,#d98324 48%,#e8a24a 70%,#f3c884 100%)',
-    anim: null, phase: 'day', condition: 'Scorching · Twin Suns',
+    anim: null, phase: 'day', condition: 'Scorching · Twin Suns', twinSuns: true,
     weather: makeWeather({ temp: 121, code: 0, feels: 131, humidity: 4, dew: 18, wind: 22, windDir: 95, uv: 12 }),
     air: { us_aqi: 96, pm2_5: 40, ozone: 58 }, pollen: pollen(null, null, null), historical: { baseline: 119, years: 10 }
   },
@@ -259,5 +259,5 @@ export function fictionalStateFor(id) {
 export function fictionalTheme(id) {
   const c = byId(id);
   if (!c) return null;
-  return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}` };
+  return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}`, twinSuns: !!c.twinSuns };
 }
