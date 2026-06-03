@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Weather">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b3d6e"/>
+      <stop offset=".5" stop-color="#2980c9"/>
+      <stop offset="1" stop-color="#5ab4e8"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="45%" r="60%">
+      <stop offset="0" stop-color="#fff7c0"/>
+      <stop offset=".55" stop-color="#ffcf57"/>
+      <stop offset="1" stop-color="#ff9f00"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#sky)"/>
+  <circle cx="41" cy="23" r="12" fill="url(#sun)"/>
+  <g fill="#ffffff">
+    <circle cx="23" cy="41" r="9"/>
+    <circle cx="35" cy="37" r="12"/>
+    <circle cx="46" cy="42" r="10"/>
+    <rect x="20" y="44" width="32" height="11" rx="5.5"/>
+  </g>
+</svg>
