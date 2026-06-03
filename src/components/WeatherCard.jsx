@@ -48,6 +48,7 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
         type={animation}
         timePhase={timePhase}
         weatherCode={current?.weather_code}
+        twinSuns={fic?.twinSuns}
       />
 
       {/* Gradient scrim for text legibility */}
