@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { reverseGeocode, geocodeCity } from '../lib/openMeteo.js';
 import { isDemo, DEMO_LOCATIONS } from '../lib/demoData.js';
+import { findFictional } from '../lib/fictionalCities.js';
 
 const FALLBACK = {
   name: 'Oklahoma City, OK',
@@ -106,13 +107,22 @@ export function useLocations() {
     };
   }, [demo]);
 
-  // Rename/relocate a card by geocoding the typed city name.
+  // Rename/relocate a card by geocoding the typed city name — or, if it matches
+  // one of the fictional pop-culture cities, swap to its themed fake forecast.
   const updateLocation = useCallback(async (key, cityName) => {
     if (demo) return { ok: false };
+    const fic = findFictional(cityName);
+    if (fic) {
+      setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...fic } : l)));
+      return { ok: true };
+    }
     try {
       const geo = await geocodeCity(cityName);
       if (!geo) return { ok: false };
-      setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...geo, badge: '' } : l)));
+      // Clear any fictional flag if this card was previously a fictional city.
+      setLocations((prev) =>
+        prev.map((l) => (l.key === key ? { ...l, ...geo, fictional: false, theme: null, badge: '' } : l))
+      );
       return { ok: true };
     } catch {
       return { ok: false };
