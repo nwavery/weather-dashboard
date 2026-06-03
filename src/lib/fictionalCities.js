@@ -135,6 +135,70 @@ const CITIES = [
     anim: null, phase: 'night', condition: 'Bioluminescent · Floating Peaks',
     weather: makeWeather({ temp: 82, code: 0, feels: 86, humidity: 95, dew: 78, wind: 7, windDir: 100, uv: 3 }),
     air: { us_aqi: 9, pm2_5: 2, ozone: 20 }, pollen: pollen(4, 5, 3), historical: { baseline: 80, years: 10 }
+  },
+  {
+    id: 'dagobah', name: 'Dagobah', world: 'Outer Rim', timeZone: 'Asia/Jakarta',
+    aliases: ['dagobah'],
+    gradient: 'linear-gradient(to bottom,#0c1208 0%,#1b2a14 30%,#2f4421 55%,#4a5f30 80%,#6b7a44 100%)',
+    anim: 'fog', phase: 'day', condition: 'Murky · Do or Do Not',
+    weather: makeWeather({ temp: 76, code: 45, feels: 80, humidity: 96, dew: 73, wind: 4, windDir: 200, uv: 2 }),
+    air: { us_aqi: 35, pm2_5: 9, ozone: 30 }, pollen: pollen(4, 3, 2), historical: { baseline: 75, years: 10 }
+  },
+  {
+    id: 'coruscant', name: 'Coruscant', world: 'Core Worlds', timeZone: 'Asia/Tokyo',
+    aliases: ['coruscant'],
+    gradient: 'linear-gradient(to bottom,#06070f 0%,#0e1326 30%,#1a2444 55%,#34304f 78%,#6b4a52 100%)',
+    anim: 'cloudy', phase: 'night', condition: 'Hazy · Endless City',
+    weather: makeWeather({ temp: 68, code: 3, feels: 66, humidity: 50, dew: 49, wind: 11, windDir: 300, uv: 3 }),
+    air: { us_aqi: 142, pm2_5: 60, ozone: 88 }, pollen: pollen(null, null, null), historical: { baseline: 67, years: 10 }
+  },
+  {
+    id: 'naboo', name: 'Naboo', world: 'Mid Rim', timeZone: 'Europe/Rome',
+    aliases: ['naboo', 'theed'],
+    gradient: 'linear-gradient(to bottom,#0b4a6e 0%,#1f7fae 25%,#41a7d0 50%,#8fd0c0 78%,#d8f0c8 100%)',
+    anim: null, phase: 'day', condition: 'Serene · Lakeside Clear',
+    weather: makeWeather({ temp: 72, code: 1, feels: 73, humidity: 58, dew: 55, wind: 6, windDir: 150, uv: 7 }),
+    air: { us_aqi: 11, pm2_5: 3, ozone: 26 }, pollen: pollen(2, 2, 1), historical: { baseline: 71, years: 10 }
+  },
+  {
+    id: 'rivendell', name: 'Rivendell', world: 'Eriador', timeZone: 'Europe/London',
+    aliases: ['rivendell', 'imladris'],
+    gradient: 'linear-gradient(to bottom,#1a2236 0%,#3b4a5e 25%,#7d7a5e 50%,#c4a45e 75%,#e8cf86 100%)',
+    anim: 'fog', phase: 'day', condition: 'Misty · The Last Homely House',
+    weather: makeWeather({ temp: 58, code: 45, feels: 57, humidity: 82, dew: 52, wind: 4, windDir: 240, uv: 3 }),
+    air: { us_aqi: 7, pm2_5: 2, ozone: 20 }, pollen: pollen(3, 2, 1), historical: { baseline: 57, years: 10 }
+  },
+  {
+    id: 'winterfell', name: 'Winterfell', world: 'The North', timeZone: 'Europe/Oslo',
+    aliases: ['winterfell'],
+    gradient: 'linear-gradient(to bottom,#12161f 0%,#222c3a 30%,#3a4655 58%,#5a6675 82%,#8a96a4 100%)',
+    anim: 'snow', phase: 'day', condition: 'Bitter · Winter Is Coming',
+    weather: makeWeather({ temp: 24, code: 73, feels: 13, humidity: 80, dew: 19, wind: 20, windDir: 0, uv: 1 }),
+    air: { us_aqi: 14, pm2_5: 3, ozone: 25 }, pollen: pollen(null, null, null), historical: { baseline: 28, years: 10 }
+  },
+  {
+    id: 'emerald-city', name: 'Emerald City', world: 'Land of Oz', timeZone: 'America/Chicago',
+    aliases: ['emerald city', 'oz'],
+    gradient: 'linear-gradient(to bottom,#053b2a 0%,#0a6e43 28%,#16a85e 55%,#5fd07e 80%,#c8f0a0 100%)',
+    anim: null, phase: 'day', condition: 'Radiant · Off to See the Wizard',
+    weather: makeWeather({ temp: 74, code: 0, feels: 75, humidity: 45, dew: 50, wind: 8, windDir: 270, uv: 8 }),
+    air: { us_aqi: 9, pm2_5: 2, ozone: 22 }, pollen: pollen(2, 5, 3), historical: { baseline: 73, years: 10 }
+  },
+  {
+    id: 'jurassic-park', name: 'Jurassic Park', world: 'Isla Nublar', timeZone: 'America/Costa_Rica',
+    aliases: ['jurassic park', 'isla nublar'],
+    gradient: 'linear-gradient(to bottom,#0a1410 0%,#152a1e 28%,#21402c 52%,#2e5038 75%,#3a6242 100%)',
+    anim: 'thunder', phase: 'dusk', condition: 'Tropical · Storm Incoming',
+    weather: makeWeather({ temp: 84, code: 95, feels: 92, humidity: 88, dew: 78, wind: 18, windDir: 110, uv: 4 }),
+    air: { us_aqi: 40, pm2_5: 10, ozone: 45 }, pollen: pollen(4, 4, 2), historical: { baseline: 82, years: 10 }
+  },
+  {
+    id: 'hundred-acre-wood', name: 'Hundred Acre Wood', world: 'Ashdown Forest', timeZone: 'Europe/London',
+    aliases: ['hundred acre wood', '100 acre wood', 'acre wood', 'pooh'],
+    gradient: 'linear-gradient(to bottom,#5a8fc0 0%,#8fb6dc 25%,#cdd29a 52%,#e6c878 76%,#f2dd92 100%)',
+    anim: 'cloudy', phase: 'day', condition: 'Blustery · A Rather Blustery Day',
+    weather: makeWeather({ temp: 62, code: 2, feels: 60, humidity: 68, dew: 50, wind: 22, windDir: 250, uv: 4 }),
+    air: { us_aqi: 8, pm2_5: 2, ozone: 22 }, pollen: pollen(3, 3, 1), historical: { baseline: 61, years: 10 }
   }
 ];
 
