@@ -203,6 +203,18 @@ const CITIES = [
 ];
 
 export const FICTIONAL_NAMES = CITIES.map((c) => c.name);
+export const FICTIONAL_COUNT = CITIES.length;
+
+function placeOf(c) {
+  return { name: c.name, latitude: 0, longitude: 0, timeZone: c.timeZone, fictional: true, theme: c.id, badge: c.world };
+}
+
+// The i-th fictional city as a location object (wraps around). Used by the
+// per-card "rotate through fictional cities" feature.
+export function fictionalByIndex(i) {
+  const n = CITIES.length;
+  return placeOf(CITIES[((i % n) + n) % n]);
+}
 
 function byId(id) {
   return CITIES.find((c) => c.id === id) || null;
@@ -226,7 +238,7 @@ export function findFictional(query) {
     return false;
   });
   if (!c) return null;
-  return { name: c.name, latitude: 0, longitude: 0, timeZone: c.timeZone, fictional: true, theme: c.id, badge: c.world };
+  return placeOf(c);
 }
 
 export function fictionalStateFor(id) {

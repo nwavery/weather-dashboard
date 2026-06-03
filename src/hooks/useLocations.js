@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { reverseGeocode, geocodeCity } from '../lib/openMeteo.js';
 import { isDemo, DEMO_LOCATIONS } from '../lib/demoData.js';
-import { findFictional } from '../lib/fictionalCities.js';
+import { findFictional, fictionalByIndex, FICTIONAL_COUNT } from '../lib/fictionalCities.js';
 
 const FALLBACK = {
   name: 'Oklahoma City, OK',
@@ -12,6 +12,18 @@ const FALLBACK = {
 
 const CACHE_KEY = 'weatherDashboardCurrentLocation';
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+// Fictional-city rotation cadence (10 min). Overridable via ?rotateMs= for testing.
+function rotateInterval() {
+  try {
+    const v = parseInt(new URLSearchParams(window.location.search).get('rotateMs'), 10);
+    if (Number.isFinite(v) && v >= 500) return v;
+  } catch {
+    /* ignore */
+  }
+  return 10 * 60 * 1000;
+}
+const ROTATE_MS = rotateInterval();
 
 function loadCache() {
   try {
@@ -93,6 +105,9 @@ export function useLocations() {
         ]
   );
   const [status, setStatus] = useState('');
+  const [rotating, setRotating] = useState({}); // { [key]: true }
+  const timers = useRef({}); // key -> intervalId
+  const idxRef = useRef({}); // key -> next fictional index
 
   useEffect(() => {
     if (demo) return undefined;
@@ -129,5 +144,45 @@ export function useLocations() {
     }
   }, [demo]);
 
-  return { locations, status, updateLocation };
+  // Advance a card to the next fictional city (wraps around).
+  const advanceRotation = useCallback((key) => {
+    const i = idxRef.current[key] ?? 0;
+    idxRef.current[key] = i + 1;
+    const place = fictionalByIndex(i);
+    setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...place } : l)));
+  }, []);
+
+  const toggleRotate = useCallback(
+    (key) => {
+      if (demo) return;
+      setRotating((prev) => ({ ...prev, [key]: !prev[key] }));
+    },
+    [demo]
+  );
+
+  // Start/stop a 10-min timer per rotating card. Turning rotation on jumps to a
+  // random city immediately so it's obvious, then advances on each tick.
+  useEffect(() => {
+    Object.keys(rotating).forEach((key) => {
+      const on = rotating[key];
+      if (on && !timers.current[key]) {
+        idxRef.current[key] = Math.floor(Math.random() * FICTIONAL_COUNT);
+        advanceRotation(key);
+        timers.current[key] = setInterval(() => advanceRotation(key), ROTATE_MS);
+      } else if (!on && timers.current[key]) {
+        clearInterval(timers.current[key]);
+        delete timers.current[key];
+      }
+    });
+  }, [rotating, advanceRotation]);
+
+  useEffect(
+    () => () => {
+      Object.values(timers.current).forEach(clearInterval);
+      timers.current = {};
+    },
+    []
+  );
+
+  return { locations, status, updateLocation, rotating, toggleRotate };
 }
