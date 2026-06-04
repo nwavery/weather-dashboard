@@ -4,8 +4,8 @@ function PollenItem({ icon, label, info }) {
   const hasValue = info && typeof info.value === 'number';
   const cls = hasValue ? pollenClass(info.value) : 'pollen-none';
   // Show the category when we have one ("Moderate", "Out of season", …);
-  // otherwise an em dash reads better than "n/a" for "no data right now".
-  const text = info?.category && info.category !== 'n/a' ? info.category : '—';
+  // otherwise show "None" for "no data / no measurable pollen right now".
+  const text = info?.category && info.category !== 'n/a' ? info.category : 'None';
   const title = hasValue
     ? `${label} pollen — ${info.category} (index ${info.value}/5)`
     : info?.category === 'Out of season'
