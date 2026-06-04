@@ -17,12 +17,23 @@ app.get('/api/healthz', (_req, res) => res.json({ ok: true }));
 // Pollen proxy — the only endpoint that touches the Google API key.
 app.get('/api/pollen', pollenHandler);
 
-// Static built front-end.
+// Content-hashed build assets (dist/assets/*) are immutable — cache hard.
+app.use(
+  '/assets',
+  express.static(path.join(DIST, 'assets'), { index: false, immutable: true, maxAge: '1y' })
+);
+
+// Other static files (favicon, etc.) — modest cache.
 app.use(express.static(DIST, { index: false, maxAge: '1h' }));
 
-// SPA fallback: anything not matched above returns index.html.
+// SPA fallback. index.html must always revalidate so a new deploy is picked up
+// on the next normal reload (no hard-refresh needed); the hashed assets it
+// references are immutable, so this stays cheap.
 app.get('*', (_req, res) => {
-  res.sendFile(path.join(DIST, 'index.html'));
+  res.sendFile(path.join(DIST, 'index.html'), {
+    cacheControl: false,
+    headers: { 'Cache-Control': 'no-cache' }
+  });
 });
 
 app.listen(PORT, () => {
