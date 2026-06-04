@@ -10,7 +10,7 @@ function PollenItem({ icon, label, info }) {
     ? `${label} pollen — ${info.category} (index ${info.value}/5)`
     : info?.category === 'Out of season'
       ? `${label} pollen — out of season`
-      : `${label} pollen — no data right now`;
+      : `${label} pollen — none right now (out of season)`;
   return (
     <div className="metric pollen-metric" title={title}>
       <i className={`fas ${icon}`}></i>{' '}
