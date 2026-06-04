@@ -16,10 +16,9 @@ import androidx.glance.ImageProvider
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.state.PreferencesGlanceStateDefinition
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -28,7 +27,6 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.defaultWeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -37,7 +35,7 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
+import androidx.glance.color.ColorProvider
 import com.weatherglance.MainActivity
 import com.weatherglance.R
 
@@ -46,7 +44,7 @@ class WeatherWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val initial = getAppWidgetState(context, PreferencesGlanceStateDefinition, id)
+        val initial: Preferences = getAppWidgetState(context, id)
         if (initial[KEY_HAS_DATA] != true) {
             WidgetRefreshWorker.enqueueOnce(context)
         }
@@ -58,9 +56,9 @@ class WeatherWidget : GlanceAppWidget() {
         val prefs = currentState<Preferences>()
         val hasData = prefs[KEY_HAS_DATA] ?: false
         val skyRes = prefs[KEY_SKY] ?: R.drawable.sky_clear_day
-        val white = ColorProvider(Color.White)
-        val faint = ColorProvider(Color(0xCCFFFFFF))
-        val dim = ColorProvider(Color(0x99FFFFFF))
+        val white = ColorProvider(Color.White, Color.White)
+        val faint = ColorProvider(Color(0xCCFFFFFF), Color(0xCCFFFFFF))
+        val dim = ColorProvider(Color(0x99FFFFFF), Color(0x99FFFFFF))
 
         Box(
             modifier = GlanceModifier
@@ -139,7 +137,7 @@ class WeatherWidget : GlanceAppWidget() {
                 } else {
                     val pm = prefs[KEY_PM25].orEmpty()
                     Text(
-                        text = if (pm.isNotEmpty()) pm else "Add a Pollen key in the app",
+                        text = pm.ifEmpty { "Add a Pollen key in the app" },
                         style = TextStyle(color = dim, fontSize = 10.sp)
                     )
                 }

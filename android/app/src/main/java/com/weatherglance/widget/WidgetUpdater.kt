@@ -3,6 +3,7 @@ package com.weatherglance.widget
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.appwidget.updateAll
 import com.weatherglance.data.PollenLevel
 import com.weatherglance.data.Snapshot
 import com.weatherglance.weather.Format

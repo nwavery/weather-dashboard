@@ -26,7 +26,7 @@ data class Weather(
 data class AirQuality(val usAqi: Int?, val pm25: Double?) {
     /** US EPA AQI category. */
     val category: String
-        get() = when (val a = usAqi) {
+        get() = when (usAqi) {
             null -> "—"
             in 0..50 -> "Good"
             in 51..100 -> "Moderate"
