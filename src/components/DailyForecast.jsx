@@ -20,9 +20,10 @@ export function DailyForecast({ daily, timeZone }) {
     const ds = daily.time[i]; // YYYY-MM-DD
     let label = '?? ??';
     if (typeof ds === 'string' && ds.length >= 10) {
-      // Noon UTC for that calendar day avoids off-by-one timezone shifts.
-      const dt = new Date(Date.UTC(+ds.slice(0, 4), +ds.slice(5, 7) - 1, +ds.slice(8, 10), 12));
-      label = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short', day: 'numeric' }).format(dt);
+      // The date string is already local to this location — render its weekday
+      // directly (local noon, no tz re-conversion) so it can't shift a day.
+      const dt = new Date(+ds.slice(0, 4), +ds.slice(5, 7) - 1, +ds.slice(8, 10), 12);
+      label = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric' }).format(dt);
     }
     const info = weatherInfo(daily.weather_code?.[i]);
     items.push(

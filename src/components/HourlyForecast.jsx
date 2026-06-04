@@ -32,7 +32,7 @@ export function HourlyForecast({ hourly, timeZone }) {
     const i = start + off;
     if (i >= hourly.time.length) break;
     const t = new Date(hourly.time[i]);
-    const label = t.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true, timeZone });
+    const label = t.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
     const info = weatherInfo(hourly.weather_code?.[i]);
     items.push(
       <div className="hourly-item" key={i}>
