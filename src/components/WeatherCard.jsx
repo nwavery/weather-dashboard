@@ -115,7 +115,7 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
         {status ? <div className="info-display">{status}</div> : null}
 
         <div className="refresh-info">
-          <p>Auto-refreshes every minute</p>
+          <p>Auto-refreshes every 10 min</p>
           <div>
             {wx.updatedAt ? `Updated: ${formatShortTime(wx.updatedAt, location.timeZone)}` : 'Last updated: -'}
           </div>

@@ -4,7 +4,12 @@ import { fetchPollen } from '../lib/pollen.js';
 import { isDemo, demoStateFor } from '../lib/demoData.js';
 import { isFictional, fictionalStateFor } from '../lib/fictionalCities.js';
 
-const REFRESH_MS = 60000;
+// Weather changes slowly, and Open-Meteo's free tier is rate-limited per IP — so
+// refresh every 10 min (not every minute, which an always-on display can use to
+// burn through the daily quota and get 429s that surface as "Failed to fetch").
+// After a failed fetch, retry sooner so a transient throttle recovers quickly.
+const REFRESH_MS = 10 * 60 * 1000;
+const RETRY_MS = 60 * 1000;
 
 const INITIAL = {
   loading: true,
@@ -17,8 +22,17 @@ const INITIAL = {
   updatedAt: null
 };
 
+// Turn raw fetch failures into something friendlier than "Failed to fetch".
+function friendly(reason) {
+  const m = reason?.message || String(reason || 'error');
+  if (/failed to fetch|networkerror|load failed|err_failed/i.test(m)) {
+    return 'weather service busy — retrying…';
+  }
+  return m;
+}
+
 // Fetches weather + air quality + pollen + historical baseline for one location,
-// independently (one failing never blanks the others), and refreshes every minute.
+// independently (one failing never blanks the others), and refreshes on a timer.
 // Demo and fictional cities short-circuit to fabricated, on-theme data (no network).
 export function useLocationWeather(location) {
   const demo = isDemo();
@@ -40,6 +54,7 @@ export function useLocationWeather(location) {
     // `active` guards against a stale in-flight fetch resolving after the location
     // changed (e.g. switching a real city to a fictional one) and clobbering it.
     let active = true;
+    let timer = null;
 
     if (fictional) {
       setState(fictionalStateFor(theme) || INITIAL);
@@ -59,24 +74,32 @@ export function useLocationWeather(location) {
         fetchHistoricalAverage(loc)
       ]);
       if (!active) return; // location changed mid-flight — drop the stale result
-      setState({
+
+      const weatherOk = w.status === 'fulfilled';
+      setState((prev) => ({
         loading: false,
-        weather: w.status === 'fulfilled' ? w.value : null,
-        weatherError: w.status === 'rejected' ? w.reason?.message || 'error' : null,
-        air: a.status === 'fulfilled' ? a.value : null,
-        pollen: p.status === 'fulfilled' ? p.value : null,
-        pollenError: p.status === 'rejected' ? p.reason : null,
-        historical: h.status === 'fulfilled' ? h.value : null,
-        updatedAt: new Date()
-      });
+        // Keep the last good values when a refresh fails (transient rate-limit /
+        // network blip) rather than blanking the card; only show an error if we
+        // have nothing to show yet.
+        weather: weatherOk ? w.value : prev.weather,
+        weatherError: !weatherOk && !prev.weather ? friendly(w.reason) : null,
+        air: a.status === 'fulfilled' ? a.value : prev.air,
+        pollen: p.status === 'fulfilled' ? p.value : prev.pollen,
+        pollenError: p.status === 'rejected' ? p.reason : p.status === 'fulfilled' ? null : prev.pollenError,
+        historical: h.status === 'fulfilled' ? h.value : prev.historical,
+        updatedAt: weatherOk ? new Date() : prev.updatedAt
+      }));
+
+      // Normal cadence on success; quicker retry after a failure.
+      if (active) timer = setTimeout(run, weatherOk ? REFRESH_MS : RETRY_MS);
     };
 
     setState((s) => ({ ...s, loading: true }));
     run();
-    const id = setInterval(run, REFRESH_MS);
+
     return () => {
       active = false;
-      clearInterval(id);
+      if (timer) clearTimeout(timer);
     };
   }, [demo, fictional, theme, lat, lng, tz]);
 
