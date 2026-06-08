@@ -1,5 +1,5 @@
 import { formatTemperature } from '../lib/format.js';
-import { weatherInfo } from '../data/weatherCodes.js';
+import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 
 const OFFSETS = [1, 3, 5, 7, 9, 11];
 
@@ -33,7 +33,13 @@ export function HourlyForecast({ hourly, timeZone }) {
     if (i >= hourly.time.length) break;
     const t = new Date(hourly.time[i]);
     const label = t.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
-    const info = weatherInfo(hourly.weather_code?.[i]);
+    const info = weatherInfo(
+      effectiveWeatherCode({
+        weather_code: hourly.weather_code?.[i],
+        precipitation: hourly.precipitation?.[i],
+        cloud_cover: hourly.cloud_cover?.[i]
+      })
+    );
     items.push(
       <div className="hourly-item" key={i}>
         <div className="hourly-time">{label}</div>

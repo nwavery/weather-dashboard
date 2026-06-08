@@ -1,6 +1,6 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
-import { weatherInfo } from '../data/weatherCodes.js';
+import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme } from '../lib/fictionalCities.js';
 import { WeatherAnimation, getSkyGradient } from './WeatherAnimation.jsx';
 import { EditableName } from './EditableName.jsx';
@@ -25,7 +25,7 @@ function historicalText(weather, historical) {
 export function WeatherCard({ location, now, status, onRename, rotating, onToggleRotate }) {
   const wx = useLocationWeather(location);
   const current = wx.weather?.current;
-  const info = current ? weatherInfo(current.weather_code) : null;
+  const info = current ? weatherInfo(effectiveWeatherCode(current)) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
   // Fictional cities supply their own background gradient, animation, time-of-day
   // phase, and condition text; real cities derive them from the live weather.
