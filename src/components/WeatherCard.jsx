@@ -10,6 +10,7 @@ import {
   moonEmoji,
   currentMeteorShower,
 } from './WeatherAnimation.jsx';
+import { WorldEffects } from './WorldEffects.jsx';
 import { EditableName } from './EditableName.jsx';
 import { DailyForecast } from './DailyForecast.jsx';
 import { HourlyForecast } from './HourlyForecast.jsx';
@@ -66,6 +67,9 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
         twinSuns={fic?.twinSuns}
         aurora={aurora}
       />
+
+      {/* Per-world ambient particles (bubbles, embers, spores…) */}
+      {fic?.effect ? <WorldEffects kind={fic.effect} /> : null}
 
       {/* Gradient scrim for text legibility */}
       <div className="card-scrim" aria-hidden="true" />
