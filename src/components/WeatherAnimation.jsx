@@ -52,8 +52,110 @@ export function getSkyGradient(animation, timePhase) {
   return (gradients[typeKey] || gradients.clear)[timePhase] || gradients.clear.night;
 }
 
+// ─── Moon phase ─────────────────────────────────────────────────────────────────
+// Synodic-month phase in [0,1): 0 = new, 0.5 = full. Anchored to the new moon of
+// 2000-01-06 18:14 UTC. Good to within a few hours — plenty for a pretty moon.
+export function moonPhase(date = new Date()) {
+  const SYNODIC = 29.530588853;
+  const ref = Date.UTC(2000, 0, 6, 18, 14, 0);
+  let p = (((date.getTime() - ref) / 86400000) % SYNODIC) / SYNODIC;
+  if (p < 0) p += 1;
+  return p;
+}
+
+export function moonPhaseName(phase) {
+  if (phase < 0.02 || phase > 0.98) return 'New Moon';
+  if (phase < 0.23) return 'Waxing Crescent';
+  if (phase < 0.27) return 'First Quarter';
+  if (phase < 0.48) return 'Waxing Gibbous';
+  if (phase < 0.52) return 'Full Moon';
+  if (phase < 0.73) return 'Waning Gibbous';
+  if (phase < 0.77) return 'Last Quarter';
+  return 'Waning Crescent';
+}
+
+export function moonEmoji(phase) {
+  const e = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+  return e[Math.round(phase * 8) % 8];
+}
+
+// ─── Meteor showers ─────────────────────────────────────────────────────────────
+// Major annual showers (active window + peak), matched by MM-DD. A ?meteor=NAME
+// query param forces one on (handy for demos/tests out of season); ?meteor=off
+// forces none.
+const METEOR_SHOWERS = [
+  { name: 'Quadrantids',   from: '01-01', to: '01-05', peak: '01-03' },
+  { name: 'Lyrids',        from: '04-16', to: '04-25', peak: '04-22' },
+  { name: 'Eta Aquariids', from: '04-19', to: '05-12', peak: '05-06' },
+  { name: 'Perseids',      from: '07-17', to: '08-24', peak: '08-12' },
+  { name: 'Orionids',      from: '10-02', to: '11-07', peak: '10-21' },
+  { name: 'Leonids',       from: '11-06', to: '11-30', peak: '11-17' },
+  { name: 'Geminids',      from: '12-04', to: '12-17', peak: '12-14' },
+  { name: 'Ursids',        from: '12-17', to: '12-26', peak: '12-22' },
+];
+
+export function currentMeteorShower(date = new Date()) {
+  if (typeof window !== 'undefined') {
+    const o = new URLSearchParams(window.location.search).get('meteor');
+    if (o) {
+      const q = o.toLowerCase();
+      if (q === 'off' || q === 'none' || q === '0') return null;
+      const f = METEOR_SHOWERS.find((s) => s.name.toLowerCase().startsWith(q));
+      if (f) return { name: f.name, peak: true };
+    }
+  }
+  const mmdd = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  for (const s of METEOR_SHOWERS) {
+    if (mmdd >= s.from && mmdd <= s.to) return { name: s.name, peak: mmdd === s.peak };
+  }
+  return null;
+}
+
+// ─── Moon renderer ──────────────────────────────────────────────────────────────
+// Phase-accurate moon: a right-limb semicircle joined to a terminator ellipse,
+// mirrored for the waning half. `phase` is the value from moonPhase().
+function drawMoon(ctx, cx, cy, r, phase) {
+  const f = (1 - Math.cos(2 * Math.PI * phase)) / 2; // illuminated fraction 0..1
+  const m = 1 - 2 * f;                                // cos(2π·phase): >0 ⇒ crescent
+  const tr = r * Math.abs(m);                         // terminator half-width
+  const waning = phase > 0.5;
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.translate(cx, cy);
+
+  // Soft halo that brightens with illumination
+  const glow = ctx.createRadialGradient(0, 0, r * 0.55, 0, 0, r * 2.8);
+  glow.addColorStop(0, `rgba(222,230,255,${0.05 + 0.2 * f})`);
+  glow.addColorStop(1, 'rgba(222,230,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 2.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Faint full disc (earthshine) so the dark limb still reads
+  ctx.fillStyle = 'rgba(150,160,195,0.1)';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Lit portion
+  if (waning) ctx.scale(-1, 1);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  ctx.ellipse(0, 0, tr, r, 0, Math.PI / 2, -Math.PI / 2, m > 0);
+  ctx.closePath();
+  const fill = ctx.createRadialGradient(-r * 0.25, -r * 0.25, r * 0.1, 0, 0, r);
+  fill.addColorStop(0, 'rgba(255,253,246,0.98)');
+  fill.addColorStop(1, 'rgba(212,221,238,0.9)');
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  ctx.restore();
+}
+
 // ─── Star canvas (for clear/night skies) ───────────────────────────────────────
-function StarCanvas({ dimmed = false }) {
+function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -64,7 +166,10 @@ function StarCanvas({ dimmed = false }) {
 
     const STAR_COUNT = 120;
     const TINY_COUNT = 80;
-    const SHOOT_INTERVAL = 4500;
+    // Meteor showers crank up the shooting-star rate (peak nights fastest)
+    const SHOOT_INTERVAL = meteorActive ? (meteorPeak ? 1100 : 1700) : 4500;
+    const showMoon = !dimmed;
+    const phase = moonPhase();
 
     function resize() {
       canvas.width = canvas.offsetWidth;
@@ -96,6 +201,7 @@ function StarCanvas({ dimmed = false }) {
 
     let shooter = null;
     let lastShoot = -SHOOT_INTERVAL * 0.5;
+    let nextGap = SHOOT_INTERVAL * (0.6 + Math.random() * 0.8);
 
     function spawnShooter(now) {
       const sx = 0.05 + Math.random() * 0.65;
@@ -150,10 +256,18 @@ function StarCanvas({ dimmed = false }) {
         }
       }
 
+      // Moon (phase-accurate, upper-right)
+      if (showMoon) {
+        ctx.globalAlpha = 1;
+        const mr = Math.max(11, Math.min(w * 0.05, 30));
+        drawMoon(ctx, w * 0.8, h * 0.15, mr, phase);
+      }
+
       // Shooting star
-      if (!shooter && now - lastShoot > SHOOT_INTERVAL) {
+      if (!shooter && now - lastShoot > nextGap) {
         spawnShooter(now);
         lastShoot = now;
+        nextGap = SHOOT_INTERVAL * (0.6 + Math.random() * 0.8);
       }
       if (shooter) {
         const age = now - shooter.startedAt;
@@ -202,7 +316,7 @@ function StarCanvas({ dimmed = false }) {
       ro.disconnect();
       cancelAnimationFrame(rafRef.current);
     };
-  }, []);
+  }, [dimmed, meteorActive, meteorPeak]);
 
   return (
     <canvas
@@ -427,9 +541,10 @@ export function WeatherAnimation({ type, timePhase = 'night', weatherCode, twinS
 
   // Clear sky (type === null or undefined)
   if (isNight) {
+    const shower = currentMeteorShower();
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
-        <StarCanvas dimmed={false} />
+        <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} />
       </div>
     );
   }

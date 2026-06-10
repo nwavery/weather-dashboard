@@ -309,6 +309,21 @@ html.tv-fit .container {
   border-radius: 8px;
 }
 
+/* Clear-night celestial readout: moon phase + any active meteor shower */
+.celestial-badge {
+  margin-top: 6px;
+  font-size: clamp(0.7rem, 1.1vw, 0.82rem);
+  color: rgba(226, 234, 255, 0.82);
+  letter-spacing: 0.02em;
+}
+.celestial-badge .moon-glyph {
+  font-size: 1.05em;
+}
+.celestial-badge .meteor-bit {
+  color: rgba(180, 214, 255, 0.95);
+  white-space: nowrap;
+}
+
 /* "Your real weather matches a fictional world" wink badge (real cities only) */
 .twin-badge {
   margin-top: 10px;
