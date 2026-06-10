@@ -21,8 +21,21 @@ function nowInZone(tz) {
   }
 }
 
+// Plausible chance-of-precipitation for a WMO code (heavier condition → higher).
+function probFor(code) {
+  if (code === 95 || code === 96 || code === 99) return 90;            // thunder
+  if (code === 65 || code === 75 || code === 82 || code === 86) return 95; // heavy rain/snow
+  if (code === 63 || code === 73 || code === 81) return 80;            // moderate
+  if (code === 61 || code === 71 || code === 80 || code === 85) return 65; // light
+  if (code >= 51 && code <= 57) return 55;                             // drizzle
+  if (code === 66 || code === 67 || code === 77) return 70;            // freezing/grains
+  if (code === 3) return 10;
+  if (code === 2) return 5;
+  return 0;                                                            // clear / fog
+}
+
 function makeWeather(params, timeZone) {
-  const { temp, code, feels, humidity, dew, wind, windDir, uv, dailyCodes, hourlyCodes } = params;
+  const { temp, code, feels, humidity, dew, wind, windDir, uv, dailyCodes, hourlyCodes, precipProb } = params;
   const now = nowInZone(timeZone);
 
   const daily = { time: [], temperature_2m_max: [], temperature_2m_min: [], weather_code: [] };
@@ -36,15 +49,18 @@ function makeWeather(params, timeZone) {
     daily.weather_code.push(dCodes[i % dCodes.length]);
   }
 
-  const hourly = { time: [], temperature_2m: [], weather_code: [] };
+  const hourly = { time: [], temperature_2m: [], weather_code: [], precipitation_probability: [] };
   const base = new Date(now);
   base.setMinutes(0, 0, 0);
   const hCodes = hourlyCodes || [code, code, 2, 1, code, 3];
   for (let i = 0; i < 24; i++) {
     const t = new Date(base.getTime() + i * 3600 * 1000);
+    const hCode = hCodes[i % hCodes.length];
     hourly.time.push(`${isoDate(t)}T${pad(t.getHours())}:00`);
     hourly.temperature_2m.push(Math.round(temp + Math.sin(i / 3) * 4));
-    hourly.weather_code.push(hCodes[i % hCodes.length]);
+    hourly.weather_code.push(hCode);
+    // precipProb overrides per-world (Atlantis is underwater: always 100%)
+    hourly.precipitation_probability.push(typeof precipProb === 'number' ? precipProb : probFor(hCode));
   }
 
   return {
@@ -75,7 +91,7 @@ const CITIES = [
     aliases: ['mos eisley', 'tatooine'],
     gradient: 'linear-gradient(to bottom,#3a1a06 0%,#9c4a12 22%,#d98324 48%,#e8a24a 70%,#f3c884 100%)',
     anim: null, phase: 'day', condition: 'Scorching · Twin Suns', twinSuns: true,
-    weather: ({ temp: 121, code: 0, feels: 131, humidity: 4, dew: 18, wind: 22, windDir: 95, uv: 12 }),
+    weather: ({ temp: 121, code: 0, feels: 131, humidity: 4, dew: 18, wind: 22, windDir: 95, uv: 12, precipProb: 0 }),
     air: { us_aqi: 96, pm2_5: 40, ozone: 58 }, pollen: pollen(null, null, null), historical: { baseline: 119, years: 10 }
   },
   {
@@ -83,7 +99,7 @@ const CITIES = [
     aliases: ['hoth'],
     gradient: 'linear-gradient(to bottom,#1b2b44 0%,#33567f 30%,#6f9ec9 60%,#b8d6ee 85%,#e8f2fb 100%)',
     anim: 'snow', phase: 'day', condition: 'Blizzard · Whiteout',
-    weather: ({ temp: -42, code: 75, feels: -61, humidity: 78, dew: -48, wind: 35, windDir: 350, uv: 1 }),
+    weather: ({ temp: -42, code: 75, feels: -61, humidity: 78, dew: -48, wind: 35, windDir: 350, uv: 1, hourlyCodes: [75, 73, 75, 75, 73, 75] }),
     air: { us_aqi: 8, pm2_5: 2, ozone: 22 }, pollen: pollen(null, null, null), historical: { baseline: -38, years: 10 }
   },
   {
@@ -99,7 +115,7 @@ const CITIES = [
     aliases: ['mustafar'],
     gradient: 'linear-gradient(to bottom,#1a0402 0%,#4d0d04 30%,#8f1d06 55%,#d6440c 78%,#ff7a1a 100%)',
     anim: 'fog', phase: 'night', condition: 'Volcanic · Ash Fall',
-    weather: ({ temp: 451, code: 45, feels: 460, humidity: 2, dew: 35, wind: 14, windDir: 180, uv: 14 }),
+    weather: ({ temp: 451, code: 45, feels: 460, humidity: 2, dew: 35, wind: 14, windDir: 180, uv: 14, precipProb: 0 }),
     air: { us_aqi: 480, pm2_5: 320, ozone: 180 }, pollen: pollen(null, null, null), historical: { baseline: 449, years: 10 }
   },
   {
@@ -115,7 +131,7 @@ const CITIES = [
     aliases: ['atlantis'],
     gradient: 'linear-gradient(to bottom,#021015 0%,#04313f 30%,#076173 55%,#0b97a8 80%,#3fd0d6 100%)',
     anim: 'rain', phase: 'night', condition: 'Submerged · Gentle Currents',
-    weather: ({ temp: 61, code: 51, feels: 60, humidity: 100, dew: 61, wind: 2, windDir: 0, uv: 0 }),
+    weather: ({ temp: 61, code: 51, feels: 60, humidity: 100, dew: 61, wind: 2, windDir: 0, uv: 0, precipProb: 100 }),
     air: { us_aqi: 5, pm2_5: 1, ozone: 10 }, pollen: pollen(null, null, null), historical: { baseline: 60, years: 10 }
   },
   {
@@ -123,7 +139,7 @@ const CITIES = [
     aliases: ['gotham', 'gotham city'],
     gradient: 'linear-gradient(to bottom,#05060a 0%,#0c1018 30%,#14202e 58%,#1d2e40 82%,#274055 100%)',
     anim: 'rain', phase: 'night', condition: 'Grim · Steady Rain',
-    weather: ({ temp: 49, code: 63, feels: 44, humidity: 90, dew: 46, wind: 16, windDir: 40, uv: 0 }),
+    weather: ({ temp: 49, code: 63, feels: 44, humidity: 90, dew: 46, wind: 16, windDir: 40, uv: 0, hourlyCodes: [63, 63, 61, 63, 65, 63] }),
     air: { us_aqi: 120, pm2_5: 55, ozone: 70 }, pollen: pollen(1, null, null), historical: { baseline: 52, years: 10 }
   },
   {
@@ -139,7 +155,7 @@ const CITIES = [
     aliases: ['mordor', 'mount doom'],
     gradient: 'linear-gradient(to bottom,#0a0806 0%,#1c1411 30%,#33201a 55%,#5c2a1e 78%,#8a3520 100%)',
     anim: 'fog', phase: 'dusk', condition: 'Ashen · The Eye Watches',
-    weather: ({ temp: 109, code: 45, feels: 116, humidity: 12, dew: 30, wind: 28, windDir: 200, uv: 9 }),
+    weather: ({ temp: 109, code: 45, feels: 116, humidity: 12, dew: 30, wind: 28, windDir: 200, uv: 9, precipProb: 0 }),
     air: { us_aqi: 300, pm2_5: 180, ozone: 150 }, pollen: pollen(null, null, null), historical: { baseline: 100, years: 10 }
   },
   {
@@ -155,7 +171,7 @@ const CITIES = [
     aliases: ['dagobah'],
     gradient: 'linear-gradient(to bottom,#0c1208 0%,#1b2a14 30%,#2f4421 55%,#4a5f30 80%,#6b7a44 100%)',
     anim: 'fog', phase: 'day', condition: 'Murky · Do or Do Not',
-    weather: ({ temp: 76, code: 45, feels: 80, humidity: 96, dew: 73, wind: 4, windDir: 200, uv: 2 }),
+    weather: ({ temp: 76, code: 45, feels: 80, humidity: 96, dew: 73, wind: 4, windDir: 200, uv: 2, precipProb: 60 }),
     air: { us_aqi: 35, pm2_5: 9, ozone: 30 }, pollen: pollen(4, 3, 2), historical: { baseline: 75, years: 10 }
   },
   {
@@ -179,7 +195,7 @@ const CITIES = [
     aliases: ['rivendell', 'imladris'],
     gradient: 'linear-gradient(to bottom,#1a2236 0%,#3b4a5e 25%,#7d7a5e 50%,#c4a45e 75%,#e8cf86 100%)',
     anim: 'fog', phase: 'day', condition: 'Misty · The Last Homely House',
-    weather: ({ temp: 58, code: 45, feels: 57, humidity: 82, dew: 52, wind: 4, windDir: 240, uv: 3 }),
+    weather: ({ temp: 58, code: 45, feels: 57, humidity: 82, dew: 52, wind: 4, windDir: 240, uv: 3, precipProb: 20 }),
     air: { us_aqi: 7, pm2_5: 2, ozone: 20 }, pollen: pollen(3, 2, 1), historical: { baseline: 57, years: 10 }
   },
   {
@@ -187,7 +203,7 @@ const CITIES = [
     aliases: ['winterfell'],
     gradient: 'linear-gradient(to bottom,#12161f 0%,#222c3a 30%,#3a4655 58%,#5a6675 82%,#8a96a4 100%)',
     anim: 'snow', phase: 'day', condition: 'Bitter · Winter Is Coming',
-    weather: ({ temp: 24, code: 73, feels: 13, humidity: 80, dew: 19, wind: 20, windDir: 0, uv: 1 }),
+    weather: ({ temp: 24, code: 73, feels: 13, humidity: 80, dew: 19, wind: 20, windDir: 0, uv: 1, hourlyCodes: [73, 71, 73, 75, 73, 71] }),
     air: { us_aqi: 14, pm2_5: 3, ozone: 25 }, pollen: pollen(null, null, null), historical: { baseline: 28, years: 10 }
   },
   {
@@ -203,7 +219,7 @@ const CITIES = [
     aliases: ['jurassic park', 'isla nublar'],
     gradient: 'linear-gradient(to bottom,#0a1410 0%,#152a1e 28%,#21402c 52%,#2e5038 75%,#3a6242 100%)',
     anim: 'thunder', phase: 'dusk', condition: 'Tropical · Storm Incoming',
-    weather: ({ temp: 84, code: 95, feels: 92, humidity: 88, dew: 78, wind: 18, windDir: 110, uv: 4 }),
+    weather: ({ temp: 84, code: 95, feels: 92, humidity: 88, dew: 78, wind: 18, windDir: 110, uv: 4, hourlyCodes: [95, 95, 80, 61, 95, 81] }),
     air: { us_aqi: 40, pm2_5: 10, ozone: 45 }, pollen: pollen(4, 4, 2), historical: { baseline: 82, years: 10 }
   },
   {
@@ -219,7 +235,7 @@ const CITIES = [
     aliases: ['arrakis', 'dune', 'spice'],
     gradient: 'linear-gradient(to bottom,#3a1402 0%,#7a3308 24%,#b85e16 50%,#d98a2e 74%,#e8b057 100%)',
     anim: null, phase: 'day', condition: 'Spice Bloom · Shai-Hulud Stirs',
-    weather: ({ temp: 116, code: 0, feels: 124, humidity: 5, dew: 22, wind: 26, windDir: 110, uv: 13 }),
+    weather: ({ temp: 116, code: 0, feels: 124, humidity: 5, dew: 22, wind: 26, windDir: 110, uv: 13, precipProb: 0 }),
     air: { us_aqi: 110, pm2_5: 52, ozone: 60 }, pollen: pollen(null, null, null), historical: { baseline: 114, years: 10 }
   },
   {
@@ -235,7 +251,7 @@ const CITIES = [
     aliases: ['hogwarts', 'hogsmeade'],
     gradient: 'linear-gradient(to bottom,#14101f 0%,#241d36 28%,#33304f 52%,#445166 76%,#6b7d6a 100%)',
     anim: 'rain', phase: 'dusk', condition: 'Misty · Mischief Managed',
-    weather: ({ temp: 52, code: 63, feels: 48, humidity: 88, dew: 48, wind: 12, windDir: 240, uv: 2 }),
+    weather: ({ temp: 52, code: 63, feels: 48, humidity: 88, dew: 48, wind: 12, windDir: 240, uv: 2, hourlyCodes: [63, 61, 63, 51, 61, 63] }),
     air: { us_aqi: 12, pm2_5: 3, ozone: 24 }, pollen: pollen(2, 2, 1), historical: { baseline: 51, years: 10 }
   },
   {
@@ -243,7 +259,7 @@ const CITIES = [
     aliases: ['bikini bottom', 'spongebob'],
     gradient: 'linear-gradient(to bottom,#02232e 0%,#06556b 26%,#0a9fb0 52%,#3fd0c6 76%,#e8e07a 100%)',
     anim: 'rain', phase: 'day', condition: 'Submerged · F is for Friends',
-    weather: ({ temp: 76, code: 51, feels: 78, humidity: 100, dew: 74, wind: 3, windDir: 90, uv: 0 }),
+    weather: ({ temp: 76, code: 51, feels: 78, humidity: 100, dew: 74, wind: 3, windDir: 90, uv: 0, precipProb: 100 }),
     air: { us_aqi: 6, pm2_5: 1, ozone: 12 }, pollen: pollen(null, null, null), historical: { baseline: 75, years: 10 }
   },
   {
@@ -251,7 +267,7 @@ const CITIES = [
     aliases: ['narnia', 'wardrobe'],
     gradient: 'linear-gradient(to bottom,#243a5e 0%,#4a6f9e 28%,#86a8cc 54%,#bcd4ea 78%,#eef5fb 100%)',
     anim: 'snow', phase: 'day', condition: 'Always Winter · Never Christmas',
-    weather: ({ temp: 20, code: 73, feels: 9, humidity: 82, dew: 15, wind: 14, windDir: 0, uv: 1 }),
+    weather: ({ temp: 20, code: 73, feels: 9, humidity: 82, dew: 15, wind: 14, windDir: 0, uv: 1, hourlyCodes: [73, 71, 73, 73, 75, 71] }),
     air: { us_aqi: 7, pm2_5: 1, ozone: 20 }, pollen: pollen(null, null, null), historical: { baseline: 24, years: 10 }
   },
   {

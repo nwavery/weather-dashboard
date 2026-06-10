@@ -154,6 +154,9 @@ html.tv .section-label {
 html.tv .hourly-item {
   padding: clamp(4px, 0.7vw, 8px) 5px;
 }
+html.tv .hourly-precip {
+  margin-top: 0;
+}
 
 /* Fit-to-screen: the dashboard is scaled to the viewport height in App.jsx
    (TVs are short & wide). Clip the leftover layout box so there's no scroll
@@ -712,6 +715,17 @@ h2 {
   color: var(--text-primary);
   font-weight: 500;
   white-space: nowrap;
+}
+
+/* Chance of precipitation; the slot always renders so card heights stay equal */
+.hourly-precip {
+  margin-top: 2px;
+  font-size: clamp(0.62rem, 1vw, 0.72rem);
+  color: #8fc6ef;
+  white-space: nowrap;
+}
+.hourly-precip--none {
+  opacity: 0.35;
 }
 
 /* ── Air quality ───────────────────────────────────────────── */

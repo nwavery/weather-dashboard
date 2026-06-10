@@ -40,6 +40,7 @@ export function HourlyForecast({ hourly, timeZone }) {
         cloud_cover: hourly.cloud_cover?.[i]
       })
     );
+    const prob = hourly.precipitation_probability?.[i];
     items.push(
       <div className="hourly-item" key={i}>
         <div className="hourly-time">{label}</div>
@@ -47,6 +48,13 @@ export function HourlyForecast({ hourly, timeZone }) {
           <img src={`https://openweathermap.org/img/wn/${info.icon}.png`} alt={info.description} title={info.description} />
         </div>
         <div className="hourly-temp">{formatTemperature(hourly.temperature_2m?.[i])}</div>
+        {/* Keep the row height uniform: render the slot even when there's no data */}
+        <div
+          className={`hourly-precip${typeof prob === 'number' && prob > 0 ? '' : ' hourly-precip--none'}`}
+          title="Chance of precipitation"
+        >
+          {typeof prob === 'number' ? `💧${Math.round(prob)}%` : ' '}
+        </div>
       </div>
     );
   }
