@@ -211,6 +211,54 @@ const CITIES = [
     anim: 'cloudy', phase: 'day', condition: 'Blustery · A Rather Blustery Day',
     weather: ({ temp: 62, code: 2, feels: 60, humidity: 68, dew: 50, wind: 22, windDir: 250, uv: 4 }),
     air: { us_aqi: 8, pm2_5: 2, ozone: 22 }, pollen: pollen(3, 3, 1), historical: { baseline: 61, years: 10 }
+  },
+  {
+    id: 'arrakis', name: 'Arrakis', world: 'Dune', timeZone: 'Africa/Cairo',
+    aliases: ['arrakis', 'dune', 'spice'],
+    gradient: 'linear-gradient(to bottom,#3a1402 0%,#7a3308 24%,#b85e16 50%,#d98a2e 74%,#e8b057 100%)',
+    anim: null, phase: 'day', condition: 'Spice Bloom · Shai-Hulud Stirs',
+    weather: ({ temp: 116, code: 0, feels: 124, humidity: 5, dew: 22, wind: 26, windDir: 110, uv: 13 }),
+    air: { us_aqi: 110, pm2_5: 52, ozone: 60 }, pollen: pollen(null, null, null), historical: { baseline: 114, years: 10 }
+  },
+  {
+    id: 'asgard', name: 'Asgard', world: 'The Nine Realms', timeZone: 'Atlantic/Reykjavik',
+    aliases: ['asgard', 'bifrost', 'valhalla'],
+    gradient: 'linear-gradient(to bottom,#05060f 0%,#0c1030 28%,#1a1a55 52%,#3a2a6e 74%,#caa24a 100%)',
+    anim: null, phase: 'night', condition: 'Eternal · Bifröst Shimmer',
+    weather: ({ temp: 58, code: 1, feels: 57, humidity: 60, dew: 45, wind: 8, windDir: 0, uv: 1 }),
+    air: { us_aqi: 6, pm2_5: 1, ozone: 18 }, pollen: pollen(1, 1, null), historical: { baseline: 57, years: 10 }
+  },
+  {
+    id: 'hogwarts', name: 'Hogwarts', world: 'Scottish Highlands', timeZone: 'Europe/London',
+    aliases: ['hogwarts', 'hogsmeade'],
+    gradient: 'linear-gradient(to bottom,#14101f 0%,#241d36 28%,#33304f 52%,#445166 76%,#6b7d6a 100%)',
+    anim: 'rain', phase: 'dusk', condition: 'Misty · Mischief Managed',
+    weather: ({ temp: 52, code: 63, feels: 48, humidity: 88, dew: 48, wind: 12, windDir: 240, uv: 2 }),
+    air: { us_aqi: 12, pm2_5: 3, ozone: 24 }, pollen: pollen(2, 2, 1), historical: { baseline: 51, years: 10 }
+  },
+  {
+    id: 'bikini-bottom', name: 'Bikini Bottom', world: 'Pacific Ocean', timeZone: 'Pacific/Honolulu',
+    aliases: ['bikini bottom', 'spongebob'],
+    gradient: 'linear-gradient(to bottom,#02232e 0%,#06556b 26%,#0a9fb0 52%,#3fd0c6 76%,#e8e07a 100%)',
+    anim: 'rain', phase: 'day', condition: 'Submerged · F is for Friends',
+    weather: ({ temp: 76, code: 51, feels: 78, humidity: 100, dew: 74, wind: 3, windDir: 90, uv: 0 }),
+    air: { us_aqi: 6, pm2_5: 1, ozone: 12 }, pollen: pollen(null, null, null), historical: { baseline: 75, years: 10 }
+  },
+  {
+    id: 'narnia', name: 'Narnia', world: 'The Wardrobe', timeZone: 'Europe/London',
+    aliases: ['narnia', 'wardrobe'],
+    gradient: 'linear-gradient(to bottom,#243a5e 0%,#4a6f9e 28%,#86a8cc 54%,#bcd4ea 78%,#eef5fb 100%)',
+    anim: 'snow', phase: 'day', condition: 'Always Winter · Never Christmas',
+    weather: ({ temp: 20, code: 73, feels: 9, humidity: 82, dew: 15, wind: 14, windDir: 0, uv: 1 }),
+    air: { us_aqi: 7, pm2_5: 1, ozone: 20 }, pollen: pollen(null, null, null), historical: { baseline: 24, years: 10 }
+  },
+  {
+    id: 'springfield', name: 'Springfield', world: 'USA', timeZone: 'America/Chicago',
+    aliases: ['springfield', 'simpsons'],
+    gradient: 'linear-gradient(to bottom,#1a6fc4 0%,#3f97df 26%,#7dc0ef 52%,#bfe0f5 76%,#f2e06a 100%)',
+    anim: null, phase: 'day', condition: "Sunny · Mmm… Weather",
+    weather: ({ temp: 72, code: 1, feels: 73, humidity: 55, dew: 54, wind: 7, windDir: 200, uv: 7 }),
+    air: { us_aqi: 78, pm2_5: 22, ozone: 70 }, pollen: pollen(3, 4, 2), historical: { baseline: 71, years: 10 }
   }
 ];
 

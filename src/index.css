@@ -245,6 +245,22 @@ html.tv-fit .container {
   mix-blend-mode: screen;
   z-index: 0;
 }
+.fic-arrakis .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 120% 50% at 50% 80%, rgba(230, 150, 50, 0.35) 0%, rgba(200, 110, 20, 0.12) 38%, transparent 66%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.fic-asgard .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 28%, rgba(80, 220, 160, 0.22) 44%, rgba(120, 140, 255, 0.22) 54%, rgba(235, 165, 90, 0.22) 64%, transparent 80%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
 .fic-emerald-city .sky-bg::before {
   content: '';
   position: absolute;
