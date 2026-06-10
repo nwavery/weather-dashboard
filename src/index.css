@@ -308,6 +308,21 @@ html.tv-fit .container {
   background: rgba(127, 208, 255, 0.18);
   border-radius: 8px;
 }
+
+/* "Your real weather matches a fictional world" wink badge (real cities only) */
+.twin-badge {
+  margin-top: 10px;
+  display: inline-block;
+  font-size: clamp(0.72rem, 1.2vw, 0.85rem);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 4px 13px;
+  letter-spacing: 0.02em;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
 .fic-hundred-acre-wood .sky-bg::before {
   content: '';
   position: absolute;
