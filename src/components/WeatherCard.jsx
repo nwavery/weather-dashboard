@@ -46,6 +46,9 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
   const isClearNight = timePhase === 'night' && (!animation || animation === 'clear');
   const moonP = isClearNight ? moonPhase(now) : null;
   const shower = isClearNight ? currentMeteorShower(now) : null;
+  // Aurora on clear nights: flagged fictional worlds (e.g. Asgard) or real cities
+  // at auroral latitudes (|lat| >= 55°).
+  const aurora = isClearNight && (fic ? !!fic.aurora : Math.abs(location.latitude ?? 0) >= 55);
 
   return (
     <div
@@ -61,6 +64,7 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
         timePhase={timePhase}
         weatherCode={current?.weather_code}
         twinSuns={fic?.twinSuns}
+        aurora={aurora}
       />
 
       {/* Gradient scrim for text legibility */}
