@@ -1,7 +1,7 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
-import { isFictional, fictionalTheme } from '../lib/fictionalCities.js';
+import { isFictional, fictionalTheme, fictionalTwin } from '../lib/fictionalCities.js';
 import { WeatherAnimation, getSkyGradient } from './WeatherAnimation.jsx';
 import { EditableName } from './EditableName.jsx';
 import { DailyForecast } from './DailyForecast.jsx';
@@ -30,6 +30,7 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
   // Fictional cities supply their own background gradient, animation, time-of-day
   // phase, and condition text; real cities derive them from the live weather.
   const fic = isFictional(location) ? fictionalTheme(location.theme) : null;
+  const twin = fic ? null : fictionalTwin(wx.weather, wx.air);
   const timePhase = fic?.phase || getTimePhase(now, location.timeZone);
   const animation = fic ? fic.anim : info?.animation || null;
   const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
@@ -102,6 +103,11 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
                     {' '}{historicalText(wx.weather, wx.historical)}
                   </span>
                 </div>
+                {twin ? (
+                  <div className="twin-badge" title="Your real weather matches a fictional world">
+                    {twin.emoji} {twin.text}
+                  </div>
+                ) : null}
               </div>
               <DailyForecast daily={wx.weather?.daily} timeZone={location.timeZone} />
             </div>

@@ -5,6 +5,8 @@
 // Data is shaped exactly like the real Open-Meteo payloads the cards consume,
 // the same trick the ?demo=1 harness uses.
 
+import { effectiveWeatherCode } from '../data/weatherCodes.js';
+
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -320,4 +322,27 @@ export function fictionalTheme(id) {
   const c = byId(id);
   if (!c) return null;
   return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}`, twinSuns: !!c.twinSuns };
+}
+
+// When a REAL city's weather matches a fictional world's signature, return a
+// playful wink { emoji, text } (or null). Not used for fictional cities — those
+// already ARE the worlds. Temperatures are °F (we fetch with imperial units).
+export function fictionalTwin(weather, air) {
+  const cur = weather?.current;
+  if (!cur) return null;
+  const code = effectiveWeatherCode(cur);
+  const temp = typeof cur.temperature_2m === 'number' ? cur.temperature_2m : null;
+  const aqi = typeof air?.us_aqi === 'number' ? air.us_aqi : null;
+  const storm = code === 95 || code === 96 || code === 99;
+  const snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
+  const heavySnow = code === 75 || code === 86;
+  const fog = code === 45 || code === 48;
+
+  if (aqi !== null && aqi >= 150) return { emoji: '🌋', text: 'Mustafar air quality' };
+  if (storm) return { emoji: '⛈️', text: 'Jurassic Park vibes' };
+  if (heavySnow || (snow && temp !== null && temp <= 15)) return { emoji: '❄️', text: 'Hoth conditions' };
+  if (temp !== null && temp >= 105) return { emoji: '🌅', text: 'Basically Mos Eisley' };
+  if (temp !== null && temp <= 5) return { emoji: '🐺', text: 'Winter is coming (Winterfell)' };
+  if (fog) return { emoji: '🌫️', text: 'Dagobah out there' };
+  return null;
 }
