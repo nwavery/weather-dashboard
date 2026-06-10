@@ -226,7 +226,7 @@ const CITIES = [
     id: 'asgard', name: 'Asgard', world: 'The Nine Realms', timeZone: 'Atlantic/Reykjavik',
     aliases: ['asgard', 'bifrost', 'valhalla'],
     gradient: 'linear-gradient(to bottom,#05060f 0%,#0c1030 28%,#1a1a55 52%,#3a2a6e 74%,#caa24a 100%)',
-    anim: null, phase: 'night', condition: 'Eternal · Bifröst Shimmer',
+    anim: null, phase: 'night', condition: 'Eternal · Bifröst Shimmer', aurora: true,
     weather: ({ temp: 58, code: 1, feels: 57, humidity: 60, dew: 45, wind: 8, windDir: 0, uv: 1 }),
     air: { us_aqi: 6, pm2_5: 1, ozone: 18 }, pollen: pollen(1, 1, null), historical: { baseline: 57, years: 10 }
   },
@@ -321,7 +321,7 @@ export function fictionalStateFor(id) {
 export function fictionalTheme(id) {
   const c = byId(id);
   if (!c) return null;
-  return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}`, twinSuns: !!c.twinSuns };
+  return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}`, twinSuns: !!c.twinSuns, aurora: !!c.aurora };
 }
 
 // When a REAL city's weather matches a fictional world's signature, return a

@@ -470,6 +470,18 @@ function SnowLayer() {
   );
 }
 
+// ─── Aurora layer (high-latitude clear nights) ─────────────────────────────────
+// Three blurred, slowly-swaying curtains in screen blend; CSS does all the work.
+function AuroraLayer() {
+  return (
+    <div className="aurora-layer-wrap" aria-hidden="true">
+      <div className="aurora-band aurora-band--1" />
+      <div className="aurora-band aurora-band--2" />
+      <div className="aurora-band aurora-band--3" />
+    </div>
+  );
+}
+
 // ─── Fog layer ──────────────────────────────────────────────────────────────────
 function FogLayer() {
   return (
@@ -482,7 +494,7 @@ function FogLayer() {
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────────
-export function WeatherAnimation({ type, timePhase = 'night', weatherCode, twinSuns }) {
+export function WeatherAnimation({ type, timePhase = 'night', weatherCode, twinSuns, aurora = false }) {
   const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
   const isFog = weatherCode === 45 || weatherCode === 48;
   const isNight = timePhase === 'night';
@@ -544,6 +556,7 @@ export function WeatherAnimation({ type, timePhase = 'night', weatherCode, twinS
     const shower = currentMeteorShower();
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
+        {aurora ? <AuroraLayer /> : null}
         <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} />
       </div>
     );
