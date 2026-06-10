@@ -114,7 +114,7 @@ const CITIES = [
     id: 'mustafar', name: 'Mustafar', world: 'Outer Rim', timeZone: 'Pacific/Auckland',
     aliases: ['mustafar'],
     gradient: 'linear-gradient(to bottom,#1a0402 0%,#4d0d04 30%,#8f1d06 55%,#d6440c 78%,#ff7a1a 100%)',
-    anim: 'fog', phase: 'night', condition: 'Volcanic · Ash Fall',
+    anim: 'fog', phase: 'night', condition: 'Volcanic · Ash Fall', effect: 'embers',
     weather: ({ temp: 451, code: 45, feels: 460, humidity: 2, dew: 35, wind: 14, windDir: 180, uv: 14, precipProb: 0 }),
     air: { us_aqi: 480, pm2_5: 320, ozone: 180 }, pollen: pollen(null, null, null), historical: { baseline: 449, years: 10 }
   },
@@ -130,7 +130,7 @@ const CITIES = [
     id: 'atlantis', name: 'Atlantis', world: 'Lost City', timeZone: 'Atlantic/Azores',
     aliases: ['atlantis'],
     gradient: 'linear-gradient(to bottom,#021015 0%,#04313f 30%,#076173 55%,#0b97a8 80%,#3fd0d6 100%)',
-    anim: 'rain', phase: 'night', condition: 'Submerged · Gentle Currents',
+    anim: 'rain', phase: 'night', condition: 'Submerged · Gentle Currents', effect: 'bubbles',
     weather: ({ temp: 61, code: 51, feels: 60, humidity: 100, dew: 61, wind: 2, windDir: 0, uv: 0, precipProb: 100 }),
     air: { us_aqi: 5, pm2_5: 1, ozone: 10 }, pollen: pollen(null, null, null), historical: { baseline: 60, years: 10 }
   },
@@ -146,7 +146,7 @@ const CITIES = [
     id: 'the-shire', name: 'The Shire', world: 'Eriador', timeZone: 'Europe/London',
     aliases: ['the shire', 'shire', 'hobbiton'],
     gradient: 'linear-gradient(to bottom,#2e6fa8 0%,#5fa0d0 25%,#8fc4a0 55%,#7cb86a 78%,#9bd07a 100%)',
-    anim: null, phase: 'day', condition: 'Pleasant · Second Breakfast',
+    anim: null, phase: 'day', condition: 'Pleasant · Second Breakfast', effect: 'pollen',
     weather: ({ temp: 64, code: 1, feels: 65, humidity: 70, dew: 54, wind: 5, windDir: 230, uv: 5 }),
     air: { us_aqi: 10, pm2_5: 2, ozone: 24 }, pollen: pollen(2, 3, 5), historical: { baseline: 62, years: 10 }
   },
@@ -154,7 +154,7 @@ const CITIES = [
     id: 'mordor', name: 'Mordor', world: 'Middle-earth', timeZone: 'Asia/Istanbul',
     aliases: ['mordor', 'mount doom'],
     gradient: 'linear-gradient(to bottom,#0a0806 0%,#1c1411 30%,#33201a 55%,#5c2a1e 78%,#8a3520 100%)',
-    anim: 'fog', phase: 'dusk', condition: 'Ashen · The Eye Watches',
+    anim: 'fog', phase: 'dusk', condition: 'Ashen · The Eye Watches', effect: 'embers',
     weather: ({ temp: 109, code: 45, feels: 116, humidity: 12, dew: 30, wind: 28, windDir: 200, uv: 9, precipProb: 0 }),
     air: { us_aqi: 300, pm2_5: 180, ozone: 150 }, pollen: pollen(null, null, null), historical: { baseline: 100, years: 10 }
   },
@@ -162,7 +162,7 @@ const CITIES = [
     id: 'pandora', name: 'Pandora', world: 'Alpha Centauri', timeZone: 'Pacific/Auckland',
     aliases: ['pandora'],
     gradient: 'linear-gradient(to bottom,#040a18 0%,#0a1a3a 30%,#10324f 55%,#1b5e6e 80%,#2bd0c0 100%)',
-    anim: null, phase: 'night', condition: 'Bioluminescent · Floating Peaks',
+    anim: null, phase: 'night', condition: 'Bioluminescent · Floating Peaks', effect: 'spores',
     weather: ({ temp: 82, code: 0, feels: 86, humidity: 95, dew: 78, wind: 7, windDir: 100, uv: 3 }),
     air: { us_aqi: 9, pm2_5: 2, ozone: 20 }, pollen: pollen(4, 5, 3), historical: { baseline: 80, years: 10 }
   },
@@ -178,7 +178,7 @@ const CITIES = [
     id: 'coruscant', name: 'Coruscant', world: 'Core Worlds', timeZone: 'Asia/Tokyo',
     aliases: ['coruscant'],
     gradient: 'linear-gradient(to bottom,#06070f 0%,#0e1326 30%,#1a2444 55%,#34304f 78%,#6b4a52 100%)',
-    anim: 'cloudy', phase: 'night', condition: 'Hazy · Endless City',
+    anim: 'cloudy', phase: 'night', condition: 'Hazy · Endless City', effect: 'traffic',
     weather: ({ temp: 68, code: 3, feels: 66, humidity: 50, dew: 49, wind: 11, windDir: 300, uv: 3 }),
     air: { us_aqi: 142, pm2_5: 60, ozone: 88 }, pollen: pollen(null, null, null), historical: { baseline: 67, years: 10 }
   },
@@ -226,7 +226,7 @@ const CITIES = [
     id: 'hundred-acre-wood', name: 'Hundred Acre Wood', world: 'Ashdown Forest', timeZone: 'Europe/London',
     aliases: ['hundred acre wood', '100 acre wood', 'acre wood', 'pooh'],
     gradient: 'linear-gradient(to bottom,#5a8fc0 0%,#8fb6dc 25%,#cdd29a 52%,#e6c878 76%,#f2dd92 100%)',
-    anim: 'cloudy', phase: 'day', condition: 'Blustery · A Rather Blustery Day',
+    anim: 'cloudy', phase: 'day', condition: 'Blustery · A Rather Blustery Day', effect: 'leaves',
     weather: ({ temp: 62, code: 2, feels: 60, humidity: 68, dew: 50, wind: 22, windDir: 250, uv: 4 }),
     air: { us_aqi: 8, pm2_5: 2, ozone: 22 }, pollen: pollen(3, 3, 1), historical: { baseline: 61, years: 10 }
   },
@@ -234,7 +234,7 @@ const CITIES = [
     id: 'arrakis', name: 'Arrakis', world: 'Dune', timeZone: 'Africa/Cairo',
     aliases: ['arrakis', 'dune', 'spice'],
     gradient: 'linear-gradient(to bottom,#3a1402 0%,#7a3308 24%,#b85e16 50%,#d98a2e 74%,#e8b057 100%)',
-    anim: null, phase: 'day', condition: 'Spice Bloom · Shai-Hulud Stirs',
+    anim: null, phase: 'day', condition: 'Spice Bloom · Shai-Hulud Stirs', effect: 'sand',
     weather: ({ temp: 116, code: 0, feels: 124, humidity: 5, dew: 22, wind: 26, windDir: 110, uv: 13, precipProb: 0 }),
     air: { us_aqi: 110, pm2_5: 52, ozone: 60 }, pollen: pollen(null, null, null), historical: { baseline: 114, years: 10 }
   },
@@ -250,7 +250,7 @@ const CITIES = [
     id: 'hogwarts', name: 'Hogwarts', world: 'Scottish Highlands', timeZone: 'Europe/London',
     aliases: ['hogwarts', 'hogsmeade'],
     gradient: 'linear-gradient(to bottom,#14101f 0%,#241d36 28%,#33304f 52%,#445166 76%,#6b7d6a 100%)',
-    anim: 'rain', phase: 'dusk', condition: 'Misty · Mischief Managed',
+    anim: 'rain', phase: 'dusk', condition: 'Misty · Mischief Managed', effect: 'sparkles',
     weather: ({ temp: 52, code: 63, feels: 48, humidity: 88, dew: 48, wind: 12, windDir: 240, uv: 2, hourlyCodes: [63, 61, 63, 51, 61, 63] }),
     air: { us_aqi: 12, pm2_5: 3, ozone: 24 }, pollen: pollen(2, 2, 1), historical: { baseline: 51, years: 10 }
   },
@@ -258,7 +258,7 @@ const CITIES = [
     id: 'bikini-bottom', name: 'Bikini Bottom', world: 'Pacific Ocean', timeZone: 'Pacific/Honolulu',
     aliases: ['bikini bottom', 'spongebob'],
     gradient: 'linear-gradient(to bottom,#02232e 0%,#06556b 26%,#0a9fb0 52%,#3fd0c6 76%,#e8e07a 100%)',
-    anim: 'rain', phase: 'day', condition: 'Submerged · F is for Friends',
+    anim: 'rain', phase: 'day', condition: 'Submerged · F is for Friends', effect: 'bubbles',
     weather: ({ temp: 76, code: 51, feels: 78, humidity: 100, dew: 74, wind: 3, windDir: 90, uv: 0, precipProb: 100 }),
     air: { us_aqi: 6, pm2_5: 1, ozone: 12 }, pollen: pollen(null, null, null), historical: { baseline: 75, years: 10 }
   },
@@ -337,7 +337,7 @@ export function fictionalStateFor(id) {
 export function fictionalTheme(id) {
   const c = byId(id);
   if (!c) return null;
-  return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}`, twinSuns: !!c.twinSuns, aurora: !!c.aurora };
+  return { gradient: c.gradient, anim: c.anim, phase: c.phase, condition: c.condition, className: `fic-${c.id}`, twinSuns: !!c.twinSuns, aurora: !!c.aurora, effect: c.effect || null };
 }
 
 // When a REAL city's weather matches a fictional world's signature, return a

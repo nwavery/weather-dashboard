@@ -1005,6 +1005,187 @@ h2 {
   .aurora-band { animation: none; }
 }
 
+/* ── Per-world ambient effects (fictional cities) ─────────────── */
+.world-effects-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 2; /* above sky + weather animation, below scrim/content */
+  pointer-events: none;
+  overflow: hidden;
+}
+.world-effects-wrap > div {
+  position: absolute;
+}
+
+/* Bubbles (Atlantis, Bikini Bottom) */
+.fx-bubble {
+  bottom: -16px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(225, 248, 255, 0.8);
+  background: radial-gradient(circle at 32% 30%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.07) 55%, transparent 100%);
+  box-shadow: 0 0 6px rgba(190, 235, 255, 0.35);
+  animation: fx-bubble-rise var(--fx-duration) linear var(--fx-delay) infinite;
+}
+@keyframes fx-bubble-rise {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  8%   { opacity: var(--fx-opacity); }
+  30%  { transform: translate(var(--fx-sway), -30vh); }
+  60%  { transform: translate(calc(var(--fx-sway) * -0.6), -60vh); }
+  92%  { opacity: var(--fx-opacity); }
+  100% { transform: translate(var(--fx-sway), -105vh); opacity: 0; }
+}
+
+/* Embers (Mustafar, Mordor) */
+.fx-ember {
+  bottom: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd9a0 0%, #ff9a3d 45%, rgba(255,90,20,0) 100%);
+  box-shadow: 0 0 10px 2px rgba(255, 140, 40, 0.8);
+  mix-blend-mode: screen;
+  animation: fx-ember-rise var(--fx-duration) ease-out var(--fx-delay) infinite;
+}
+@keyframes fx-ember-rise {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  10%  { opacity: 0.95; }
+  45%  { opacity: 0.55; transform: translate(calc(var(--fx-drift) * 0.5), -38vh) scale(0.85); }
+  70%  { opacity: 0.8; }
+  100% { transform: translate(var(--fx-drift), -82vh) scale(0.4); opacity: 0; }
+}
+
+/* Wood-sprites (Pandora): glowing seeds drifting down */
+.fx-spore {
+  top: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(235,255,252,0.95) 0%, rgba(110,240,220,0.55) 45%, rgba(60,200,190,0) 100%);
+  box-shadow: 0 0 14px 4px rgba(110, 240, 220, 0.55);
+  animation: fx-spore-fall var(--fx-duration) ease-in-out var(--fx-delay) infinite;
+}
+@keyframes fx-spore-fall {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  8%   { opacity: 0.9; }
+  35%  { transform: translate(var(--fx-sway), 36vh); opacity: 0.55; }
+  65%  { transform: translate(calc(var(--fx-sway) * -0.7), 68vh); opacity: 0.85; }
+  94%  { opacity: 0.5; }
+  100% { transform: translate(var(--fx-sway), 104vh); opacity: 0; }
+}
+
+/* Skylane traffic (Coruscant): streaking head/taillights */
+.fx-ship {
+  left: -20px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: linear-gradient(to right, rgba(207,224,255,0) 0%, rgba(225,238,255,1) 100%);
+  box-shadow: 0 0 8px 1px rgba(207, 224, 255, 0.85);
+  animation: fx-ship-fly var(--fx-duration) linear var(--fx-delay) infinite;
+}
+.fx-ship--rev {
+  left: auto;
+  right: -16px;
+  background: linear-gradient(to left, rgba(255,154,138,0) 0%, rgba(255,170,150,1) 100%);
+  box-shadow: 0 0 8px 1px rgba(255, 154, 138, 0.8);
+  animation-name: fx-ship-fly-rev;
+}
+@keyframes fx-ship-fly {
+  0%   { transform: translateX(0); opacity: 0; }
+  6%   { opacity: 0.8; }
+  94%  { opacity: 0.8; }
+  100% { transform: translateX(calc(100vw + 32px)); opacity: 0; }
+}
+@keyframes fx-ship-fly-rev {
+  0%   { transform: translateX(0); opacity: 0; }
+  6%   { opacity: 0.8; }
+  94%  { opacity: 0.8; }
+  100% { transform: translateX(calc(-100vw - 32px)); opacity: 0; }
+}
+
+/* Pollen motes (The Shire) */
+.fx-mote {
+  left: -6px;
+  border-radius: 50%;
+  background: #ffe3a3;
+  box-shadow: 0 0 6px 1px rgba(255, 217, 138, 0.8);
+  animation: fx-mote-drift var(--fx-duration) linear var(--fx-delay) infinite;
+}
+@keyframes fx-mote-drift {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  8%   { opacity: 0.55; }
+  30%  { transform: translate(30vw, calc(var(--fx-bob) * -1)); }
+  55%  { transform: translate(55vw, var(--fx-bob)); }
+  80%  { transform: translate(80vw, calc(var(--fx-bob) * -0.6)); }
+  93%  { opacity: 0.55; }
+  100% { transform: translate(104vw, 0); opacity: 0; }
+}
+
+/* Magic sparkles (Hogwarts) */
+.fx-spark {
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7dd 0%, #ffd98a 55%, rgba(255,217,138,0) 100%);
+  box-shadow: 0 0 11px 2px rgba(255, 224, 150, 0.85);
+  animation: fx-spark-twinkle var(--fx-duration) ease-in-out var(--fx-delay) infinite;
+}
+@keyframes fx-spark-twinkle {
+  0%, 100% { transform: scale(0.2); opacity: 0; }
+  50%      { transform: scale(1);   opacity: 0.95; }
+}
+
+/* Blowing sand (Arrakis) */
+.fx-sand-haze {
+  inset: 0;
+  background: repeating-linear-gradient(
+    96deg,
+    rgba(216, 138, 46, 0) 0px,
+    rgba(216, 138, 46, 0) 34px,
+    rgba(232, 176, 87, 0.13) 52px,
+    rgba(216, 138, 46, 0) 78px
+  );
+  animation: fx-sand-haze-drift 7s linear infinite;
+}
+.fx-sand-haze--2 {
+  animation-duration: 11s;
+  animation-direction: reverse;
+  opacity: 0.6;
+}
+@keyframes fx-sand-haze-drift {
+  from { transform: translateX(-78px); }
+  to   { transform: translateX(0); }
+}
+.fx-grain {
+  left: -26px;
+  height: 1.5px;
+  border-radius: 1.5px;
+  background: rgba(240, 192, 110, 0.9);
+  animation: fx-grain-fly var(--fx-duration) linear var(--fx-delay) infinite;
+}
+@keyframes fx-grain-fly {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  10%  { opacity: var(--fx-opacity); }
+  90%  { opacity: var(--fx-opacity); }
+  100% { transform: translate(calc(100vw + 36px), 12px); opacity: 0; }
+}
+
+/* Tumbling leaves (Hundred Acre Wood) */
+.fx-leaf {
+  left: -14px;
+  border-radius: 0 65% 0 65%;
+  opacity: 0.85;
+  animation: fx-leaf-tumble var(--fx-duration) linear var(--fx-delay) infinite;
+}
+@keyframes fx-leaf-tumble {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  8%   { opacity: 0.85; }
+  30%  { transform: translate(32vw, var(--fx-bob)) rotate(260deg); }
+  60%  { transform: translate(62vw, calc(var(--fx-bob) * -0.7)) rotate(500deg); }
+  92%  { opacity: 0.85; }
+  100% { transform: translate(105vw, var(--fx-bob)) rotate(740deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-bubble, .fx-ember, .fx-spore, .fx-ship, .fx-mote, .fx-spark, .fx-sand-haze, .fx-grain, .fx-leaf {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* ── Sun glow ──────────────────────────────────────────────── */
 .sun-glow-wrap {
   position: absolute;
