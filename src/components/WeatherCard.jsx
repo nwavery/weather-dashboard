@@ -2,7 +2,14 @@ import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin } from '../lib/fictionalCities.js';
-import { WeatherAnimation, getSkyGradient } from './WeatherAnimation.jsx';
+import {
+  WeatherAnimation,
+  getSkyGradient,
+  moonPhase,
+  moonPhaseName,
+  moonEmoji,
+  currentMeteorShower,
+} from './WeatherAnimation.jsx';
 import { EditableName } from './EditableName.jsx';
 import { DailyForecast } from './DailyForecast.jsx';
 import { HourlyForecast } from './HourlyForecast.jsx';
@@ -35,6 +42,10 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
   const animation = fic ? fic.anim : info?.animation || null;
   const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
   const animClass = animation ? `anim-${animation}` : 'anim-clear';
+  // Real night sky: on clear nights surface the moon phase + any active meteor shower
+  const isClearNight = timePhase === 'night' && (!animation || animation === 'clear');
+  const moonP = isClearNight ? moonPhase(now) : null;
+  const shower = isClearNight ? currentMeteorShower(now) : null;
 
   return (
     <div
@@ -68,6 +79,16 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
           <div className="display-value clock-value">{formatClock(now, location.timeZone)}</div>
+          {isClearNight ? (
+            <div className="celestial-badge">
+              <span className="moon-glyph">{moonEmoji(moonP)}</span> {moonPhaseName(moonP)}
+              {shower ? (
+                <span className="meteor-bit">
+                  {' · '}☄️ {shower.name}{shower.peak ? ' peak' : ''}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {wx.weatherError ? (
