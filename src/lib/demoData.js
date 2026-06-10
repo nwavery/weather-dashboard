@@ -17,6 +17,19 @@ export function isDemo() {
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+// Plausible chance-of-precipitation for a WMO code (heavier condition → higher).
+function probFor(code) {
+  if (code === 95 || code === 96 || code === 99) return 90;            // thunder
+  if (code === 65 || code === 75 || code === 82 || code === 86) return 95; // heavy rain/snow
+  if (code === 63 || code === 73 || code === 81) return 80;            // moderate
+  if (code === 61 || code === 71 || code === 80 || code === 85) return 65; // light
+  if (code >= 51 && code <= 57) return 55;                             // drizzle
+  if (code === 66 || code === 67 || code === 77) return 70;            // freezing/grains
+  if (code === 3) return 10;
+  if (code === 2) return 5;
+  return 0;                                                            // clear / fog
+}
+
 // Build an Open-Meteo-shaped weather object around a base condition.
 function makeWeather({ temp, code, feels, humidity, dew, wind, windDir, uv, dailyCodes, hourlyCodes }) {
   const now = new Date();
@@ -32,15 +45,17 @@ function makeWeather({ temp, code, feels, humidity, dew, wind, windDir, uv, dail
     daily.weather_code.push(dCodes[i % dCodes.length]);
   }
 
-  const hourly = { time: [], temperature_2m: [], weather_code: [] };
+  const hourly = { time: [], temperature_2m: [], weather_code: [], precipitation_probability: [] };
   const base = new Date(now);
   base.setMinutes(0, 0, 0);
   const hCodes = hourlyCodes || [code, code, 2, 1, code, 3];
   for (let i = 0; i < 24; i++) {
     const t = new Date(base.getTime() + i * 3600 * 1000);
+    const hCode = hCodes[i % hCodes.length];
     hourly.time.push(`${isoDate(t)}T${pad(t.getHours())}:00`);
     hourly.temperature_2m.push(Math.round(temp + Math.sin(i / 3) * 4));
-    hourly.weather_code.push(hCodes[i % hCodes.length]);
+    hourly.weather_code.push(hCode);
+    hourly.precipitation_probability.push(probFor(hCode));
   }
 
   return {
