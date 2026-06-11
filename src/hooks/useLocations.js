@@ -266,7 +266,9 @@ export function useLocations() {
     let cancelled = false;
     (async () => {
       const { location, badge } = await resolveCurrent(setStatus);
-      if (cancelled) return;
+      // Auto-locate is slow (geolocation timeout + IP lookup). If the user
+      // renamed the card while it resolved, their choice wins — discard ours.
+      if (cancelled || loadManual().current) return;
       setLocations((prev) => prev.map((l) => (l.key === 'current' ? { ...l, ...location, badge } : l)));
     })();
     return () => {
@@ -303,6 +305,8 @@ export function useLocations() {
     saveRotatePref(key, false); // "show MY location" — don't rotate away from it
     setRotating((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
     const { location, badge } = await resolveCurrent(setStatus);
+    // If the user renamed this card while we were resolving, their choice wins.
+    if (loadManual()[key]) return { ok: true };
     setLocations((prev) =>
       prev.map((l) => (l.key === key ? { ...l, ...location, badge, fictional: false, theme: null } : l))
     );

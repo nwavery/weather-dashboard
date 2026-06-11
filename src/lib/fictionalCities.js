@@ -86,6 +86,39 @@ function diurnal(zoned) {
 
 const clampN = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
+// ── Rare world events ──────────────────────────────────────────────────────
+// Once-in-a-while spectacles (Mt. Doom erupting, a Toruk flyover…), scheduled
+// deterministically per (world, UTC day): a chance gate decides whether the
+// day has the event, a second hash picks its hour. The hourly strip can see
+// one coming, and every viewer agrees on when it happens.
+const EVENTS = {
+  mordor: { chance: 1.0, emoji: '🌋', name: 'Mt. Doom erupts', tagline: 'ERUPTION · Mt. Doom Awakens', effect: 'eruption' },
+  'mos-eisley': { chance: 0.5, emoji: '🏁', name: 'Podrace day', tagline: 'PODRACE · Watch For Banking Racers', effect: 'sand' },
+  hoth: { chance: 0.4, emoji: '🐾', name: 'Wampa sighting', tagline: 'WAMPA WATCH · Stay Indoors' },
+  pandora: { chance: 0.6, emoji: '🦅', name: 'Toruk flyover', tagline: 'TORUK PASSES · Look Up' },
+  atlantis: { chance: 0.5, emoji: '🐋', name: 'Whale migration', tagline: 'WHALESONG · Migration Passing' },
+  asgard: { chance: 0.6, emoji: '🌈', name: 'Bifröst opening', tagline: 'BIFRÖST OPEN · Arrivals From The Realms', effect: 'sparkles' },
+  'jurassic-park': { chance: 0.7, emoji: '🦖', name: 'Containment breach', tagline: 'CONTAINMENT BREACH · T-Rex Loose' },
+  hogwarts: { chance: 0.6, emoji: '🧹', name: 'Quidditch match', tagline: 'QUIDDITCH · Gryffindor vs Slytherin', effect: 'sparkles' },
+  'the-shire': { chance: 0.4, emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'sparkles' },
+  'bikini-bottom': { chance: 0.5, emoji: '🪼', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration' },
+  springfield: { chance: 0.5, emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts' }
+};
+
+const EVENT_GATE = 0xabcdef01;
+const EVENT_HOUR = 0x13371337;
+
+// The world's event spec if `ms` falls inside that day's event hour, else null.
+export function eventForHour(id, ms) {
+  const spec = EVENTS[id];
+  if (!spec) return null;
+  const day = Math.floor(ms / 86400e3);
+  const seed = hashStr(id);
+  if (rand01(seed ^ EVENT_GATE, day) >= spec.chance) return null;
+  const hour = Math.floor(rand01(seed ^ EVENT_HOUR, day) * 24);
+  return Math.floor(ms / 3600e3) % 24 === hour ? spec : null;
+}
+
 function makeWeather(c) {
   const { temp, code, feels, humidity, dew, wind, windDir, uv, precipProb } = c.weather;
   const dyn = c.dyn || {};
@@ -134,10 +167,15 @@ function makeWeather(c) {
   }
 
   // Hourly: same temp curve + mood timeline, so the strip agrees with "now".
-  const hourly = { time: [], temperature_2m: [], weather_code: [], precipitation_probability: [] };
+  // `special` marks slots that land on a rare world event (🌋 on the 1 AM tick).
+  const hourly = { time: [], temperature_2m: [], weather_code: [], precipitation_probability: [], special: [] };
   const base = new Date(now);
   base.setMinutes(0, 0, 0);
   const baseMs = nowMs - (nowMs % 3600e3);
+  // If it's precipitating right now, the next ticks can't read 0% just because
+  // the mood beat flips — taper the active shower across the boundary.
+  const curProb = typeof precipProb === 'number' ? precipProb : probFor(curCode);
+  const TAPER = [1, 0.6, 0.35];
   for (let i = 0; i < 24; i++) {
     const t = new Date(base.getTime() + i * 3600 * 1000);
     const hMs = baseMs + i * 3600e3;
@@ -146,8 +184,27 @@ function makeWeather(c) {
     hourly.temperature_2m.push(Math.round(tempAt(hMs, t)));
     hourly.weather_code.push(hCode);
     // precipProb overrides per-world (Atlantis is underwater: always 100%)
-    hourly.precipitation_probability.push(typeof precipProb === 'number' ? precipProb : probFor(hCode));
+    let prob = typeof precipProb === 'number' ? precipProb : probFor(hCode);
+    if (curProb >= 50 && i < TAPER.length) {
+      prob = Math.max(prob, Math.round(curProb * TAPER[i]));
+    }
+    hourly.precipitation_probability.push(prob);
+    const ev = eventForHour(c.id, hMs);
+    hourly.special.push(ev ? { emoji: ev.emoji, name: ev.name } : null);
   }
+
+  // Reconcile: a day's displayed min/max must envelope every temperature the
+  // card can show for that day (current + hourly), or surfaces contradict each
+  // other ("74° right now" under a "max 66°" forecast).
+  for (let i = 0; i < 24; i++) {
+    const j = daily.time.indexOf(hourly.time[i].slice(0, 10));
+    if (j === -1) continue;
+    const t = hourly.temperature_2m[i];
+    if (t > daily.temperature_2m_max[j]) daily.temperature_2m_max[j] = t;
+    if (t < daily.temperature_2m_min[j]) daily.temperature_2m_min[j] = t;
+  }
+  if (current.temperature_2m > daily.temperature_2m_max[0]) daily.temperature_2m_max[0] = current.temperature_2m;
+  if (current.temperature_2m < daily.temperature_2m_min[0]) daily.temperature_2m_min[0] = current.temperature_2m;
 
   return { current, daily, hourly };
 }
@@ -435,6 +492,8 @@ export function fictionalStateFor(id) {
     pollen: c.pollen,
     pollenError: null,
     historical: c.historical,
+    // The rare world event happening RIGHT NOW (Mt. Doom mid-eruption), if any.
+    event: eventForHour(id, Date.now()),
     updatedAt: new Date()
   };
 }
