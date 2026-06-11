@@ -21,7 +21,7 @@ function PollenItem({ icon, label, info }) {
   );
 }
 
-function PollenRow({ pollen, pollenError }) {
+function PollenRow({ pollen, pollenError, pollenLabels }) {
   if (pollenError) {
     const s = pollenError.status;
     const msg =
@@ -35,11 +35,12 @@ function PollenRow({ pollen, pollenError }) {
     return <div className="pollen-note">Pollen {msg}.</div>;
   }
   if (pollen && (pollen.tree || pollen.grass || pollen.weed)) {
+    const L = pollenLabels || {};
     return (
       <div className="pollen-metrics">
-        <PollenItem icon="fa-tree" label="Tree" info={pollen.tree} />
-        <PollenItem icon="fa-seedling" label="Grass" info={pollen.grass} />
-        <PollenItem icon="fa-cannabis" label="Weed" info={pollen.weed} />
+        <PollenItem icon="fa-tree" label={L.tree || 'Tree'} info={pollen.tree} />
+        <PollenItem icon="fa-seedling" label={L.grass || 'Grass'} info={pollen.grass} />
+        <PollenItem icon="fa-cannabis" label={L.weed || 'Weed'} info={pollen.weed} />
       </div>
     );
   }
@@ -47,17 +48,20 @@ function PollenRow({ pollen, pollenError }) {
   return <div className="pollen-note">Loading pollen…</div>;
 }
 
-export function AirQuality({ air, pollen, pollenError }) {
+// `labels` optionally reskins the section for a fictional world (Pandora's air
+// reports "Unobtanium" instead of AQI); the numbers are unchanged.
+export function AirQuality({ air, pollen, pollenError, labels }) {
   const aq = air ? aqiInfo(air.us_aqi) : null;
+  const L = labels || {};
   return (
     <div className="air-quality">
       <div className="aq-header">
         <span className="aq-title">
-          <i className="fas fa-lungs"></i> Air Quality &amp; Allergens
+          <i className="fas fa-lungs"></i> {L.title || 'Air Quality & Allergens'}
         </span>
         {air ? (
           <span className={`aqi-badge ${aq.cls}`} title="US Air Quality Index">
-            AQI {Math.round(air.us_aqi)} · {aq.label}
+            {L.aqi || 'AQI'} {Math.round(air.us_aqi)} · {aq.label}
           </span>
         ) : null}
       </div>
@@ -65,17 +69,17 @@ export function AirQuality({ air, pollen, pollenError }) {
       {air ? (
         <div className="aq-metrics">
           <div className="metric" title="Fine particulate matter (PM2.5), µg/m³">
-            <i className="fas fa-smog"></i> <span>PM2.5 {Math.round(air.pm2_5)}</span>
+            <i className="fas fa-smog"></i> <span>{L.pm || 'PM2.5'} {Math.round(air.pm2_5)}</span>
           </div>
           <div className="metric" title="Ground-level ozone (O₃), µg/m³">
-            <i className="fas fa-cloud"></i> <span>O₃ {Math.round(air.ozone)}</span>
+            <i className="fas fa-cloud"></i> <span>{L.ozone || 'O₃'} {Math.round(air.ozone)}</span>
           </div>
         </div>
       ) : (
         <div className="pollen-note">Air quality unavailable right now.</div>
       )}
 
-      <PollenRow pollen={pollen} pollenError={pollenError} />
+      <PollenRow pollen={pollen} pollenError={pollenError} pollenLabels={L.pollen} />
     </div>
   );
 }

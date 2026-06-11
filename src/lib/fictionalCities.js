@@ -498,9 +498,161 @@ export function fictionalStateFor(id) {
   };
 }
 
+// ── "Worlds come alive" extras ──────────────────────────────────────────────
+// Optional per-world flavor, kept separate from the weather data so it's easy
+// to author: a sky body (canvas), a drifting horizon silhouette, in-world
+// relabels for the metric/air/pollen rows, and a rotating "dispatch" ticker.
+// `dispatches` rotate deterministically by the clock so the world feels lived-in
+// without ever disagreeing between viewers.
+const WORLD_EXTRAS = {
+  'mos-eisley': {
+    silhouette: 'sandcrawler',
+    metrics: { humidity: 'Aridity', dew: 'Moisture', wind: 'Sand Wind', uv: 'Sun Scorch' },
+    air: { title: 'Cantina Air & Spice', aqi: 'Dust', pm: 'Sand', ozone: 'Heat' },
+    dispatches: ['Sandtroopers searching for droids', "A freighter's making the Kessel Run", 'Watch for womp rats', 'Jawas trading down the ridge', 'No blasters in the cantina']
+  },
+  hoth: {
+    silhouette: 'walker',
+    metrics: { humidity: 'Ice Haze', dew: 'Frost', wind: 'Blizzard', uv: 'Pale Sun' },
+    air: { title: 'Echo Base Air', aqi: 'Ice Crystal', pm: 'Snow', ozone: 'Chill' },
+    dispatches: ['Probe droid detected, grid four', 'Tauntauns restless before nightfall', 'Shield generator holding', 'Rogue Squadron on patrol', 'Stay warm — it gets worse at night']
+  },
+  'cloud-city': {
+    metrics: { humidity: 'Vapor', wind: 'Updraft', uv: 'Bespin Glow' },
+    air: { title: 'Bespin Air & Tibanna', aqi: 'Tibanna', pm: 'Vapor', ozone: 'Gas' },
+    dispatches: ['Carbonite chamber online', 'Ugnaughts hard at work', "Lando's hosting dinner", 'Gas mining at capacity', 'A ship just left the platform']
+  },
+  mustafar: {
+    metrics: { humidity: 'Ash Damp', dew: 'Sulfur Dew', wind: 'Ash Wind', uv: 'Lava Glare' },
+    air: { title: 'Volcanic Air', aqi: 'Sulfur', pm: 'Ash', ozone: 'Brimstone' },
+    dispatches: ['The high ground is taken', 'Lava rivers running fast', 'Mining droids at the rim', 'Best you keep your distance']
+  },
+  wakanda: {
+    metrics: { humidity: 'Humidity', wind: 'Savanna Breeze', uv: 'Sun' },
+    air: { title: 'Air & Vibranium', aqi: 'Vibranium', pm: 'Dust', ozone: 'Ozone' },
+    dispatches: ['Border Tribe on the ridge', 'Maglev gliding into the city', 'Vibranium hum in the air', 'Wakanda forever']
+  },
+  atlantis: {
+    metrics: { humidity: 'Saturation', dew: 'Brine', wind: 'Current', uv: 'Abyss Light' },
+    air: { title: 'Water & Plankton', aqi: 'Clarity', pm: 'Silt', ozone: 'Oxygen' },
+    dispatches: ['A pod of whales drifting overhead', 'The crystal hums softly', 'Leviathan stirring in the deep', 'Currents gentle today', 'Bioluminescence rising']
+  },
+  gotham: {
+    metrics: { humidity: 'Damp', wind: 'Alley Draft', uv: 'No Sun' },
+    air: { title: 'City Air & Grime', aqi: 'Smog', pm: 'Soot', ozone: 'Fumes' },
+    dispatches: ['Bat-signal lit over downtown', 'Sirens near the Narrows', "Something's off at Ace Chemicals", 'GCPD on the move', 'Stay off the streets tonight']
+  },
+  'the-shire': {
+    silhouette: 'balloon',
+    metrics: { humidity: 'Dewiness', dew: 'Morning Dew', wind: 'Gentle Breeze', uv: 'Soft Sun' },
+    air: { title: 'Fresh Air & Pollen', aqi: 'Freshness', pm: 'Pollen', ozone: 'Meadow' },
+    pollen: { tree: 'Oak', grass: 'Meadow', weed: 'Pipe-weed' },
+    dispatches: ['Second breakfast is served', 'Bilbo seems to have vanished', 'Fresh pipe-weed from Longbottom', "A party's brewing in Hobbiton", 'Mushrooms ripe in Maggot’s field']
+  },
+  mordor: {
+    metrics: { humidity: 'Ash Damp', dew: 'Soot', wind: 'Foul Wind', uv: 'Eye Glare' },
+    air: { title: 'Foul Air & Ash', aqi: 'Ash Density', pm: 'Soot', ozone: 'Fume' },
+    dispatches: ['The Eye turns west', 'Orcs marching to the Black Gate', 'Ash falling heavier', 'One does not simply walk in', 'Mount Doom rumbling']
+  },
+  pandora: {
+    skyBody: 'gasgiant',
+    silhouette: 'banshee',
+    metrics: { humidity: 'Humidity', dew: 'Spore Dew', wind: 'Ikran Drafts', uv: 'Eywa Glow' },
+    air: { title: 'Pandoran Air', aqi: 'Unobtanium', pm: 'Spores', ozone: 'Pollen' },
+    pollen: { tree: 'Vine', grass: 'Spore', weed: 'Bloom' },
+    dispatches: ['Toruk circling the floating mountains', 'The Tree of Souls is glowing', 'A hunting party passes below', 'Polyphemus high overhead', 'Bioluminescence at its peak']
+  },
+  dagobah: {
+    metrics: { humidity: 'Bog Damp', dew: 'Swamp Dew', wind: 'Still Air', uv: 'Canopy Light' },
+    air: { title: 'Swamp Air', aqi: 'Murk', pm: 'Spores', ozone: 'Methane' },
+    dispatches: ['Do or do not, there is no try', 'Something stirs in the cave', 'Mind what you have learned', 'A small green guide watches', 'The Force is strong here']
+  },
+  coruscant: {
+    skyBody: 'moon',
+    metrics: { humidity: 'Smog Haze', wind: 'Skylane Draft', uv: 'City Glow' },
+    air: { title: 'City Air & Exhaust', aqi: 'Exhaust', pm: 'Smog', ozone: 'Fumes' },
+    dispatches: ['Senate in session', 'Skylane traffic at a standstill', 'A speeder chase over Level 1300', 'The Temple stands quiet', 'Billions awake below']
+  },
+  naboo: {
+    metrics: { humidity: 'Lake Mist', dew: 'Morning Dew', wind: 'Lake Breeze', uv: 'Bright Sun' },
+    air: { title: 'Air & Lakeland', aqi: 'Freshness', pm: 'Pollen', ozone: 'Meadow' },
+    dispatches: ['Gungans stirring in the lake', 'Theed glittering by the falls', 'A royal cruiser departs', 'Festival of Light tonight', 'Shaaks grazing the plains']
+  },
+  rivendell: {
+    metrics: { humidity: 'Mist', dew: 'Dew', wind: 'Valley Air', uv: 'Filtered Sun' },
+    air: { title: 'Mountain Air', aqi: 'Clarity', pm: 'Mist', ozone: 'Pine' },
+    dispatches: ['A council convenes at dawn', 'Elves singing by the falls', 'The Last Homely House welcomes you', 'Waterfalls in full song', 'Star-glass glinting in the hall']
+  },
+  winterfell: {
+    silhouette: 'dragon',
+    metrics: { humidity: 'Frost Haze', dew: 'Frost', wind: 'North Wind', uv: 'Wan Sun' },
+    air: { title: 'Northern Air', aqi: 'Ice', pm: 'Snow', ozone: 'Chill' },
+    dispatches: ['Winter is coming', 'A raven arrives from the Wall', 'Direwolves howling past the walls', 'The crypts are quiet', 'Something moves beyond the Wall']
+  },
+  'emerald-city': {
+    metrics: { humidity: 'Humidity', wind: 'Breeze', uv: 'Emerald Glow' },
+    air: { title: 'Air & Poppies', aqi: 'Sparkle', pm: 'Pollen', ozone: 'Ozone' },
+    pollen: { tree: 'Apple', grass: 'Field', weed: 'Poppy' },
+    dispatches: ['Off to see the Wizard', 'Follow the yellow brick road', 'The Wizard will see you now', 'Poppies in bloom on the road', 'Horse-of-a-different-color spotted']
+  },
+  'jurassic-park': {
+    silhouette: 'dino',
+    metrics: { humidity: 'Jungle Damp', dew: 'Dew', wind: 'Trade Wind', uv: 'Tropic Sun' },
+    air: { title: 'Island Air', aqi: 'Freshness', pm: 'Pollen', ozone: 'Ozone' },
+    dispatches: ['Life finds a way', 'The raptors are testing the fences', "T. rex paddock — power's flickering", 'Brachiosaurs by the lagoon', 'Hold onto your butts']
+  },
+  'hundred-acre-wood': {
+    metrics: { humidity: 'Dampness', wind: 'Blustery Wind', uv: 'Dappled Sun' },
+    air: { title: 'Air & Honey', aqi: 'Sweetness', pm: 'Pollen', ozone: 'Meadow' },
+    pollen: { tree: 'Oak', grass: 'Thistle', weed: 'Honeysuckle' },
+    dispatches: ['A rather blustery day', "Pooh's after the honey again", 'Eeyore lost his tail (again)', 'Piglet a little anxious', 'Bouncing weather, says Tigger']
+  },
+  arrakis: {
+    skyBody: 'dustsun',
+    metrics: { humidity: 'Aridity', dew: 'No Dew', wind: 'Worm Sign', uv: 'Twin Glare' },
+    air: { title: 'Desert Air & Spice', aqi: 'Spice Density', pm: 'Sand', ozone: 'Heat' },
+    dispatches: ['Worm sign — the deep desert stirs', 'Spice harvest underway', 'Fremen moving at dusk', 'A storm is building on the horizon', 'The spice must flow']
+  },
+  asgard: {
+    metrics: { humidity: 'Aether', wind: 'Bifröst Draft', uv: 'Realm Glow' },
+    air: { title: 'Realm Air', aqi: 'Aether', pm: 'Stardust', ozone: 'Ozone' },
+    dispatches: ['Heimdall watches the Bifröst', 'A feast in the great hall', 'Thunder rolls over the realm', 'Arrivals from the Nine Realms', 'The Bifröst shimmers']
+  },
+  hogwarts: {
+    metrics: { humidity: 'Mist', dew: 'Dew', wind: 'Highland Wind', uv: 'Wan Sun' },
+    air: { title: 'Castle Air', aqi: 'Magic', pm: 'Floo Soot', ozone: 'Mist' },
+    dispatches: ['Quidditch practice over the pitch', 'Owls arriving with the post', 'The staircases are moving again', 'Mischief managed', 'Dementors near the lake — beware']
+  },
+  'bikini-bottom': {
+    metrics: { humidity: 'Saturation', dew: 'Brine', wind: 'Current', uv: 'Sun Filter' },
+    air: { title: 'Water & Plankton', aqi: 'Clarity', pm: 'Silt', ozone: 'Oxygen' },
+    dispatches: ['Krabby Patties are selling fast', 'Jellyfishing at the fields', 'Plankton scheming again', 'Gary needs feeding', "F is for friends"]
+  },
+  narnia: {
+    metrics: { humidity: 'Frost Haze', dew: 'Frost', wind: 'Cold Wind', uv: 'Pale Sun' },
+    air: { title: 'Winter Air', aqi: 'Ice', pm: 'Snow', ozone: 'Chill' },
+    dispatches: ['Always winter, never Christmas', 'A faun by the lamppost', 'Aslan is on the move', 'The White Witch patrols', 'A robin leads the way']
+  },
+  springfield: {
+    metrics: { uv: 'UV Index' },
+    air: { title: 'Air & Nuclear', aqi: 'Glow', pm: 'Smog', ozone: 'Ozone' },
+    dispatches: ['Mmm… donuts', "D'oh!", 'Nuclear plant running fine (probably)', 'Duff truck just rolled in', 'Free smell at the Krusty Burger']
+  }
+};
+
+const DISPATCH_MS = 12 * 60 * 1000; // ticker advances every ~12 minutes
+
+// Deterministic current dispatch line for a world (or null).
+export function worldDispatch(id, ms = Date.now()) {
+  const list = WORLD_EXTRAS[id]?.dispatches;
+  if (!list || !list.length) return null;
+  return list[Math.floor(ms / DISPATCH_MS) % list.length];
+}
+
 export function fictionalTheme(id) {
   const c = byId(id);
   if (!c) return null;
+  const ex = WORLD_EXTRAS[id] || {};
   const livePhase = !!c.dyn && !c.dyn.lockPhase;
   return {
     gradient: c.gradient,
@@ -516,7 +668,14 @@ export function fictionalTheme(id) {
     className: `fic-${c.id}`,
     twinSuns: !!c.twinSuns,
     aurora: !!c.aurora,
-    effect: c.effect || null
+    effect: c.effect || null,
+    // "Worlds come alive" extras
+    id: c.id,
+    skyBody: ex.skyBody || null,
+    silhouette: ex.silhouette || null,
+    metrics: ex.metrics || null,
+    air: ex.air || null,
+    pollenLabels: ex.pollen || null
   };
 }
 
