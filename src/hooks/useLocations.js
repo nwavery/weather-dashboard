@@ -13,6 +13,53 @@ const FALLBACK = {
 const CACHE_KEY = 'weatherDashboardCurrentLocation';
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
+// Manually chosen card locations (via the ✏️ rename) persist across reloads —
+// IP lookup can be a county off (ISP blocks register at regional hubs), so an
+// explicit choice must outrank it. The 📍 button clears the entry (back to auto).
+const MANUAL_KEY = 'weatherDashboardManualLocations';
+
+function loadManual() {
+  try {
+    const m = JSON.parse(localStorage.getItem(MANUAL_KEY) || '{}');
+    return m && typeof m === 'object' ? m : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveManual(key, loc) {
+  try {
+    const m = loadManual();
+    if (loc) m[key] = loc;
+    else delete m[key];
+    localStorage.setItem(MANUAL_KEY, JSON.stringify(m));
+  } catch {
+    /* ignore */
+  }
+}
+
+// Re-apply a saved manual choice to a default card (fictional entries are
+// re-derived from the live registry so stale saves can't brick a card).
+function restoreManual(card, manual) {
+  const m = manual[card.key];
+  if (!m || !m.name) return card;
+  if (m.fictional) {
+    const fic = findFictional(m.name);
+    return fic ? { ...card, ...fic } : card;
+  }
+  if (typeof m.latitude !== 'number' || typeof m.longitude !== 'number') return card;
+  return {
+    ...card,
+    name: m.name,
+    latitude: m.latitude,
+    longitude: m.longitude,
+    timeZone: m.timeZone || card.timeZone,
+    fictional: false,
+    theme: null,
+    badge: ''
+  };
+}
+
 // Fictional-city rotation cadence (10 min). Overridable via ?rotateMs= for testing.
 function rotateInterval() {
   try {
@@ -156,21 +203,22 @@ async function resolveCurrent(setStatus) {
 
 export function useLocations() {
   const demo = isDemo();
-  const [locations, setLocations] = useState(() =>
-    demo
-      ? DEMO_LOCATIONS
-      : [
-          { key: 'current', ...FALLBACK, badge: '' },
-          { key: 'boston', name: 'Boston, MA', latitude: 42.3601, longitude: -71.0589, timeZone: 'America/New_York', badge: '' }
-        ]
-  );
+  const [locations, setLocations] = useState(() => {
+    if (demo) return DEMO_LOCATIONS;
+    const manual = loadManual();
+    return [
+      { key: 'current', ...FALLBACK, badge: '' },
+      { key: 'boston', name: 'Boston, MA', latitude: 42.3601, longitude: -71.0589, timeZone: 'America/New_York', badge: '' }
+    ].map((card) => restoreManual(card, manual));
+  });
   const [status, setStatus] = useState('');
   const [rotating, setRotating] = useState({}); // { [key]: true }
   const timers = useRef({}); // key -> intervalId
   const idxRef = useRef({}); // key -> next fictional index
 
   useEffect(() => {
-    if (demo || PINNED_CITY) return undefined;
+    // A URL pin or a saved manual choice for the first card outranks auto-locate.
+    if (demo || PINNED_CITY || loadManual().current) return undefined;
     let cancelled = false;
     (async () => {
       const { location, badge } = await resolveCurrent(setStatus);
@@ -225,6 +273,7 @@ export function useLocations() {
   // stops fictional rotation on the card so it doesn't wander off again.
   const locateCard = useCallback(async (key) => {
     if (demo) return { ok: false };
+    saveManual(key, null); // back to auto-locate on future loads
     setRotating((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
     const { location, badge } = await resolveCurrent(setStatus);
     setLocations((prev) =>
@@ -244,6 +293,7 @@ export function useLocations() {
     const fic = findFictional(cityName);
     if (fic) {
       setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...fic } : l)));
+      saveManual(key, { name: fic.name, fictional: true });
       return { ok: true };
     }
     try {
@@ -253,6 +303,7 @@ export function useLocations() {
       setLocations((prev) =>
         prev.map((l) => (l.key === key ? { ...l, ...geo, fictional: false, theme: null, badge: '' } : l))
       );
+      saveManual(key, { name: geo.name, latitude: geo.latitude, longitude: geo.longitude, timeZone: geo.timeZone });
       return { ok: true };
     } catch {
       return { ok: false };
