@@ -54,6 +54,17 @@ body {
   align-items: center;
 }
 
+/* The real sky overhead, drawn dimly behind everything (negative z-index
+   keeps it above body's background paint but below all content). */
+.skymap-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
 /* ── Layout ────────────────────────────────────────────────── */
 .container {
   width: 100%;
