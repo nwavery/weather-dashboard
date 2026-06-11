@@ -12,7 +12,7 @@ const TV_UA = /\bSilk\b|AFT[A-Z]|Fire ?TV|SmartTV|SMART-TV|Tizen|Web0S|webOS|Net
 const IS_TV = typeof navigator !== 'undefined' && TV_UA.test(navigator.userAgent || '');
 
 export default function App() {
-  const { locations, status, updateLocation, rotating, toggleRotate } = useLocations();
+  const { locations, status, updateLocation, locateCard, rotating, toggleRotate } = useLocations();
   const now = useClock();
   const containerRef = useRef(null);
 
@@ -83,6 +83,7 @@ export default function App() {
               now={now}
               status={loc.key === 'current' ? status : ''}
               onRename={(name) => updateLocation(loc.key, name)}
+              onLocate={() => locateCard(loc.key)}
               rotating={!!rotating[loc.key]}
               onToggleRotate={() => toggleRotate(loc.key)}
             />
