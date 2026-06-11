@@ -3,6 +3,7 @@ import { useLocations } from './hooks/useLocations.js';
 import { useClock } from './hooks/useClock.js';
 import { WeatherCard } from './components/WeatherCard.jsx';
 import { FullscreenButton } from './components/FullscreenButton.jsx';
+import { SkyMapBackground } from './components/SkyMapBackground.jsx';
 import { startKeepAwake, stopKeepAwake } from './lib/keepAwake.js';
 
 // Smart-TV / streaming-stick browsers (Fire TV Silk, Tizen, webOS, Google TV…)
@@ -63,8 +64,15 @@ export default function App() {
     };
   }, []);
 
+  // The background star map follows the first real (non-fictional) card —
+  // normally "Current Location" — so it's the actual sky overhead right now.
+  const skyLoc = locations.find(
+    (l) => !l.fictional && typeof l.latitude === 'number' && typeof l.longitude === 'number' && (l.latitude !== 0 || l.longitude !== 0)
+  );
+
   return (
     <>
+      {skyLoc ? <SkyMapBackground latitude={skyLoc.latitude} longitude={skyLoc.longitude} /> : null}
       <FullscreenButton />
       <div className="container" ref={containerRef}>
         <div className="cards-container">
@@ -82,6 +90,7 @@ export default function App() {
         </div>
         <footer className="app-footer">
           Weather &amp; air quality via Open-Meteo · Pollen via Google Pollen API · Icons via OpenWeatherMap
+          · Background: tonight's sky (Yale Bright Star Catalog via d3-celestial)
         </footer>
       </div>
     </>
