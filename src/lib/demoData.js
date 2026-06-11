@@ -93,7 +93,10 @@ const CARDS = [
   {
     key: 'demo-storm', name: 'Austin, TX', timeZone: 'America/Chicago', badge: 'Demo',
     weather: makeWeather({ temp: 78, code: 95, feels: 82, humidity: 71, dew: 67, wind: 9, windDir: 160, uv: 6 }),
-    air: { us_aqi: 64, pm2_5: 15, ozone: 68 }, pollen: pollen(3, 4, 1), historical: { baseline: 80, years: 10 }
+    air: { us_aqi: 64, pm2_5: 15, ozone: 68 }, pollen: pollen(3, 4, 1), historical: { baseline: 80, years: 10 },
+    alerts: [
+      { id: 'demo-alert-1', event: 'Severe Thunderstorm Watch', class: 'watch', severity: 'Severe', headline: 'Severe Thunderstorm Watch until 9:00 PM CDT', ends: new Date(Date.now() + 4 * 3600e3).toISOString() }
+    ]
   },
   {
     key: 'demo-clear', name: 'Santorini', timeZone: 'Europe/Athens', badge: 'Demo',
@@ -117,6 +120,7 @@ const STATE_BY_KEY = Object.fromEntries(
       pollen: c.pollen,
       pollenError: null,
       historical: c.historical,
+      alerts: c.alerts || [],
       updatedAt: new Date()
     }
   ])

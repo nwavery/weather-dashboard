@@ -920,6 +920,42 @@ h2 {
   vertical-align: middle;
 }
 
+/* ── Official NWS alerts (bottom of real cards) ────────────── */
+.weather-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: clamp(8px, 1.2vw, 14px);
+}
+.weather-alert {
+  font-size: clamp(0.74rem, 1.2vw, 0.88rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 7px 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+.weather-alert .alert-ends,
+.weather-alert .alert-more {
+  font-weight: 400;
+  opacity: 0.85;
+}
+.weather-alert--warning {
+  background: rgba(214, 48, 48, 0.28);
+  border: 1px solid rgba(255, 110, 110, 0.55);
+  color: #ffc9c9;
+}
+.weather-alert--watch {
+  background: rgba(224, 130, 30, 0.24);
+  border: 1px solid rgba(255, 170, 80, 0.5);
+  color: #ffd9a8;
+}
+.weather-alert--advisory {
+  background: rgba(220, 190, 50, 0.18);
+  border: 1px solid rgba(240, 215, 110, 0.45);
+  color: #f2e3a0;
+}
+
 /* ── Footer ────────────────────────────────────────────────── */
 .app-footer {
   width: 100%;
@@ -1178,6 +1214,30 @@ h2 {
   10%  { opacity: var(--fx-opacity); }
   90%  { opacity: var(--fx-opacity); }
   100% { transform: translate(calc(100vw + 36px), 12px); opacity: 0; }
+}
+
+/* Smoky haze (real cards at hazardous AQI): slow gray-amber drift */
+.fx-smoke-band {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    93deg,
+    rgba(120, 104, 86, 0) 0px,
+    rgba(120, 104, 86, 0) 46px,
+    rgba(146, 122, 92, 0.16) 70px,
+    rgba(120, 104, 86, 0) 102px
+  );
+  filter: blur(6px);
+  animation: fx-smoke-drift 24s linear infinite;
+}
+.fx-smoke-band--2 {
+  animation-duration: 37s;
+  animation-direction: reverse;
+  opacity: 0.7;
+}
+@keyframes fx-smoke-drift {
+  from { transform: translateX(-102px); }
+  to   { transform: translateX(0); }
 }
 
 /* Tumbling leaves (Hundred Acre Wood) */
