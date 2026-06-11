@@ -1,0 +1,13 @@
+{
+  "name": "SkyGlance — Time & Weather",
+  "short_name": "SkyGlance",
+  "description": "Always-on time & weather dashboard with real skies and fictional worlds.",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#01030a",
+  "theme_color": "#0b1020",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

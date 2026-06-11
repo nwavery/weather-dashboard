@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import { startAutoReload } from './lib/autoReload.js';
 import './index.css';
 
 // Ask the browser to treat our site storage as persistent. TV browsers (Fire
@@ -13,6 +14,10 @@ try {
 } catch {
   /* best effort */
 }
+
+// Kiosk-only: pick up new deploys automatically during the pre-dawn quiet
+// window (plain tabs are left alone — see autoReload.js for why).
+startAutoReload();
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

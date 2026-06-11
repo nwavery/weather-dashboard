@@ -5,16 +5,11 @@ import { WeatherCard } from './components/WeatherCard.jsx';
 import { FullscreenButton } from './components/FullscreenButton.jsx';
 import { SkyMapBackground } from './components/SkyMapBackground.jsx';
 import { startKeepAwake, stopKeepAwake } from './lib/keepAwake.js';
-
-// Smart-TV / streaming-stick browsers (Fire TV Silk, Tizen, webOS, Google TV…)
-// get a `tv` class (overscan-safe insets, compaction) + fit-to-screen scaling.
-// `?kiosk=1` forces the same mode on hardware the UA sniff can't see — e.g. a
-// Raspberry Pi running Chromium in kiosk mode on a wall-mounted display.
-const TV_UA = /\bSilk\b|AFT[A-Z]|Fire ?TV|SmartTV|SMART-TV|Tizen|Web0S|webOS|NetCast|BRAVIA|GoogleTV|CrKey/i;
-const IS_KIOSK =
-  typeof window !== 'undefined' &&
-  ['1', 'true'].includes(new URLSearchParams(window.location.search).get('kiosk') || '');
-const IS_TV = IS_KIOSK || (typeof navigator !== 'undefined' && TV_UA.test(navigator.userAgent || ''));
+// Smart-TV / streaming-stick browsers (and ?kiosk=1 hardware the UA sniff
+// can't see) get a `tv` class (overscan-safe insets, compaction) plus
+// fit-to-screen scaling. Detection lives in lib/runtime.js, shared with the
+// kiosk auto-update logic.
+import { IS_TV } from './lib/runtime.js';
 
 export default function App() {
   const { locations, status, updateLocation, locateCard, rotating, toggleRotate } = useLocations();
