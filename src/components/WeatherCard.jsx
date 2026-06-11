@@ -1,7 +1,7 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
-import { isFictional, fictionalTheme, fictionalTwin } from '../lib/fictionalCities.js';
+import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import {
   WeatherAnimation,
@@ -12,6 +12,8 @@ import {
   currentMeteorShower,
 } from './WeatherAnimation.jsx';
 import { WorldEffects } from './WorldEffects.jsx';
+import { WorldSky } from './WorldSky.jsx';
+import { WorldSilhouette } from './WorldSilhouette.jsx';
 import { EditableName } from './EditableName.jsx';
 import { DailyForecast } from './DailyForecast.jsx';
 import { HourlyForecast } from './HourlyForecast.jsx';
@@ -79,6 +81,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // fictional card's tagline and ambient effect for its hour.
   const worldEvent = fic ? wx.event : null;
   const ficEffect = worldEvent?.effect || fic?.effect;
+  // Rotating in-world "dispatch" ticker (deterministic by the clock). Yields to
+  // a rare event's tagline when one is active.
+  const dispatch = fic && !worldEvent ? worldDispatch(fic.id, now?.getTime ? now.getTime() : Date.now()) : null;
 
   return (
     <div
@@ -87,6 +92,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
     >
       {/* Full-bleed sky background */}
       <div className="sky-bg" aria-hidden="true" />
+
+      {/* World signature sky body (Polyphemus over Pandora, the dust-sun…) */}
+      {fic?.skyBody ? <WorldSky kind={fic.skyBody} /> : null}
 
       {/* Animated weather layer */}
       <WeatherAnimation
@@ -104,6 +112,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       ) : flavorEffect ? (
         <WorldEffects kind={flavorEffect} />
       ) : null}
+
+      {/* A drifting horizon silhouette — life in the world */}
+      {fic?.silhouette ? <WorldSilhouette kind={fic.silhouette} /> : null}
 
       {/* Gradient scrim for text legibility */}
       <div className="card-scrim" aria-hidden="true" />
@@ -161,6 +172,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                       (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
+                {dispatch ? <div className="world-dispatch">📻 {dispatch}</div> : null}
                 <div className="temp-details">
                   <span className="feels-like">
                     <i className="fas fa-thermometer-half"></i>
@@ -180,8 +192,13 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
               <DailyForecast daily={wx.weather?.daily} timeZone={location.timeZone} />
             </div>
 
-            <Metrics current={current} />
-            <AirQuality air={wx.air} pollen={wx.pollen} pollenError={wx.pollenError} />
+            <Metrics current={current} labels={fic?.metrics} />
+            <AirQuality
+              air={wx.air}
+              pollen={wx.pollen}
+              pollenError={wx.pollenError}
+              labels={fic ? { ...fic.air, pollen: fic.pollenLabels } : null}
+            />
             <HourlyForecast hourly={wx.weather?.hourly} timeZone={location.timeZone} />
 
             {/* Official NWS alerts (Heat Advisory, Tornado Watch, …) */}
