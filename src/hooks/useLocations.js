@@ -25,6 +25,19 @@ function rotateInterval() {
 }
 const ROTATE_MS = rotateInterval();
 
+// Kiosk pin: ?city=Name fixes the first card to a place (geocoded once at
+// load; fictional names work too). For wall frames/TVs that should never
+// guess — no geolocation, no IP lookup, fully deterministic.
+function pinnedCity() {
+  try {
+    const v = new URLSearchParams(window.location.search).get('city');
+    return v && v.trim() ? v.trim() : null;
+  } catch {
+    return null;
+  }
+}
+const PINNED_CITY = pinnedCity();
+
 function loadCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
@@ -67,7 +80,48 @@ function deviceTimeZone() {
   }
 }
 
-// Resolve the "current" location: try the browser, fall back to cache, then OKC.
+// IP-based geolocation for devices with no location services at all (Fire TV
+// sticks, Raspberry Pi kiosks, desktops that deny the prompt). Keyless,
+// CORS-friendly providers; home-ISP accuracy is metro-level — fine for weather.
+async function ipLocate() {
+  try {
+    const res = await fetch('https://ipwho.is/');
+    if (res.ok) {
+      const d = await res.json();
+      if (d?.success && typeof d.latitude === 'number' && typeof d.longitude === 'number') {
+        return {
+          name: [d.city, d.region_code].filter(Boolean).join(', ') || 'Your area',
+          latitude: d.latitude,
+          longitude: d.longitude,
+          timeZone: d?.timezone?.id || deviceTimeZone() || FALLBACK.timeZone
+        };
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const res = await fetch('https://geolocation-db.com/json/');
+    if (res.ok) {
+      const d = await res.json();
+      if (typeof d.latitude === 'number' && typeof d.longitude === 'number') {
+        const resolved = await reverseGeocode(d.latitude, d.longitude).catch(() => null);
+        return {
+          name: resolved?.name || d.city || 'Your area',
+          latitude: d.latitude,
+          longitude: d.longitude,
+          timeZone: resolved?.timeZone || deviceTimeZone() || FALLBACK.timeZone
+        };
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+// Resolve the "current" location: browser geolocation, then IP-based location
+// (TVs and kiosks have no GPS and never even show a prompt), then cache, then OKC.
 async function resolveCurrent(setStatus) {
   const cached = loadCache();
   try {
@@ -85,6 +139,12 @@ async function resolveCurrent(setStatus) {
     setStatus(resolved ? '' : 'Using your coordinates; could not resolve a place name.');
     return { location, badge: resolved ? 'Current Location' : '' };
   } catch {
+    const ip = await ipLocate();
+    if (ip) {
+      saveCache(ip);
+      setStatus('');
+      return { location: ip, badge: 'Current Location' };
+    }
     if (cached) {
       setStatus('Using your last known location; live location unavailable.');
       return { location: cached, badge: '' };
@@ -110,12 +170,32 @@ export function useLocations() {
   const idxRef = useRef({}); // key -> next fictional index
 
   useEffect(() => {
-    if (demo) return undefined;
+    if (demo || PINNED_CITY) return undefined;
     let cancelled = false;
     (async () => {
       const { location, badge } = await resolveCurrent(setStatus);
       if (cancelled) return;
       setLocations((prev) => prev.map((l) => (l.key === 'current' ? { ...l, ...location, badge } : l)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [demo]);
+
+  // ?city= pin for the first card (replaces the geolocation flow entirely).
+  useEffect(() => {
+    if (demo || !PINNED_CITY) return undefined;
+    let cancelled = false;
+    (async () => {
+      const fic = findFictional(PINNED_CITY);
+      const place = fic || (await geocodeCity(PINNED_CITY).catch(() => null));
+      if (cancelled) return;
+      if (place) {
+        setLocations((prev) => prev.map((l) => (l.key === 'current' ? { ...l, ...place } : l)));
+        setStatus('');
+      } else {
+        setStatus(`Couldn't find pinned city "${PINNED_CITY}" — using fallback.`);
+      }
     })();
     return () => {
       cancelled = true;
