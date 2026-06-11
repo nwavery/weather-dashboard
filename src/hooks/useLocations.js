@@ -140,10 +140,27 @@ export function useLocations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo]);
 
+  // Re-resolve the device's location and point this card back at it (the way
+  // back after renaming the "Current Location" card to somewhere else). Also
+  // stops fictional rotation on the card so it doesn't wander off again.
+  const locateCard = useCallback(async (key) => {
+    if (demo) return { ok: false };
+    setRotating((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
+    const { location, badge } = await resolveCurrent(setStatus);
+    setLocations((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, ...location, badge, fictional: false, theme: null } : l))
+    );
+    return { ok: true };
+  }, [demo]);
+
   // Rename/relocate a card by geocoding the typed city name — or, if it matches
   // one of the fictional pop-culture cities, swap to its themed fake forecast.
   const updateLocation = useCallback(async (key, cityName) => {
     if (demo) return { ok: false };
+    // "Current Location" (and friends) typed in the rename box → re-geolocate.
+    if (/^(current( location)?|my location|here)$/i.test(cityName.trim())) {
+      return locateCard(key);
+    }
     const fic = findFictional(cityName);
     if (fic) {
       setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...fic } : l)));
@@ -160,7 +177,7 @@ export function useLocations() {
     } catch {
       return { ok: false };
     }
-  }, [demo]);
+  }, [demo, locateCard]);
 
   // Advance a card to the next fictional city (wraps around).
   const advanceRotation = useCallback((key) => {
@@ -202,5 +219,5 @@ export function useLocations() {
     []
   );
 
-  return { locations, status, updateLocation, rotating, toggleRotate };
+  return { locations, status, updateLocation, locateCard, rotating, toggleRotate };
 }
