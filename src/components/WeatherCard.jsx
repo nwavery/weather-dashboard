@@ -47,7 +47,11 @@ function historicalText(weather, historical) {
 export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate }) {
   const wx = useLocationWeather(location);
   const current = wx.weather?.current;
-  const info = current ? weatherInfo(effectiveWeatherCode(current)) : null;
+  // The effective code drops phantom storms/rain (a code that claims
+  // precipitation while 0 mm is falling). Use it everywhere — including the
+  // animation — so the headline and the sky never disagree.
+  const effCode = current ? effectiveWeatherCode(current) : undefined;
+  const info = current ? weatherInfo(effCode) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
   // Fictional cities supply their own background gradient, animation, time-of-day
   // phase, and condition text; real cities derive them from the live weather.
@@ -100,7 +104,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       <WeatherAnimation
         type={animation}
         timePhase={timePhase}
-        weatherCode={current?.weather_code}
+        weatherCode={effCode}
         twinSuns={fic?.twinSuns}
         aurora={aurora}
       />
