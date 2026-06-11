@@ -271,8 +271,11 @@ const CITIES = [
     air: { us_aqi: 7, pm2_5: 1, ozone: 20 }, pollen: pollen(null, null, null), historical: { baseline: 24, years: 10 }
   },
   {
-    id: 'springfield', name: 'Springfield', world: 'USA', timeZone: 'America/Chicago',
-    aliases: ['springfield', 'simpsons'],
+    // Hidden Easter egg: "Springfield" is a real city (many of them), so it must
+    // geocode normally. Reachable only via the 'simpsons'/'homer' aliases, kept
+    // off the datalist and out of the rotation (see `hidden`).
+    id: 'springfield', name: 'Springfield', world: 'USA', timeZone: 'America/Chicago', hidden: true,
+    aliases: ['simpsons', 'homer'],
     gradient: 'linear-gradient(to bottom,#1a6fc4 0%,#3f97df 26%,#7dc0ef 52%,#bfe0f5 76%,#f2e06a 100%)',
     anim: null, phase: 'day', condition: "Sunny · Mmm… Weather",
     weather: ({ temp: 72, code: 1, feels: 73, humidity: 55, dew: 54, wind: 7, windDir: 200, uv: 7 }),
@@ -280,8 +283,11 @@ const CITIES = [
   }
 ];
 
-export const FICTIONAL_NAMES = CITIES.map((c) => c.name);
-export const FICTIONAL_COUNT = CITIES.length;
+// Hidden cities (Easter eggs) are excluded from the search datalist and rotation.
+const VISIBLE = CITIES.filter((c) => !c.hidden);
+
+export const FICTIONAL_NAMES = VISIBLE.map((c) => c.name);
+export const FICTIONAL_COUNT = VISIBLE.length;
 
 function placeOf(c) {
   return { name: c.name, latitude: 0, longitude: 0, timeZone: c.timeZone, fictional: true, theme: c.id, badge: c.world };
@@ -290,8 +296,8 @@ function placeOf(c) {
 // The i-th fictional city as a location object (wraps around). Used by the
 // per-card "rotate through fictional cities" feature.
 export function fictionalByIndex(i) {
-  const n = CITIES.length;
-  return placeOf(CITIES[((i % n) + n) % n]);
+  const n = VISIBLE.length;
+  return placeOf(VISIBLE[((i % n) + n) % n]);
 }
 
 function byId(id) {
@@ -308,9 +314,11 @@ export function findFictional(query) {
   const q = query.trim().toLowerCase();
   if (!q) return null;
   const c = CITIES.find((city) => {
-    if (city.name.toLowerCase() === q || city.aliases.includes(q)) return true;
+    if (city.aliases.includes(q)) return true;
+    // Hidden cities (e.g. Springfield) are alias-only, so the real city geocodes.
+    if (!city.hidden && city.name.toLowerCase() === q) return true;
     if (q.length >= 3) {
-      if (city.name.toLowerCase().includes(q)) return true;
+      if (!city.hidden && city.name.toLowerCase().includes(q)) return true;
       if (city.aliases.some((a) => a.includes(q))) return true;
     }
     return false;
