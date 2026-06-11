@@ -1005,6 +1005,22 @@ h2 {
   .aurora-band { animation: none; }
 }
 
+/* ── Live day/night lighting for dynamic fictional worlds ─────── */
+/* These worlds follow their real local time; their single signature gradient
+   gets dimmed through dawn/dusk/night instead of having four hand-made skies. */
+.fic-livephase .sky-bg {
+  transition: filter 2s ease;
+}
+.fic-livephase.sky-phase-night .sky-bg {
+  filter: brightness(0.38) saturate(0.85);
+}
+.fic-livephase.sky-phase-dusk .sky-bg {
+  filter: brightness(0.62) saturate(1.05) hue-rotate(-10deg);
+}
+.fic-livephase.sky-phase-dawn .sky-bg {
+  filter: brightness(0.7) saturate(1.05) hue-rotate(8deg);
+}
+
 /* ── Per-world ambient effects (fictional cities) ─────────────── */
 .world-effects-wrap {
   position: absolute;
