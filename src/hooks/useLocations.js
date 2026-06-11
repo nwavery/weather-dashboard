@@ -122,6 +122,24 @@ export function useLocations() {
     };
   }, [demo]);
 
+  // Kiosk autostart: ?rotate=1 turns on fictional-city rotation for the second
+  // card at load. Rotation state is in-memory, so a wall-mounted frame would
+  // otherwise lose it (and show plain Boston) after every reboot/reload.
+  // Card keys are stable, so reading the mount-time key once is safe.
+  useEffect(() => {
+    if (demo) return;
+    let v = null;
+    try {
+      v = new URLSearchParams(window.location.search).get('rotate');
+    } catch {
+      return;
+    }
+    if (v !== '1' && v !== 'true') return;
+    const key = locations[1]?.key;
+    if (key) setRotating((r) => ({ ...r, [key]: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo]);
+
   // Re-resolve the device's location and point this card back at it (the way
   // back after renaming the "Current Location" card to somewhere else). Also
   // stops fictional rotation on the card so it doesn't wander off again.
