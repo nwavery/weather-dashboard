@@ -40,7 +40,11 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
   const fic = isFictional(location) ? fictionalTheme(location.theme) : null;
   const twin = fic ? null : fictionalTwin(wx.weather, wx.air);
   const timePhase = fic?.phase || getTimePhase(now, location.timeZone);
-  const animation = fic ? fic.anim : info?.animation || null;
+  // Mood-driven worlds animate whatever their current (dynamic) weather code
+  // says; single-mood worlds keep their pinned signature animation.
+  const animation = fic
+    ? (fic.liveAnim && info ? info.animation ?? null : fic.anim)
+    : info?.animation || null;
   const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
   const animClass = animation ? `anim-${animation}` : 'anim-clear';
   // Real night sky: on clear nights surface the moon phase + any active meteor shower
@@ -53,7 +57,7 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
 
   return (
     <div
-      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''}`}
+      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''} ${fic?.livePhase ? 'fic-livephase' : ''}`}
       style={{ '--sky-gradient': skyGrad }}
     >
       {/* Full-bleed sky background */}

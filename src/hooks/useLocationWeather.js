@@ -57,9 +57,15 @@ export function useLocationWeather(location) {
     let timer = null;
 
     if (fictional) {
+      // Fictional weather is dynamic (a function of the clock), so regenerate
+      // periodically — it's all local computation, no network.
       setState(fictionalStateFor(theme) || INITIAL);
+      const t = setInterval(() => {
+        if (active) setState(fictionalStateFor(theme) || INITIAL);
+      }, 5 * 60 * 1000);
       return () => {
         active = false;
+        clearInterval(t);
       };
     }
 
