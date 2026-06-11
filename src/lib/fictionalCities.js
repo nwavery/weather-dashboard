@@ -157,6 +157,19 @@ function makeWeather(c) {
     hourly.precipitation_probability.push(prob);
   }
 
+  // Reconcile: a day's displayed min/max must envelope every temperature the
+  // card can show for that day (current + hourly), or surfaces contradict each
+  // other ("74° right now" under a "max 66°" forecast).
+  for (let i = 0; i < 24; i++) {
+    const j = daily.time.indexOf(hourly.time[i].slice(0, 10));
+    if (j === -1) continue;
+    const t = hourly.temperature_2m[i];
+    if (t > daily.temperature_2m_max[j]) daily.temperature_2m_max[j] = t;
+    if (t < daily.temperature_2m_min[j]) daily.temperature_2m_min[j] = t;
+  }
+  if (current.temperature_2m > daily.temperature_2m_max[0]) daily.temperature_2m_max[0] = current.temperature_2m;
+  if (current.temperature_2m < daily.temperature_2m_min[0]) daily.temperature_2m_min[0] = current.temperature_2m;
+
   return { current, daily, hourly };
 }
 
