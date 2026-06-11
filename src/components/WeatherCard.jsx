@@ -30,7 +30,7 @@ function historicalText(weather, historical) {
   return `vs ${historical.years}y avg: ${sym} ${Math.abs(diff)}° ${word}`;
 }
 
-export function WeatherCard({ location, now, status, onRename, rotating, onToggleRotate }) {
+export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate }) {
   const wx = useLocationWeather(location);
   const current = wx.weather?.current;
   const info = current ? weatherInfo(effectiveWeatherCode(current)) : null;
@@ -85,6 +85,7 @@ export function WeatherCard({ location, now, status, onRename, rotating, onToggl
             <EditableName
               name={location.name}
               onRename={onRename}
+              onLocate={onLocate}
               rotating={rotating}
               onToggleRotate={onToggleRotate}
             />

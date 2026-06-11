@@ -2,11 +2,22 @@ import { useState } from 'react';
 import { FICTIONAL_NAMES } from '../lib/fictionalCities.js';
 
 // Click ✏️ to rename a card; the new name is geocoded by the parent (onRename).
-export function EditableName({ name, onRename, rotating, onToggleRotate }) {
+export function EditableName({ name, onRename, onLocate, rotating, onToggleRotate }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
+
+  async function locate() {
+    if (locating) return;
+    setLocating(true);
+    try {
+      await onLocate();
+    } finally {
+      setLocating(false);
+    }
+  }
 
   function start() {
     setValue(name);
@@ -38,6 +49,16 @@ export function EditableName({ name, onRename, rotating, onToggleRotate }) {
         <button className="edit-location-btn" title="Edit location" onClick={start}>
           ✏️
         </button>
+        {onLocate ? (
+          <button
+            className="edit-location-btn locate-btn"
+            title="Back to my current location"
+            onClick={locate}
+            disabled={locating}
+          >
+            {locating ? '⏳' : '📍'}
+          </button>
+        ) : null}
         {onToggleRotate ? (
           <button
             className={`edit-location-btn rotate-location-btn${rotating ? ' active' : ''}`}
@@ -71,6 +92,7 @@ export function EditableName({ name, onRename, rotating, onToggleRotate }) {
         }}
       />
       <datalist id="fictional-cities">
+        <option value="Current Location" />
         {FICTIONAL_NAMES.map((n) => (
           <option key={n} value={n} />
         ))}
