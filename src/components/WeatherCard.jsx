@@ -17,6 +17,12 @@ import { HourlyForecast } from './HourlyForecast.jsx';
 import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
 
+// WMO weather codes don't encode wind, so a "Clear sky" day can be howling.
+// Sustained or gusty wind above these marks reads as "Windy" in the headline
+// and earns the blustery tumbling-leaves layer.
+const WINDY_MPH = 20;
+const GUSTY_MPH = 35;
+
 function historicalText(weather, historical) {
   if (!weather?.daily) return 'vs. Historical: --';
   const max = weather.daily.temperature_2m_max[0];
@@ -54,6 +60,10 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // Aurora on clear nights: flagged fictional worlds (e.g. Asgard) or real cities
   // at auroral latitudes (|lat| >= 55°).
   const aurora = isClearNight && (fic ? !!fic.aurora : Math.abs(location.latitude ?? 0) >= 55);
+  // Real-city windy flavor (precip animations own their own scene, so no leaves there)
+  const windy =
+    !fic && ((current?.wind_speed_10m ?? 0) >= WINDY_MPH || (current?.wind_gusts_10m ?? 0) >= GUSTY_MPH);
+  const blusteryLeaves = windy && !['rain', 'snow', 'thunder'].includes(animation || '');
 
   return (
     <div
@@ -72,8 +82,13 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         aurora={aurora}
       />
 
-      {/* Per-world ambient particles (bubbles, embers, spores…) */}
-      {fic?.effect ? <WorldEffects kind={fic.effect} /> : null}
+      {/* Per-world ambient particles (bubbles, embers, spores…) — and the
+          blustery leaves on real cards when the wind is up */}
+      {fic?.effect ? (
+        <WorldEffects kind={fic.effect} />
+      ) : blusteryLeaves ? (
+        <WorldEffects kind="leaves" />
+      ) : null}
 
       {/* Gradient scrim for text legibility */}
       <div className="card-scrim" aria-hidden="true" />
@@ -125,7 +140,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   </div>
                 </div>
                 {info && (
-                  <div className="weather-desc">{fic?.condition || info.description}</div>
+                  <div className="weather-desc">
+                    {fic?.condition || (windy ? `Windy · ${info.description}` : info.description)}
+                  </div>
                 )}
                 <div className="temp-details">
                   <span className="feels-like">
