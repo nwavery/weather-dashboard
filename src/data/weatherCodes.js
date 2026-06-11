@@ -36,22 +36,27 @@ export function weatherInfo(code) {
   return WEATHER_CODES[code] || { description: 'Unknown', icon: '50d', animation: null };
 }
 
-const THUNDER_CODES = new Set([95, 96, 99]);
+// Codes that assert liquid precipitation is falling: drizzle (51-57), rain
+// (61-67), rain showers (80-82), and thunderstorms (95-99). Open-Meteo
+// over-reports these on weak signals — we've seen code 95 with 0 mm precip and
+// 1% cloud (a clear sky), and the same happens with phantom drizzle/rain. Snow
+// codes are deliberately excluded: light snow legitimately reports ~0 mm of
+// liquid-equivalent precipitation, so 0 mm there isn't a reliable "spurious" tell.
+const PRECIP_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]);
 
-// Open-Meteo's weather_code over-reports thunderstorms (95/96/99) on weak
-// convective signals — we've observed code 95 with 0 mm precipitation and 1%
-// cloud cover (i.e. a clear sky). When a "thunderstorm" has no precipitation,
-// treat it as spurious and fall back to a cloud-cover-derived condition.
+// When a precipitation code reports exactly 0 mm of precipitation, treat it as
+// spurious and fall back to a cloud-cover-derived condition (so a "rain" or
+// "thunderstorm" over a dry sky renders as clear/cloudy instead).
 // `slot` is { weather_code, precipitation, cloud_cover } — works for the
 // `current` object or a single hourly entry. (Demo/fictional data has no
-// precipitation field, so their intentional storms pass through unchanged.)
+// precipitation field, so their intentional rain/storms pass through unchanged.)
 export function effectiveWeatherCode(slot) {
   const code = slot?.weather_code;
-  if (code == null || !THUNDER_CODES.has(code)) return code;
+  if (code == null || !PRECIP_CODES.has(code)) return code;
   const precip = slot.precipitation;
-  if (typeof precip !== 'number' || precip > 0) return code; // real storm, or no precip data
+  if (typeof precip !== 'number' || precip > 0) return code; // real precip, or no precip data
   const cc = slot.cloud_cover;
-  if (typeof cc !== 'number') return 2; // unknown cloud cover — at least not a storm
+  if (typeof cc !== 'number') return 2; // unknown cloud cover — at least not precipitating
   if (cc < 20) return 0; // clear sky
   if (cc < 50) return 1; // mainly clear
   if (cc < 85) return 2; // partly cloudy
