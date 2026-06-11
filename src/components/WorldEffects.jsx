@@ -155,6 +155,7 @@ function Traffic() {
           duration: 4 + Math.random() * 5,
           delay: -(Math.random() * 9),
           width: 9 + Math.random() * 9,
+          vy: -22 + Math.random() * 44, // each skylane runs at a slight slope
         });
       }
     });
@@ -171,6 +172,7 @@ function Traffic() {
             width: `${s.width}px`,
             '--fx-duration': `${s.duration}s`,
             '--fx-delay': `${s.delay}s`,
+            '--fx-vy': `${s.vy}px`,
           }}
         />
       ))}
@@ -183,11 +185,12 @@ function Pollen() {
   const motes = useMemo(() =>
     Array.from({ length: 18 }, (_, i) => ({
       id: i,
-      top: 25 + Math.random() * 62,
+      top: 18 + Math.random() * 60,
       size: 2.5 + Math.random() * 2.2,
       duration: 8 + Math.random() * 8,
       delay: -(Math.random() * 16),
       bob: 8 + Math.random() * 14,
+      vy: -30 + Math.random() * 90, // mostly settling, some lift → varied angles
     })),
     []
   );
@@ -204,6 +207,7 @@ function Pollen() {
             '--fx-duration': `${m.duration}s`,
             '--fx-delay': `${m.delay}s`,
             '--fx-bob': `${m.bob}px`,
+            '--fx-vy': `${m.vy}px`,
           }}
         />
       ))}
@@ -254,6 +258,7 @@ function Sand() {
       duration: 1.3 + Math.random() * 1.4,
       delay: -(Math.random() * 2.7),
       opacity: 0.45 + Math.random() * 0.35,
+      vy: 16 + Math.random() * 46, // blown down-and-across
     })),
     []
   );
@@ -271,6 +276,7 @@ function Sand() {
             '--fx-duration': `${g.duration}s`,
             '--fx-delay': `${g.delay}s`,
             '--fx-opacity': g.opacity,
+            '--fx-vy': `${g.vy}px`,
           }}
         />
       ))}
@@ -299,6 +305,7 @@ function Leaves() {
       duration: 5 + Math.random() * 4,
       delay: -(Math.random() * 9),
       bob: 16 + Math.random() * 26,
+      vy: 50 + Math.random() * 120, // net downward drift → diagonal fall
       color: palette[i % palette.length],
     })),
     []
@@ -317,6 +324,7 @@ function Leaves() {
             '--fx-duration': `${l.duration}s`,
             '--fx-delay': `${l.delay}s`,
             '--fx-bob': `${l.bob}px`,
+            '--fx-vy': `${l.vy}px`,
           }}
         />
       ))}

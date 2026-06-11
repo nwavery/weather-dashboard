@@ -1131,18 +1131,20 @@ h2 {
   animation: silhouette-high 54s linear infinite;
 }
 @keyframes silhouette-ground {
-  0%   { transform: translateX(-22%); }
-  100% { transform: translateX(calc(100vw + 22%)); }
+  /* ground vehicles cross at a gentle incline, as if following the terrain */
+  0%   { transform: translateX(-22%) translateY(10px); }
+  100% { transform: translateX(calc(100vw + 22%)) translateY(-22px); }
 }
 @keyframes silhouette-fly-mid {
-  0%   { transform: translateX(-25%) translateY(0); }
-  50%  { transform: translateX(45vw) translateY(-18px); }
-  100% { transform: translateX(calc(100vw + 25%)) translateY(6px); }
+  /* fliers wheel across on a clear downward diagonal, with a mid-arc lift */
+  0%   { transform: translateX(-25%) translateY(-34px); }
+  50%  { transform: translateX(45vw) translateY(-44px); }
+  100% { transform: translateX(calc(100vw + 25%)) translateY(26px); }
 }
 @keyframes silhouette-high {
-  0%   { transform: translateX(-15%) translateY(0); }
-  50%  { transform: translateX(48vw) translateY(-10px); }
-  100% { transform: translateX(calc(100vw + 15%)) translateY(0); }
+  /* the balloon rises as it drifts across — up-and-away */
+  0%   { transform: translateX(-15%) translateY(22px); }
+  100% { transform: translateX(calc(100vw + 15%)) translateY(-46px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .world-silhouette { animation: none; left: 8%; }
@@ -1228,16 +1230,16 @@ h2 {
   animation-name: fx-ship-fly-rev;
 }
 @keyframes fx-ship-fly {
-  0%   { transform: translateX(0); opacity: 0; }
+  0%   { transform: translateX(0) translateY(0); opacity: 0; }
   6%   { opacity: 0.8; }
   94%  { opacity: 0.8; }
-  100% { transform: translateX(calc(100vw + 32px)); opacity: 0; }
+  100% { transform: translateX(calc(100vw + 32px)) translateY(var(--fx-vy, 0px)); opacity: 0; }
 }
 @keyframes fx-ship-fly-rev {
-  0%   { transform: translateX(0); opacity: 0; }
+  0%   { transform: translateX(0) translateY(0); opacity: 0; }
   6%   { opacity: 0.8; }
   94%  { opacity: 0.8; }
-  100% { transform: translateX(calc(-100vw - 32px)); opacity: 0; }
+  100% { transform: translateX(calc(-100vw - 32px)) translateY(var(--fx-vy, 0px)); opacity: 0; }
 }
 
 /* Pollen motes (The Shire) */
@@ -1251,11 +1253,11 @@ h2 {
 @keyframes fx-mote-drift {
   0%   { transform: translate(0, 0); opacity: 0; }
   8%   { opacity: 0.55; }
-  30%  { transform: translate(30vw, calc(var(--fx-bob) * -1)); }
-  55%  { transform: translate(55vw, var(--fx-bob)); }
-  80%  { transform: translate(80vw, calc(var(--fx-bob) * -0.6)); }
+  30%  { transform: translate(30vw, calc(var(--fx-vy) * 0.3 - var(--fx-bob))); }
+  55%  { transform: translate(55vw, calc(var(--fx-vy) * 0.55 + var(--fx-bob))); }
+  80%  { transform: translate(80vw, calc(var(--fx-vy) * 0.8 - var(--fx-bob) * 0.6)); }
   93%  { opacity: 0.55; }
-  100% { transform: translate(104vw, 0); opacity: 0; }
+  100% { transform: translate(104vw, var(--fx-vy)); opacity: 0; }
 }
 
 /* Magic sparkles (Hogwarts) */
@@ -1302,7 +1304,7 @@ h2 {
   0%   { transform: translate(0, 0); opacity: 0; }
   10%  { opacity: var(--fx-opacity); }
   90%  { opacity: var(--fx-opacity); }
-  100% { transform: translate(calc(100vw + 36px), 12px); opacity: 0; }
+  100% { transform: translate(calc(100vw + 36px), var(--fx-vy, 12px)); opacity: 0; }
 }
 
 /* Mt. Doom mid-eruption: pulsing lava glow under the ember column */
@@ -1356,10 +1358,10 @@ h2 {
 @keyframes fx-leaf-tumble {
   0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
   8%   { opacity: 0.85; }
-  30%  { transform: translate(32vw, var(--fx-bob)) rotate(260deg); }
-  60%  { transform: translate(62vw, calc(var(--fx-bob) * -0.7)) rotate(500deg); }
+  30%  { transform: translate(32vw, calc(var(--fx-vy) * 0.28 + var(--fx-bob))) rotate(260deg); }
+  60%  { transform: translate(62vw, calc(var(--fx-vy) * 0.6 - var(--fx-bob) * 0.7)) rotate(500deg); }
   92%  { opacity: 0.85; }
-  100% { transform: translate(105vw, var(--fx-bob)) rotate(740deg); opacity: 0; }
+  100% { transform: translate(105vw, calc(var(--fx-vy) + var(--fx-bob))) rotate(740deg); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
