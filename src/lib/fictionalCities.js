@@ -138,6 +138,10 @@ function makeWeather(c) {
   const base = new Date(now);
   base.setMinutes(0, 0, 0);
   const baseMs = nowMs - (nowMs % 3600e3);
+  // If it's precipitating right now, the next ticks can't read 0% just because
+  // the mood beat flips — taper the active shower across the boundary.
+  const curProb = typeof precipProb === 'number' ? precipProb : probFor(curCode);
+  const TAPER = [1, 0.6, 0.35];
   for (let i = 0; i < 24; i++) {
     const t = new Date(base.getTime() + i * 3600 * 1000);
     const hMs = baseMs + i * 3600e3;
@@ -146,7 +150,11 @@ function makeWeather(c) {
     hourly.temperature_2m.push(Math.round(tempAt(hMs, t)));
     hourly.weather_code.push(hCode);
     // precipProb overrides per-world (Atlantis is underwater: always 100%)
-    hourly.precipitation_probability.push(typeof precipProb === 'number' ? precipProb : probFor(hCode));
+    let prob = typeof precipProb === 'number' ? precipProb : probFor(hCode);
+    if (curProb >= 50 && i < TAPER.length) {
+      prob = Math.max(prob, Math.round(curProb * TAPER[i]));
+    }
+    hourly.precipitation_probability.push(prob);
   }
 
   return { current, daily, hourly };
