@@ -8,8 +8,13 @@ import { startKeepAwake, stopKeepAwake } from './lib/keepAwake.js';
 
 // Smart-TV / streaming-stick browsers (Fire TV Silk, Tizen, webOS, Google TV…)
 // get a `tv` class (overscan-safe insets, compaction) + fit-to-screen scaling.
+// `?kiosk=1` forces the same mode on hardware the UA sniff can't see — e.g. a
+// Raspberry Pi running Chromium in kiosk mode on a wall-mounted display.
 const TV_UA = /\bSilk\b|AFT[A-Z]|Fire ?TV|SmartTV|SMART-TV|Tizen|Web0S|webOS|NetCast|BRAVIA|GoogleTV|CrKey/i;
-const IS_TV = typeof navigator !== 'undefined' && TV_UA.test(navigator.userAgent || '');
+const IS_KIOSK =
+  typeof window !== 'undefined' &&
+  ['1', 'true'].includes(new URLSearchParams(window.location.search).get('kiosk') || '');
+const IS_TV = IS_KIOSK || (typeof navigator !== 'undefined' && TV_UA.test(navigator.userAgent || ''));
 
 export default function App() {
   const { locations, status, updateLocation, locateCard, rotating, toggleRotate } = useLocations();
