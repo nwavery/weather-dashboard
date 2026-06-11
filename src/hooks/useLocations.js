@@ -13,6 +13,50 @@ const FALLBACK = {
 const CACHE_KEY = 'weatherDashboardCurrentLocation';
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
+// The second card's stable key (defined in useLocations' initial state).
+const SECOND_CARD_KEY = 'boston';
+
+// Persisted 🔁 choices. The second card rotates through the fictional worlds
+// BY DEFAULT; an explicit toggle (or renaming the card) is remembered here so
+// the default never fights a choice the user already made.
+const ROTATE_PREF_KEY = 'weatherDashboardRotatePrefs';
+
+function loadRotatePrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(ROTATE_PREF_KEY) || '{}');
+    return p && typeof p === 'object' ? p : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveRotatePref(key, on) {
+  try {
+    const p = loadRotatePrefs();
+    p[key] = !!on;
+    localStorage.setItem(ROTATE_PREF_KEY, JSON.stringify(p));
+  } catch {
+    /* ignore */
+  }
+}
+
+// Initial rotation state: URL param > saved 🔁 preference > default (the
+// second card rotates unless the user has manually pinned a place to it).
+function initialRotation(demo) {
+  if (demo) return {};
+  let param = null;
+  try {
+    param = new URLSearchParams(window.location.search).get('rotate');
+  } catch {
+    /* ignore */
+  }
+  if (param === '1' || param === 'true') return { [SECOND_CARD_KEY]: true };
+  if (param === '0' || param === 'false') return {};
+  const pref = loadRotatePrefs()[SECOND_CARD_KEY];
+  if (typeof pref === 'boolean') return pref ? { [SECOND_CARD_KEY]: true } : {};
+  return loadManual()[SECOND_CARD_KEY] ? {} : { [SECOND_CARD_KEY]: true };
+}
+
 // Manually chosen card locations (via the ✏️ rename) persist across reloads —
 // IP lookup can be a county off (ISP blocks register at regional hubs), so an
 // explicit choice must outrank it. The 📍 button clears the entry (back to auto).
@@ -212,7 +256,7 @@ export function useLocations() {
     ].map((card) => restoreManual(card, manual));
   });
   const [status, setStatus] = useState('');
-  const [rotating, setRotating] = useState({}); // { [key]: true }
+  const [rotating, setRotating] = useState(() => initialRotation(demo)); // { [key]: true }
   const timers = useRef({}); // key -> intervalId
   const idxRef = useRef({}); // key -> next fictional index
 
@@ -250,30 +294,13 @@ export function useLocations() {
     };
   }, [demo]);
 
-  // Kiosk autostart: ?rotate=1 turns on fictional-city rotation for the second
-  // card at load. Rotation state is in-memory, so a wall-mounted frame would
-  // otherwise lose it (and show plain Boston) after every reboot/reload.
-  // Card keys are stable, so reading the mount-time key once is safe.
-  useEffect(() => {
-    if (demo) return;
-    let v = null;
-    try {
-      v = new URLSearchParams(window.location.search).get('rotate');
-    } catch {
-      return;
-    }
-    if (v !== '1' && v !== 'true') return;
-    const key = locations[1]?.key;
-    if (key) setRotating((r) => ({ ...r, [key]: true }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demo]);
-
   // Re-resolve the device's location and point this card back at it (the way
   // back after renaming the "Current Location" card to somewhere else). Also
   // stops fictional rotation on the card so it doesn't wander off again.
   const locateCard = useCallback(async (key) => {
     if (demo) return { ok: false };
     saveManual(key, null); // back to auto-locate on future loads
+    saveRotatePref(key, false); // "show MY location" — don't rotate away from it
     setRotating((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
     const { location, badge } = await resolveCurrent(setStatus);
     setLocations((prev) =>
@@ -290,9 +317,16 @@ export function useLocations() {
     if (/^(current( location)?|my location|here)$/i.test(cityName.trim())) {
       return locateCard(key);
     }
+    // A rename is an explicit choice: stop rotation (now and on future loads)
+    // so the picked place isn't silently swapped 10 minutes later.
+    const pin = (place) => {
+      setRotating((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
+      saveRotatePref(key, false);
+      setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...place } : l)));
+    };
     const fic = findFictional(cityName);
     if (fic) {
-      setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...fic } : l)));
+      pin(fic);
       saveManual(key, { name: fic.name, fictional: true });
       return { ok: true };
     }
@@ -300,9 +334,7 @@ export function useLocations() {
       const geo = await geocodeCity(cityName);
       if (!geo) return { ok: false };
       // Clear any fictional flag if this card was previously a fictional city.
-      setLocations((prev) =>
-        prev.map((l) => (l.key === key ? { ...l, ...geo, fictional: false, theme: null, badge: '' } : l))
-      );
+      pin({ ...geo, fictional: false, theme: null, badge: '' });
       saveManual(key, { name: geo.name, latitude: geo.latitude, longitude: geo.longitude, timeZone: geo.timeZone });
       return { ok: true };
     } catch {
@@ -321,9 +353,11 @@ export function useLocations() {
   const toggleRotate = useCallback(
     (key) => {
       if (demo) return;
-      setRotating((prev) => ({ ...prev, [key]: !prev[key] }));
+      const next = !rotating[key];
+      saveRotatePref(key, next);
+      setRotating((prev) => ({ ...prev, [key]: next }));
     },
-    [demo]
+    [demo, rotating]
   );
 
   // Start/stop a 10-min timer per rotating card. Turning rotation on jumps to a
