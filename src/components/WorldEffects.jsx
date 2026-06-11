@@ -244,6 +244,16 @@ function Sand() {
   );
 }
 
+// Smoky haze (real cards when AQI is hazardous): slow gray-amber drift
+function Smoke() {
+  return (
+    <>
+      <div className="fx-smoke-band fx-smoke-band--1" />
+      <div className="fx-smoke-band fx-smoke-band--2" />
+    </>
+  );
+}
+
 // Tumbling autumn leaves (Hundred Acre Wood's rather blustery day)
 function Leaves() {
   const palette = ['#c9803a', '#a8642a', '#d9a04e', '#b8753c'];
@@ -289,6 +299,7 @@ const EFFECTS = {
   sparkles: Sparkles,
   sand: Sand,
   leaves: Leaves,
+  smoke: Smoke,
 };
 
 export function WorldEffects({ kind }) {

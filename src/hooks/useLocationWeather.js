@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchWeather, fetchAirQuality, fetchHistoricalAverage } from '../lib/openMeteo.js';
 import { fetchPollen } from '../lib/pollen.js';
+import { fetchAlerts } from '../lib/alerts.js';
 import { isDemo, demoStateFor } from '../lib/demoData.js';
 import { isFictional, fictionalStateFor } from '../lib/fictionalCities.js';
 
@@ -19,6 +20,7 @@ const INITIAL = {
   pollen: null,
   pollenError: null,
   historical: null,
+  alerts: [],
   updatedAt: null
 };
 
@@ -73,11 +75,12 @@ export function useLocationWeather(location) {
 
     const run = async () => {
       const loc = { latitude: lat, longitude: lng, timeZone: tz };
-      const [w, a, p, h] = await Promise.allSettled([
+      const [w, a, p, h, al] = await Promise.allSettled([
         fetchWeather(loc),
         fetchAirQuality(loc),
         fetchPollen(loc),
-        fetchHistoricalAverage(loc)
+        fetchHistoricalAverage(loc),
+        fetchAlerts(loc)
       ]);
       if (!active) return; // location changed mid-flight — drop the stale result
 
@@ -93,6 +96,7 @@ export function useLocationWeather(location) {
         pollen: p.status === 'fulfilled' ? p.value : prev.pollen,
         pollenError: p.status === 'rejected' ? p.reason : p.status === 'fulfilled' ? null : prev.pollenError,
         historical: h.status === 'fulfilled' ? h.value : prev.historical,
+        alerts: al.status === 'fulfilled' ? al.value : prev.alerts,
         updatedAt: weatherOk ? new Date() : prev.updatedAt
       }));
 

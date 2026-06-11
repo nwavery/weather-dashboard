@@ -2,6 +2,7 @@ import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin } from '../lib/fictionalCities.js';
+import { headlineFlavor } from '../lib/headline.js';
 import {
   WeatherAnimation,
   getSkyGradient,
@@ -17,11 +18,16 @@ import { HourlyForecast } from './HourlyForecast.jsx';
 import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
 
-// WMO weather codes don't encode wind, so a "Clear sky" day can be howling.
-// Sustained or gusty wind above these marks reads as "Windy" in the headline
-// and earns the blustery tumbling-leaves layer.
-const WINDY_MPH = 20;
-const GUSTY_MPH = 35;
+// Alert chips show a compact "until" time in the card's local zone.
+function alertEnds(ends, timeZone) {
+  if (!ends) return '';
+  try {
+    const t = new Date(ends).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
+    return ` until ${t}`;
+  } catch {
+    return '';
+  }
+}
 
 function historicalText(weather, historical) {
   if (!weather?.daily) return 'vs. Historical: --';
@@ -60,10 +66,15 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // Aurora on clear nights: flagged fictional worlds (e.g. Asgard) or real cities
   // at auroral latitudes (|lat| >= 55°).
   const aurora = isClearNight && (fic ? !!fic.aurora : Math.abs(location.latitude ?? 0) >= 55);
-  // Real-city windy flavor (precip animations own their own scene, so no leaves there)
-  const windy =
-    !fic && ((current?.wind_speed_10m ?? 0) >= WINDY_MPH || (current?.wind_gusts_10m ?? 0) >= GUSTY_MPH);
-  const blusteryLeaves = windy && !['rain', 'snow', 'thunder'].includes(animation || '');
+  // Real-city headline flavor: one modifier by severity (Smoky haze > Blowing
+  // dust > Storm brewing > Scorching/Frigid > Windy > Muggy), with an optional
+  // ambient effect — suppressed during precip animations, which own the scene.
+  const flavor = fic
+    ? null
+    : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone });
+  const flavorEffect =
+    flavor?.effect && !['rain', 'snow', 'thunder'].includes(animation || '') ? flavor.effect : null;
+  const alerts = fic ? [] : wx.alerts || [];
 
   return (
     <div
@@ -82,12 +93,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         aurora={aurora}
       />
 
-      {/* Per-world ambient particles (bubbles, embers, spores…) — and the
-          blustery leaves on real cards when the wind is up */}
+      {/* Per-world ambient particles (bubbles, embers, spores…) — and flavor
+          effects on real cards (blustery leaves, blowing dust, smoky haze) */}
       {fic?.effect ? (
         <WorldEffects kind={fic.effect} />
-      ) : blusteryLeaves ? (
-        <WorldEffects kind="leaves" />
+      ) : flavorEffect ? (
+        <WorldEffects kind={flavorEffect} />
       ) : null}
 
       {/* Gradient scrim for text legibility */}
@@ -141,7 +152,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 </div>
                 {info && (
                   <div className="weather-desc">
-                    {fic?.condition || (windy ? `Windy · ${info.description}` : info.description)}
+                    {fic?.condition || (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
                 <div className="temp-details">
@@ -166,6 +177,21 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
             <Metrics current={current} />
             <AirQuality air={wx.air} pollen={wx.pollen} pollenError={wx.pollenError} />
             <HourlyForecast hourly={wx.weather?.hourly} timeZone={location.timeZone} />
+
+            {/* Official NWS alerts (Heat Advisory, Tornado Watch, …) */}
+            {alerts.length > 0 ? (
+              <div className="weather-alerts">
+                {alerts.slice(0, 2).map((a) => (
+                  <div key={a.id} className={`weather-alert weather-alert--${a.class}`} title={a.headline}>
+                    <span className="alert-icon">⚠️</span> {a.event}
+                    <span className="alert-ends">{alertEnds(a.ends, location.timeZone)}</span>
+                    {alerts.length > 2 && a === alerts[1] ? (
+                      <span className="alert-more"> +{alerts.length - 2} more</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </>
         )}
 
