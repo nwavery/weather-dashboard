@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { STARS, NAMED, CON_LINES } from '../data/starCatalog.js';
+import { STARS, CON_LINES } from '../data/starCatalog.js';
 import { lstDegrees, altAz, projectDome, starTint } from '../lib/skymap.js';
 
 // The page background: the real night sky currently above `latitude/longitude`,
@@ -79,15 +79,6 @@ export function SkyMapBackground({ latitude, longitude }) {
           ctx.arc(p.x, p.y, radius * 2.6, 0, Math.PI * 2);
           ctx.fill();
         }
-      }
-
-      // Names for the brightest stars
-      ctx.font = '10px system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(190, 210, 245, 0.3)';
-      ctx.textBaseline = 'middle';
-      for (const [ra, dec, name] of NAMED) {
-        const p = place(ra, dec);
-        if (p) ctx.fillText(name, p.x + 6, p.y);
       }
 
       // Cardinal letters where the horizon circle is on-screen
