@@ -718,6 +718,19 @@ h2 {
   white-space: nowrap;
 }
 
+/* Rare world events on the hourly strip (🌋 the 1 AM eruption tick) */
+.hourly-icon.hourly-event {
+  font-size: clamp(22px, 3.2vw, 30px);
+  line-height: clamp(26px, 3.5vw, 34px);
+  margin: 3px 0;
+  animation: event-pulse 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 7px rgba(255, 150, 60, 0.75));
+}
+@keyframes event-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
+
 /* Chance of precipitation; the slot always renders so card heights stay equal */
 .hourly-precip {
   margin-top: 2px;
@@ -1214,6 +1227,23 @@ h2 {
   10%  { opacity: var(--fx-opacity); }
   90%  { opacity: var(--fx-opacity); }
   100% { transform: translate(calc(100vw + 36px), 12px); opacity: 0; }
+}
+
+/* Mt. Doom mid-eruption: pulsing lava glow under the ember column */
+.fx-eruption-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -12%;
+  width: 95%;
+  height: 58%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 96, 22, 0.6) 0%, rgba(214, 68, 12, 0.3) 42%, transparent 72%);
+  mix-blend-mode: screen;
+  animation: fx-erupt-pulse 2.4s ease-in-out infinite;
+}
+@keyframes fx-erupt-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
 }
 
 /* Smoky haze (real cards at hazardous AQI): slow gray-amber drift */

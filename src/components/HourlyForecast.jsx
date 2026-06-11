@@ -41,12 +41,20 @@ export function HourlyForecast({ hourly, timeZone }) {
       })
     );
     const prob = hourly.precipitation_probability?.[i];
+    const special = hourly.special?.[i];
     items.push(
       <div className="hourly-item" key={i}>
         <div className="hourly-time">{label}</div>
-        <div className="hourly-icon">
-          <img src={`https://openweathermap.org/img/wn/${info.icon}.png`} alt={info.description} title={info.description} />
-        </div>
+        {special ? (
+          // A rare world event lands on this hour (e.g. 🌋 Mt. Doom erupts)
+          <div className="hourly-icon hourly-event" title={special.name}>
+            {special.emoji}
+          </div>
+        ) : (
+          <div className="hourly-icon">
+            <img src={`https://openweathermap.org/img/wn/${info.icon}.png`} alt={info.description} title={info.description} />
+          </div>
+        )}
         <div className="hourly-temp">{formatTemperature(hourly.temperature_2m?.[i])}</div>
         {/* Keep the row height uniform: render the slot even when there's no data */}
         <div

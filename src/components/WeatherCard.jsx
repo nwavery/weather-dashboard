@@ -75,6 +75,10 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   const flavorEffect =
     flavor?.effect && !['rain', 'snow', 'thunder'].includes(animation || '') ? flavor.effect : null;
   const alerts = fic ? [] : wx.alerts || [];
+  // A rare world event happening right now (Mt. Doom erupting…) takes over the
+  // fictional card's tagline and ambient effect for its hour.
+  const worldEvent = fic ? wx.event : null;
+  const ficEffect = worldEvent?.effect || fic?.effect;
 
   return (
     <div
@@ -95,8 +99,8 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
 
       {/* Per-world ambient particles (bubbles, embers, spores…) — and flavor
           effects on real cards (blustery leaves, blowing dust, smoky haze) */}
-      {fic?.effect ? (
-        <WorldEffects kind={fic.effect} />
+      {fic ? (
+        ficEffect ? <WorldEffects kind={ficEffect} /> : null
       ) : flavorEffect ? (
         <WorldEffects kind={flavorEffect} />
       ) : null}
@@ -152,7 +156,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 </div>
                 {info && (
                   <div className="weather-desc">
-                    {fic?.condition || (flavor ? `${flavor.label} · ${info.description}` : info.description)}
+                    {worldEvent?.tagline ||
+                      fic?.condition ||
+                      (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
                 <div className="temp-details">

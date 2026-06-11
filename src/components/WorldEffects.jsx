@@ -73,6 +73,40 @@ function Embers() {
   );
 }
 
+// Mt. Doom mid-eruption: a pulsing lava glow plus a dense, fast ember column
+function Eruption() {
+  const embers = useMemo(() =>
+    Array.from({ length: 36 }, (_, i) => ({
+      id: i,
+      left: 32 + Math.random() * 36,
+      size: 2.5 + Math.random() * 4.5,
+      duration: 2.2 + Math.random() * 2.6,
+      delay: -(Math.random() * 5),
+      drift: -34 + Math.random() * 68,
+    })),
+    []
+  );
+  return (
+    <>
+      <div className="fx-eruption-glow" />
+      {embers.map((e) => (
+        <div
+          key={e.id}
+          className="fx-ember"
+          style={{
+            left: `${e.left}%`,
+            width: `${e.size}px`,
+            height: `${e.size}px`,
+            '--fx-duration': `${e.duration}s`,
+            '--fx-delay': `${e.delay}s`,
+            '--fx-drift': `${e.drift}px`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 // Bioluminescent wood-sprites drifting slowly down (Pandora)
 function Spores() {
   const spores = useMemo(() =>
@@ -300,6 +334,7 @@ const EFFECTS = {
   sand: Sand,
   leaves: Leaves,
   smoke: Smoke,
+  eruption: Eruption,
 };
 
 export function WorldEffects({ kind }) {
