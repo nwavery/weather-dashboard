@@ -104,7 +104,7 @@ function restoreManual(card, manual) {
   };
 }
 
-// Fictional-city rotation cadence (10 min). Overridable via ?rotateMs= for testing.
+// Fictional-city rotation cadence (5 min). Overridable via ?rotateMs= for testing.
 function rotateInterval() {
   try {
     const v = parseInt(new URLSearchParams(window.location.search).get('rotateMs'), 10);
@@ -112,7 +112,7 @@ function rotateInterval() {
   } catch {
     /* ignore */
   }
-  return 10 * 60 * 1000;
+  return 5 * 60 * 1000;
 }
 const ROTATE_MS = rotateInterval();
 
@@ -364,7 +364,7 @@ export function useLocations() {
     [demo, rotating]
   );
 
-  // Start/stop a 10-min timer per rotating card. Turning rotation on jumps to a
+  // Start/stop a 5-min timer per rotating card. Turning rotation on jumps to a
   // random city immediately so it's obvious, then advances on each tick.
   useEffect(() => {
     Object.keys(rotating).forEach((key) => {
