@@ -112,28 +112,63 @@ const EVENT_HOUR = 0x13371337;
 
 // Hour-of-day (0-23) for `ms` in the given IANA timezone, so events fire at a
 // sensible LOCAL time rather than a UTC hour that displays as something odd.
+const hourFmtCache = new Map();
 function hourInZone(ms, tz) {
   if (!tz) return new Date(ms).getUTCHours();
   try {
-    const h = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hour12: false })
-      .formatToParts(new Date(ms))
-      .find((p) => p.type === 'hour')?.value;
+    let fmt = hourFmtCache.get(tz);
+    if (!fmt) {
+      fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hour12: false });
+      hourFmtCache.set(tz, fmt);
+    }
+    const h = fmt.formatToParts(new Date(ms)).find((p) => p.type === 'hour')?.value;
     return (parseInt(h, 10) || 0) % 24;
   } catch {
     return new Date(ms).getUTCHours();
   }
 }
 
-// The world's event spec if `ms` falls inside that day's event hour, else null.
-export function eventForHour(id, ms) {
+// Day number for `ms` in the given timezone. The event gate/start must be keyed
+// on the world's LOCAL day: keying on the UTC day flips mid-evening for zones
+// whose window straddles UTC midnight (e.g. New York), which could schedule two
+// adjacent starts and merge into a 3-4 hour run.
+const dayFmtCache = new Map();
+function dayInZone(ms, tz) {
+  if (!tz) return Math.floor(ms / 86400e3);
+  try {
+    let fmt = dayFmtCache.get(tz);
+    if (!fmt) {
+      fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+      dayFmtCache.set(tz, fmt);
+    }
+    return Math.floor(Date.parse(`${fmt.format(new Date(ms))}T00:00:00Z`) / 86400e3);
+  } catch {
+    return Math.floor(ms / 86400e3);
+  }
+}
+
+// Is `ms` inside the event's START hour for its day? The start is picked from
+// [lo, hi-1] of the themed local window so the full two-hour run fits inside.
+function eventStartAt(id, ms) {
   const spec = EVENTS[id];
   if (!spec) return null;
   const seed = hashStr(id);
-  const day = Math.floor(ms / 86400e3);
+  const tz = byId(id)?.timeZone;
+  const day = dayInZone(ms, tz);
   if (rand01(seed ^ EVENT_GATE, day) >= spec.chance) return null;
   const [lo, hi] = spec.window || [0, 23];
-  const target = lo + Math.floor(rand01(seed ^ EVENT_HOUR, day) * (hi - lo + 1));
-  return hourInZone(ms, byId(id)?.timeZone) === target ? spec : null;
+  const target = lo + Math.floor(rand01(seed ^ EVENT_HOUR, day) * Math.max(1, hi - lo));
+  return hourInZone(ms, tz) === target ? spec : null;
+}
+
+// The world's event spec if `ms` falls inside the event's TWO-hour run, else
+// null. Events last two hours because the hourly strip displays every other
+// hour (+1, +3, … +11): a one-hour event sat on a visible tick only when its
+// offset happened to be odd, so it popped in and out as the parity flipped.
+// With two consecutive hours, exactly one always lands on a visible tick — an
+// approaching event stays continuously in view from ~11 hours out.
+export function eventForHour(id, ms) {
+  return eventStartAt(id, ms) || eventStartAt(id, ms - 3600e3);
 }
 
 function makeWeather(c) {
