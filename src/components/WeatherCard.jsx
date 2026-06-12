@@ -73,8 +73,10 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // at auroral latitudes (|lat| >= 55°).
   const aurora = isClearNight && (fic ? !!fic.aurora : Math.abs(location.latitude ?? 0) >= 55);
   // Real-city headline flavor: one modifier by severity (Smoky haze > Blowing
-  // dust > Storm brewing > Scorching/Frigid > Windy > Muggy), with an optional
-  // ambient effect — suppressed during precip animations, which own the scene.
+  // dust > Storm brewing > Scorching/Frigid > Windy > dew-point comfort scale),
+  // with an optional ambient effect — suppressed during precip animations,
+  // which own the scene. The dew scale spans Bone-dry → Miserable, so a comfort
+  // word is always on deck when nothing more urgent claims the headline.
   const flavor = fic
     ? null
     : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone });
@@ -170,7 +172,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   </div>
                 </div>
                 {info && (
-                  <div className="weather-desc">
+                  <div className="weather-desc" title={flavor?.detail || undefined}>
                     {worldEvent?.tagline ||
                       fic?.condition ||
                       (flavor ? `${flavor.label} · ${info.description}` : info.description)}

@@ -5,7 +5,8 @@
 // it. Fictional cities never use this — they have their own taglines.
 //
 // Precedence (most attention-worthy first):
-//   Smoky haze > Blowing dust > Storm brewing > Scorching/Frigid > Windy > Muggy
+//   Smoky haze > Blowing dust > Storm brewing > Scorching/Frigid > Windy >
+//   dew-point comfort (Bone-dry → Miserable)
 
 const WINDY_MPH = 20;
 const GUSTY_MPH = 35;
@@ -14,9 +15,31 @@ const DUST_MAX_RH = 25;
 const SMOKE_AQI = 150;
 const SCORCHING_F = 102;
 const FRIGID_F = 10;
-const MUGGY_DEW_F = 70;
 const BREWING_PROB = 70; // % chance within the next few hours
 const BREWING_LOOKAHEAD_H = 3;
+
+// The full dew-point comfort scale (°F): how the air actually feels, from
+// bone-dry to miserable. This is the lowest-precedence flavor — it fills the
+// headline whenever nothing more urgent (wind, smoke, temperature extremes…)
+// claims it, so real cards always carry a comfort word. `detail` surfaces as a
+// hover tooltip on the headline.
+const DEW_SCALE = [
+  { min: 76, label: 'Miserable', detail: 'dangerously saturated; high risk of heat exhaustion' },
+  { min: 70, label: 'Oppressive', detail: 'thick, tropical, and exhausting' },
+  { min: 65, label: 'Sticky', detail: 'uncomfortable and heavy; AC territory' },
+  { min: 60, label: 'Muggy', detail: 'sticky and damp; sweat is slow to evaporate' },
+  { min: 55, label: 'Noticeable humidity', detail: 'a hint of moisture, still very acceptable' },
+  { min: 50, label: 'Ideal comfort', detail: 'the sweet spot — effortless and light' },
+  { min: 40, label: 'Quite dry', detail: 'pleasant and fresh; great for being active' },
+  { min: 30, label: 'Severely dry', detail: 'very crisp; skin starts to feel dry' },
+  { min: -Infinity, label: 'Bone-dry', detail: 'harshly dry; chapped lips and static shocks' }
+];
+
+function dewComfort(dew) {
+  if (typeof dew !== 'number' || Number.isNaN(dew)) return null;
+  const band = DEW_SCALE.find((b) => dew >= b.min);
+  return { label: band.label, effect: null, detail: `Dew point ${Math.round(dew)}° — ${band.detail}` };
+}
 
 // Max precipitation probability over the next few hours. Hourly times are
 // naive local-to-location strings, so compare against the wall-clock in the
@@ -78,8 +101,6 @@ export function headlineFlavor({ current, air, hourly, timeZone }) {
   if (wind >= WINDY_MPH || gusts >= GUSTY_MPH) {
     return { label: 'Windy', effect: 'leaves' };
   }
-  if (typeof dew === 'number' && dew >= MUGGY_DEW_F) {
-    return { label: 'Muggy', effect: null };
-  }
-  return null;
+  // Nothing urgent — fall through to the dew-point comfort word.
+  return dewComfort(dew);
 }
