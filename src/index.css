@@ -267,6 +267,16 @@ html.tv-fit .container {
   mix-blend-mode: screen;
   z-index: 0;
 }
+.fic-halloween-town .sky-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 46% at 50% 100%, rgba(255, 130, 30, 0.42) 0%, rgba(210, 90, 20, 0.16) 40%, transparent 68%),
+    radial-gradient(ellipse 70% 40% at 22% 10%, rgba(120, 60, 180, 0.28) 0%, transparent 60%);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
 .fic-asgard .sky-bg::before {
   content: '';
   position: absolute;
@@ -1322,6 +1332,78 @@ h2 {
 @keyframes fx-erupt-pulse {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }
+}
+
+/* Fluttering bats (Halloween Town) */
+.fx-bat {
+  position: absolute;
+  left: -40px;
+  animation: fx-bat-fly var(--fx-duration) linear var(--fx-delay) infinite;
+}
+.fx-bat--rev {
+  left: auto;
+  right: -40px;
+  animation-name: fx-bat-fly-rev;
+}
+.fx-bat-wings {
+  background: #0a0712;
+  /* bat silhouette: ears up top, two scalloped wings */
+  clip-path: polygon(50% 38%, 58% 12%, 63% 32%, 80% 16%, 74% 40%, 100% 44%, 82% 58%, 92% 78%, 68% 60%, 50% 82%, 32% 60%, 8% 78%, 18% 58%, 0 44%, 26% 40%, 20% 16%, 37% 32%, 42% 12%);
+  transform-origin: 50% 50%;
+  animation: fx-bat-flap 0.2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+@keyframes fx-bat-flap {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0.5); }
+}
+@keyframes fx-bat-fly {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(28vw, calc(var(--fx-vy) * 0.2 - 16px)); }
+  50%  { transform: translate(52vw, calc(var(--fx-vy) * 0.5 + 14px)); }
+  75%  { transform: translate(78vw, calc(var(--fx-vy) * 0.8 - 12px)); }
+  100% { transform: translate(calc(100vw + 40px), var(--fx-vy)); }
+}
+@keyframes fx-bat-fly-rev {
+  0%   { transform: translate(0, 0) scaleX(-1); }
+  25%  { transform: translate(-28vw, calc(var(--fx-vy) * 0.2 - 16px)) scaleX(-1); }
+  50%  { transform: translate(-52vw, calc(var(--fx-vy) * 0.5 + 14px)) scaleX(-1); }
+  75%  { transform: translate(-78vw, calc(var(--fx-vy) * 0.8 - 12px)) scaleX(-1); }
+  100% { transform: translate(calc(-100vw - 40px), var(--fx-vy)) scaleX(-1); }
+}
+
+/* Lighting of the Pumpkin (Halloween Town event): flickering jack-o-lantern glow + sparks */
+.fx-pumpkin-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -10%;
+  width: 90%;
+  height: 60%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 150, 30, 0.7) 0%, rgba(255, 110, 20, 0.34) 40%, transparent 72%);
+  mix-blend-mode: screen;
+  animation: fx-pumpkin-flicker 0.3s ease-in-out infinite alternate;
+}
+@keyframes fx-pumpkin-flicker {
+  0%   { opacity: 0.78; }
+  100% { opacity: 1; }
+}
+.fx-pumpkin-spark {
+  position: absolute;
+  bottom: 4%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffdf9e 0%, #ff9a2e 50%, rgba(255, 120, 20, 0) 100%);
+  box-shadow: 0 0 7px 1px rgba(255, 150, 40, 0.7);
+  mix-blend-mode: screen;
+  animation: fx-pumpkin-rise var(--fx-duration) ease-out var(--fx-delay) infinite;
+}
+@keyframes fx-pumpkin-rise {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  12%  { opacity: 0.95; }
+  100% { transform: translate(var(--fx-drift), -64vh); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-bat, .fx-bat-wings, .fx-pumpkin-spark { animation: none; }
 }
 
 /* Smoky haze (real cards at hazardous AQI): slow gray-amber drift */

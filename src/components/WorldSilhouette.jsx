@@ -83,6 +83,26 @@ const SHAPES = {
         <ellipse cx="116" cy="12" rx="10" ry="6" />
       </g>
     )
+  },
+  // Witch on a broomstick crossing the moon (Halloween Town)
+  witch: {
+    band: 'mid',
+    viewBox: '0 0 150 80',
+    body: (
+      <g>
+        {/* broomstick */}
+        <rect x="18" y="50" width="86" height="3" rx="1.5" transform="rotate(-8 60 51)" />
+        {/* bristles */}
+        <path d="M104 40 l24 4 l-26 6 l24 8 l-28 4 Z" />
+        {/* witch body hunched forward */}
+        <path d="M58 50 q4 -16 16 -18 q10 -1 14 6 q-2 8 -10 10 q-10 3 -20 2 Z" />
+        {/* pointed hat */}
+        <path d="M70 32 l22 -22 l6 16 Z" />
+        <ellipse cx="84" cy="30" rx="16" ry="3" />
+        {/* trailing cape */}
+        <path d="M58 50 q-16 2 -26 12 q14 -2 22 0 Z" />
+      </g>
+    )
   }
 };
 

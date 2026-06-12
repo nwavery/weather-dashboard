@@ -332,6 +332,76 @@ function Leaves() {
   );
 }
 
+// Fluttering bats crossing the night (Halloween Town)
+function Bats() {
+  const bats = useMemo(() =>
+    Array.from({ length: 9 }, (_, i) => ({
+      id: i,
+      top: 8 + Math.random() * 50,
+      size: 14 + Math.random() * 16,
+      duration: 7 + Math.random() * 7,
+      delay: -(Math.random() * 14),
+      vy: -28 + Math.random() * 80,
+      flap: 0.18 + Math.random() * 0.16,
+      reverse: Math.random() < 0.5,
+    })),
+    []
+  );
+  return (
+    <>
+      {bats.map((b) => (
+        <div
+          key={b.id}
+          className={`fx-bat${b.reverse ? ' fx-bat--rev' : ''}`}
+          style={{
+            top: `${b.top}%`,
+            '--fx-duration': `${b.duration}s`,
+            '--fx-delay': `${b.delay}s`,
+            '--fx-vy': `${b.vy}px`,
+          }}
+        >
+          <div className="fx-bat-wings" style={{ width: `${b.size}px`, height: `${b.size * 0.55}px`, animationDuration: `${b.flap}s` }} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Lighting of the Pumpkin (Halloween Town event): a flickering jack-o-lantern
+// glow swelling from the bottom, plus warm sparks rising.
+function Pumpkin() {
+  const sparks = useMemo(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: 28 + Math.random() * 44,
+      size: 2 + Math.random() * 3,
+      duration: 3 + Math.random() * 3,
+      delay: -(Math.random() * 6),
+      drift: -26 + Math.random() * 52,
+    })),
+    []
+  );
+  return (
+    <>
+      <div className="fx-pumpkin-glow" />
+      {sparks.map((s) => (
+        <div
+          key={s.id}
+          className="fx-pumpkin-spark"
+          style={{
+            left: `${s.left}%`,
+            width: `${s.size}px`,
+            height: `${s.size}px`,
+            '--fx-duration': `${s.duration}s`,
+            '--fx-delay': `${s.delay}s`,
+            '--fx-drift': `${s.drift}px`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 const EFFECTS = {
   bubbles: Bubbles,
   embers: Embers,
@@ -343,6 +413,8 @@ const EFFECTS = {
   leaves: Leaves,
   smoke: Smoke,
   eruption: Eruption,
+  bats: Bats,
+  pumpkin: Pumpkin,
 };
 
 export function WorldEffects({ kind }) {

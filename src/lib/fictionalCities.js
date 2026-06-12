@@ -102,6 +102,7 @@ const EVENTS = {
   hogwarts: { chance: 0.6, emoji: '🧹', name: 'Quidditch match', tagline: 'QUIDDITCH · Gryffindor vs Slytherin', effect: 'sparkles' },
   'the-shire': { chance: 0.4, emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'sparkles' },
   'bikini-bottom': { chance: 0.5, emoji: '🪼', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration' },
+  'halloween-town': { chance: 1.0, emoji: '🎃', name: 'Lighting of the Pumpkin', tagline: 'PUMPKIN LIT · The Town Gathers', effect: 'pumpkin' },
   springfield: { chance: 0.5, emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts' }
 };
 
@@ -424,6 +425,15 @@ const CITIES = [
     air: { us_aqi: 7, pm2_5: 1, ozone: 20 }, pollen: pollen(null, null, null), historical: { baseline: 24, years: 10 }
   },
   {
+    id: 'halloween-town', name: 'Halloween Town', world: 'The Holiday Worlds', timeZone: 'America/New_York',
+    aliases: ['halloween town', 'halloween', 'spooky town', 'jack skellington'],
+    gradient: 'linear-gradient(to bottom,#08040f 0%,#160c26 28%,#2a163e 52%,#5a2a30 76%,#d2691e 100%)',
+    anim: 'fog', phase: 'night', condition: 'Crisp · Eternal Halloween Night', effect: 'bats',
+    weather: ({ temp: 50, code: 45, feels: 45, humidity: 78, dew: 43, wind: 12, windDir: 320, uv: 0, precipProb: 30 }),
+    dyn: { lockPhase: true, drift: 7, moods: [45, 3, 2, 48, 51, 61] },
+    air: { us_aqi: 18, pm2_5: 4, ozone: 26 }, pollen: pollen(2, 1, 4), historical: { baseline: 52, years: 10 }
+  },
+  {
     // Hidden Easter egg: "Springfield" is a real city (many of them), so it must
     // geocode normally. Reachable only via the 'simpsons'/'homer' aliases, kept
     // off the datalist and out of the rotation (see `hidden`).
@@ -632,6 +642,14 @@ const WORLD_EXTRAS = {
     metrics: { humidity: 'Frost Haze', dew: 'Frost', wind: 'Cold Wind', uv: 'Pale Sun' },
     air: { title: 'Winter Air', aqi: 'Ice', pm: 'Snow', ozone: 'Chill' },
     dispatches: ['Always winter, never Christmas', 'A faun by the lamppost', 'Aslan is on the move', 'The White Witch patrols', 'A robin leads the way']
+  },
+  'halloween-town': {
+    skyBody: 'harvestmoon',
+    silhouette: 'witch',
+    metrics: { humidity: 'Dampness', dew: 'Graveyard Chill', wind: 'Howling Wind', uv: 'Moonlight' },
+    air: { title: 'Crisp Air & Spirits', aqi: 'Spookiness', pm: 'Fog', ozone: 'Mist' },
+    pollen: { tree: 'Deadwood', grass: 'Cobweb', weed: 'Ragweed' },
+    dispatches: ['Jack is planning something big', 'The pumpkins are grinning wider', 'Something wicked this way comes', 'Trick-or-treaters on the prowl', "Zero's out for a midnight flight", "The Mayor can't make up his mind", 'Bats in the belfry tonight', 'Boils and ghouls assembling in the square']
   },
   springfield: {
     metrics: { uv: 'UV Index' },
