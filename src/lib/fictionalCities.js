@@ -88,36 +88,52 @@ const clampN = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 // ── Rare world events ──────────────────────────────────────────────────────
 // Once-in-a-while spectacles (Mt. Doom erupting, a Toruk flyover…), scheduled
-// deterministically per (world, UTC day): a chance gate decides whether the
-// day has the event, a second hash picks its hour. The hourly strip can see
-// one coming, and every viewer agrees on when it happens.
+// deterministically per (world, UTC day): a chance gate decides whether the day
+// has the event, a second hash picks its hour within a themed LOCAL-time
+// `window` (so Quidditch lands in the afternoon, not at 1 AM). The hourly strip
+// can see one coming, and every viewer agrees on when it happens.
 const EVENTS = {
-  mordor: { chance: 1.0, emoji: '🌋', name: 'Mt. Doom erupts', tagline: 'ERUPTION · Mt. Doom Awakens', effect: 'eruption' },
-  'mos-eisley': { chance: 0.5, emoji: '🏁', name: 'Podrace day', tagline: 'PODRACE · Watch For Banking Racers', effect: 'sand' },
-  hoth: { chance: 0.4, emoji: '🐾', name: 'Wampa sighting', tagline: 'WAMPA WATCH · Stay Indoors' },
-  pandora: { chance: 0.6, emoji: '🦅', name: 'Toruk flyover', tagline: 'TORUK PASSES · Look Up' },
-  atlantis: { chance: 0.5, emoji: '🐋', name: 'Whale migration', tagline: 'WHALESONG · Migration Passing' },
-  asgard: { chance: 0.6, emoji: '🌈', name: 'Bifröst opening', tagline: 'BIFRÖST OPEN · Arrivals From The Realms', effect: 'sparkles' },
-  'jurassic-park': { chance: 0.7, emoji: '🦖', name: 'Containment breach', tagline: 'CONTAINMENT BREACH · T-Rex Loose' },
-  hogwarts: { chance: 0.6, emoji: '🧹', name: 'Quidditch match', tagline: 'QUIDDITCH · Gryffindor vs Slytherin', effect: 'sparkles' },
-  'the-shire': { chance: 0.4, emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'sparkles' },
-  'bikini-bottom': { chance: 0.5, emoji: '🪼', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration' },
-  'halloween-town': { chance: 1.0, emoji: '🎃', name: 'Lighting of the Pumpkin', tagline: 'PUMPKIN LIT · The Town Gathers', effect: 'pumpkin' },
-  springfield: { chance: 0.5, emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts' }
+  mordor: { chance: 1.0, window: [8, 22], emoji: '🌋', name: 'Mt. Doom erupts', tagline: 'ERUPTION · Mt. Doom Awakens', effect: 'eruption' },
+  'mos-eisley': { chance: 0.5, window: [11, 16], emoji: '🏁', name: 'Podrace day', tagline: 'PODRACE · Watch For Banking Racers', effect: 'sand' },
+  hoth: { chance: 0.4, window: [19, 23], emoji: '🐾', name: 'Wampa sighting', tagline: 'WAMPA WATCH · Stay Indoors' },
+  pandora: { chance: 0.6, window: [7, 19], emoji: '🦅', name: 'Toruk flyover', tagline: 'TORUK PASSES · Look Up' },
+  atlantis: { chance: 0.5, window: [8, 20], emoji: '🐋', name: 'Whale migration', tagline: 'WHALESONG · Migration Passing' },
+  asgard: { chance: 0.6, window: [10, 20], emoji: '🌈', name: 'Bifröst opening', tagline: 'BIFRÖST OPEN · Arrivals From The Realms', effect: 'sparkles' },
+  'jurassic-park': { chance: 0.7, window: [13, 22], emoji: '🦖', name: 'Containment breach', tagline: 'CONTAINMENT BREACH · T-Rex Loose' },
+  hogwarts: { chance: 0.6, window: [14, 17], emoji: '🧹', name: 'Quidditch match', tagline: 'QUIDDITCH · Gryffindor vs Slytherin', effect: 'sparkles' },
+  'the-shire': { chance: 0.4, window: [20, 23], emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'sparkles' },
+  'bikini-bottom': { chance: 0.5, window: [10, 16], emoji: '🐙', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration' },
+  'halloween-town': { chance: 1.0, window: [19, 23], emoji: '🎃', name: 'Lighting of the Pumpkin', tagline: 'PUMPKIN LIT · The Town Gathers', effect: 'pumpkin' },
+  springfield: { chance: 0.5, window: [8, 12], emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts' }
 };
 
 const EVENT_GATE = 0xabcdef01;
 const EVENT_HOUR = 0x13371337;
 
+// Hour-of-day (0-23) for `ms` in the given IANA timezone, so events fire at a
+// sensible LOCAL time rather than a UTC hour that displays as something odd.
+function hourInZone(ms, tz) {
+  if (!tz) return new Date(ms).getUTCHours();
+  try {
+    const h = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', hour12: false })
+      .formatToParts(new Date(ms))
+      .find((p) => p.type === 'hour')?.value;
+    return (parseInt(h, 10) || 0) % 24;
+  } catch {
+    return new Date(ms).getUTCHours();
+  }
+}
+
 // The world's event spec if `ms` falls inside that day's event hour, else null.
 export function eventForHour(id, ms) {
   const spec = EVENTS[id];
   if (!spec) return null;
-  const day = Math.floor(ms / 86400e3);
   const seed = hashStr(id);
+  const day = Math.floor(ms / 86400e3);
   if (rand01(seed ^ EVENT_GATE, day) >= spec.chance) return null;
-  const hour = Math.floor(rand01(seed ^ EVENT_HOUR, day) * 24);
-  return Math.floor(ms / 3600e3) % 24 === hour ? spec : null;
+  const [lo, hi] = spec.window || [0, 23];
+  const target = lo + Math.floor(rand01(seed ^ EVENT_HOUR, day) * (hi - lo + 1));
+  return hourInZone(ms, byId(id)?.timeZone) === target ? spec : null;
 }
 
 function makeWeather(c) {
