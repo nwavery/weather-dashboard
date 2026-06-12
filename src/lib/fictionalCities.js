@@ -248,9 +248,9 @@ const CITIES = [
     aliases: ['mustafar'],
     gradient: 'linear-gradient(to bottom,#1a0402 0%,#4d0d04 30%,#8f1d06 55%,#d6440c 78%,#ff7a1a 100%)',
     anim: 'fog', phase: 'night', condition: 'Volcanic · Ash Fall', effect: 'embers',
-    weather: ({ temp: 451, code: 45, feels: 460, humidity: 2, dew: 35, wind: 14, windDir: 180, uv: 14, precipProb: 0 }),
-    dyn: { lockPhase: true, drift: 12, moods: [45, 48] },
-    air: { us_aqi: 480, pm2_5: 320, ozone: 180 }, pollen: pollen(null, null, null), historical: { baseline: 449, years: 10 }
+    weather: ({ temp: 147, code: 45, feels: 172, humidity: 2, dew: 35, wind: 14, windDir: 180, uv: 14, precipProb: 0 }),
+    dyn: { lockPhase: true, drift: 10, moods: [45, 48] },
+    air: { us_aqi: 480, pm2_5: 320, ozone: 180 }, pollen: pollen(null, null, null), historical: { baseline: 146, years: 10 }
   },
   {
     id: 'wakanda', name: 'Wakanda', world: 'Africa (hidden)', timeZone: 'Africa/Nairobi',
@@ -293,9 +293,9 @@ const CITIES = [
     aliases: ['mordor', 'mount doom'],
     gradient: 'linear-gradient(to bottom,#0a0806 0%,#1c1411 30%,#33201a 55%,#5c2a1e 78%,#8a3520 100%)',
     anim: 'fog', phase: 'dusk', condition: 'Ashen · The Eye Watches', effect: 'embers',
-    weather: ({ temp: 109, code: 45, feels: 116, humidity: 12, dew: 30, wind: 28, windDir: 200, uv: 9, precipProb: 0 }),
-    dyn: { lockPhase: true, drift: 7, moods: [45, 48] },
-    air: { us_aqi: 300, pm2_5: 180, ozone: 150 }, pollen: pollen(null, null, null), historical: { baseline: 100, years: 10 }
+    weather: ({ temp: 131, code: 45, feels: 142, humidity: 12, dew: 30, wind: 28, windDir: 200, uv: 9, precipProb: 0 }),
+    dyn: { lockPhase: true, drift: 5, moods: [45, 48] },
+    air: { us_aqi: 300, pm2_5: 180, ozone: 150 }, pollen: pollen(null, null, null), historical: { baseline: 130, years: 10 }
   },
   {
     id: 'pandora', name: 'Pandora', world: 'Alpha Centauri', timeZone: 'Pacific/Auckland',
