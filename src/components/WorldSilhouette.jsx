@@ -78,9 +78,20 @@ const SHAPES = {
     viewBox: '0 0 150 100',
     body: (
       <g>
-        <path d="M40 92 q-6 -36 14 -52 q14 -12 40 -16 q10 -2 18 -14 q4 8 -2 16 q-18 12 -34 18 q-20 8 -22 50 Z" />
-        <path d="M40 92 q24 -10 48 -6 q-2 8 0 12 q-28 -4 -48 -2 Z" />
-        <ellipse cx="116" cy="12" rx="10" ry="6" />
+        {/* tail tapering to the ground */}
+        <path d="M46 58 Q20 62 4 82 Q20 72 48 68 Z" />
+        {/* long neck — a thick round stroke tapers naturally up into the head */}
+        <path fill="none" stroke="currentColor" strokeWidth="14" strokeLinecap="round" d="M104 54 Q127 36 128 15" />
+        {/* body */}
+        <ellipse cx="72" cy="58" rx="36" ry="21" />
+        {/* four sturdy legs */}
+        <rect x="46" y="72" width="14" height="27" rx="3" />
+        <rect x="64" y="74" width="14" height="25" rx="3" />
+        <rect x="84" y="74" width="14" height="25" rx="3" />
+        <rect x="98" y="70" width="14" height="29" rx="3" />
+        {/* small head with a snout */}
+        <ellipse cx="129" cy="13" rx="10" ry="8" />
+        <path d="M138 9 q8 1 9 5 q-5 4 -10 2 Z" />
       </g>
     )
   },
