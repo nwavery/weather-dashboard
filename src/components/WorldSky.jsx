@@ -104,7 +104,38 @@ function drawMoon(ctx, w, h, t) {
   ctx.restore();
 }
 
-const RENDERERS = { gasgiant: drawGasGiant, dustsun: drawDustSun, moon: drawMoon };
+function drawHarvestMoon(ctx, w, h, t) {
+  // Halloween Town: a huge low orange harvest moon for a witch to cross.
+  const cx = w * 0.72;
+  const cy = h * 0.26 + Math.sin(t / 22000) * 4;
+  const r = Math.min(w, h) * 0.22;
+  ctx.save();
+  const halo = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r * 2.6);
+  halo.addColorStop(0, 'rgba(255,170,70,0.34)');
+  halo.addColorStop(1, 'rgba(255,150,60,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 2.6, 0, Math.PI * 2);
+  ctx.fill();
+  const disc = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.25, r * 0.2, cx, cy, r);
+  disc.addColorStop(0, 'rgba(255,214,138,0.98)');
+  disc.addColorStop(0.6, 'rgba(248,168,74,0.96)');
+  disc.addColorStop(1, 'rgba(214,120,40,0.92)');
+  ctx.fillStyle = disc;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  // faint maria for texture
+  ctx.fillStyle = 'rgba(190,110,40,0.35)';
+  for (const [dx, dy, rr] of [[-0.25, -0.1, 0.16], [0.28, 0.2, 0.12], [0.05, -0.35, 0.1], [-0.1, 0.32, 0.13]]) {
+    ctx.beginPath();
+    ctx.arc(cx + dx * r, cy + dy * r, rr * r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+const RENDERERS = { gasgiant: drawGasGiant, dustsun: drawDustSun, moon: drawMoon, harvestmoon: drawHarvestMoon };
 
 export function WorldSky({ kind }) {
   const canvasRef = useRef(null);
