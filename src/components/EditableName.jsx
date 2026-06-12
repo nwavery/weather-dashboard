@@ -62,7 +62,7 @@ export function EditableName({ name, onRename, onLocate, rotating, onToggleRotat
         {onToggleRotate ? (
           <button
             className={`edit-location-btn rotate-location-btn${rotating ? ' active' : ''}`}
-            title={rotating ? 'Stop rotating fictional cities' : 'Rotate through fictional cities (every 10 min)'}
+            title={rotating ? 'Stop rotating fictional cities' : 'Rotate through fictional cities (every 5 min)'}
             aria-pressed={!!rotating}
             onClick={onToggleRotate}
           >
