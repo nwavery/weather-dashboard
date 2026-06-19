@@ -3,6 +3,7 @@ import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhas
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
+import { isSunDown } from '../lib/sun.js';
 import {
   WeatherAnimation,
   getSkyGradient,
@@ -65,13 +66,22 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
     : info?.animation || null;
   const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
   const animClass = animation ? `anim-${animation}` : 'anim-clear';
-  // Real night sky: on clear nights surface the moon phase + any active meteor shower
-  const isClearNight = timePhase === 'night' && (!animation || animation === 'clear');
-  const moonP = isClearNight ? moonPhase(now) : null;
-  const shower = isClearNight ? currentMeteorShower(now) : null;
+  // Real night sky: surface the moon phase whenever it's actually dark out.
+  // "Dark" is the sun's real position below the horizon (sundown→sunup) for
+  // real cities; fictional worlds use their scripted phase. The moon shows
+  // through clear, mainly-clear, and cloudy/overcast skies — only active
+  // precipitation (rain, snow, thunder) and fog hide it.
+  const isDark = fic ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
+  const moonySky = animation == null || animation === 'cloudy';
+  const showCelestial = isDark && moonySky;
+  const moonP = showCelestial ? moonPhase(now) : null;
+  // Meteor showers and the aurora need a genuinely clear sky — you can't see
+  // them through cloud cover — so they keep the stricter gate.
+  const clearDarkSky = isDark && animation == null;
+  const shower = clearDarkSky ? currentMeteorShower(now) : null;
   // Aurora on clear nights: flagged fictional worlds (e.g. Asgard) or real cities
   // at auroral latitudes (|lat| >= 55°).
-  const aurora = isClearNight && (fic ? !!fic.aurora : Math.abs(location.latitude ?? 0) >= 55);
+  const aurora = clearDarkSky && (fic ? !!fic.aurora : Math.abs(location.latitude ?? 0) >= 55);
   // Real-city headline flavor: one modifier by severity (Smoky haze > Blowing
   // dust > Storm brewing > Scorching/Frigid > Windy > dew-point comfort scale),
   // with an optional ambient effect — suppressed during precip animations,
@@ -139,7 +149,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
           <div className="display-value clock-value">{formatClock(now, location.timeZone)}</div>
-          {isClearNight ? (
+          {showCelestial ? (
             <div className="celestial-badge">
               <span className="moon-glyph">{moonEmoji(moonP)}</span> {moonPhaseName(moonP)}
               {shower ? (
