@@ -58,17 +58,19 @@ const SHAPES = {
       </g>
     )
   },
-  // Game of Thrones dragon (Winterfell)
+  // Game of Thrones dragon (Winterfell) — side profile, gliding right: long
+  // open-jawed neck, a big membrane wing, body, spade-tipped tail, tucked legs.
   dragon: {
     band: 'mid',
-    viewBox: '0 0 140 70',
+    viewBox: '0 0 170 110',
     body: (
       <g>
-        <path d="M70 40 q-40 -34 -66 -8 q26 -4 44 16 q-26 -6 -40 6 q26 0 44 10 Z" />
-        <path d="M70 40 q40 -34 66 -8 q-26 -4 -44 16 q26 -6 40 6 q-26 0 -44 10 Z" />
-        <path d="M70 36 q-6 -2 -18 -16 q4 12 10 18 Z" />
-        <ellipse cx="70" cy="42" rx="8" ry="16" />
-        <path d="M70 56 q-2 12 -16 18 q10 -2 18 -10 Z" />
+        <ellipse cx="82" cy="64" rx="17" ry="10" />
+        <path d="M96 58 C110 56 120 48 126 38 C129 33 134 30 142 30 L152 26 L146 34 L151 37 L141 40 C137 45 128 51 116 57 C108 61 100 63 96 66 Z" />
+        <path d="M86 52 C70 18 92 2 120 1 C108 12 114 22 111 29 C121 20 133 23 131 34 C117 39 101 47 88 53 Z" />
+        <path d="M72 63 C48 72 25 68 7 72 C14 68 13 64 17 62 L2 60 L9 66 L2 71 L13 70 C37 72 55 67 73 60 Z" />
+        <path d="M78 72 q-3 10 -11 15 q9 -2 13 -9 Z" />
+        <path d="M90 73 q-1 10 -9 16 q9 -3 13 -10 Z" />
       </g>
     )
   },
