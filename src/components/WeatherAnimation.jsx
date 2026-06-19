@@ -217,7 +217,7 @@ function drawMoon(ctx, cx, cy, r, phase) {
 }
 
 // ─── Star canvas (for clear/night skies) ───────────────────────────────────────
-function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }) {
+function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false, moon = true }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -230,10 +230,11 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
     const TINY_COUNT = 80;
     // Meteor showers crank up the shooting-star rate (peak nights fastest)
     const SHOOT_INTERVAL = meteorActive ? (meteorPeak ? 1100 : 1700) : 4500;
-    // The phase-accurate moon is drawn on every night sky — including cloudy and
-    // overcast ones, where it reads through the drifting cloud layer. `dimmed`
-    // (cloudy nights) only fades the stars, not the moon, so it stays prominent.
-    const showMoon = true;
+    // The phase-accurate (Earth) moon is drawn on real-city night skies —
+    // through cloud/overcast too. It's suppressed for fictional worlds that
+    // have their own sky body (e.g. Coruscant's moon) so we don't stack two
+    // moons. `dimmed` (cloudy nights) only fades the stars, not the moon.
+    const showMoon = moon;
     const starDim = dimmed ? 0.4 : 1;
     const phase = moonPhase();
 
@@ -382,7 +383,7 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
       ro.disconnect();
       cancelAnimationFrame(rafRef.current);
     };
-  }, [dimmed, meteorActive, meteorPeak]);
+  }, [dimmed, meteorActive, meteorPeak, moon]);
 
   return (
     <canvas
@@ -605,6 +606,7 @@ export function WeatherAnimation({
   cloudCover = 0,
   precip = 0,
   sunPos = null,
+  hasSkyBody = false,
 }) {
   const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
   const isFog = weatherCode === 45 || weatherCode === 48;
@@ -658,7 +660,7 @@ export function WeatherAnimation({
     if (isNight) {
       return (
         <div className="sky-anim-wrap" aria-hidden="true">
-          <StarCanvas dimmed={true} />
+          <StarCanvas dimmed={true} moon={!hasSkyBody} />
           <CloudLayers cover={cover} windX={windX} />
         </div>
       );
@@ -683,16 +685,19 @@ export function WeatherAnimation({
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
         {aurora ? <AuroraLayer /> : null}
-        <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} />
+        <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} moon={!hasSkyBody} />
         {wisps}
       </div>
     );
   }
 
-  // Dawn / day / dusk: sun glow following the real solar arc + optional rays
+  // Dawn / day / dusk: sun glow following the real solar arc + optional rays.
+  // Suppressed for worlds with their own sky body (e.g. Arrakis's dust-sun) so
+  // we don't stack the real sun on top of theirs. Twin-sun worlds (Mos Eisley)
+  // have no sky body, so their two suns still render here.
   return (
     <div className="sky-anim-wrap" aria-hidden="true">
-      <SunGlow timePhase={timePhase} twin={twinSuns} pos={sunPos} />
+      {hasSkyBody ? null : <SunGlow timePhase={timePhase} twin={twinSuns} pos={sunPos} />}
       {wisps}
     </div>
   );
