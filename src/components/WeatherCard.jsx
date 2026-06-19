@@ -93,11 +93,13 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       ? clearSkyGradient(sunAltitude)
       : getSkyGradient(animation, timePhase);
   const animClass = animation ? `anim-${animation}` : 'anim-clear';
-  // The moon (badge + the drawn one in the sky) shows through clear, mainly
-  // clear, and cloudy/overcast skies — only active precipitation (rain, snow,
-  // thunder) and fog hide it.
+  // The moon phase badge (and the drawn moon) show through clear, mainly clear,
+  // and cloudy/overcast skies — only active precipitation (rain, snow, thunder)
+  // and fog hide it. Fictional worlds with their own sky body (Coruscant's moon,
+  // Pandora's gas giant…) are excluded: that body is their sky, so an extra
+  // Earth moon-phase would just contradict it.
   const moonySky = animation == null || animation === 'cloudy';
-  const showCelestial = isDark && moonySky;
+  const showCelestial = isDark && moonySky && !fic?.skyBody;
   const moonP = showCelestial ? moonPhase(now) : null;
   // Meteor showers and the aurora need a genuinely clear sky — you can't see
   // them through cloud cover — so they keep the stricter gate.
@@ -152,6 +154,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         cloudCover={fic ? 0 : current?.cloud_cover ?? 0}
         precip={fic ? 0 : current?.precipitation ?? 0}
         sunPos={sunPos}
+        hasSkyBody={!!fic?.skyBody}
       />
 
       {/* Per-world ambient particles (bubbles, embers, spores…) — and flavor
