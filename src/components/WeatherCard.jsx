@@ -3,7 +3,7 @@ import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhas
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
-import { isSunDown } from '../lib/sun.js';
+import { isSunDown, sunPhase } from '../lib/sun.js';
 import {
   WeatherAnimation,
   getSkyGradient,
@@ -58,7 +58,17 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // phase, and condition text; real cities derive them from the live weather.
   const fic = isFictional(location) ? fictionalTheme(location.theme) : null;
   const twin = fic ? null : fictionalTwin(wx.weather, wx.air);
-  const timePhase = fic?.phase || getTimePhase(now, location.timeZone);
+  // Time-of-day phase (dawn/day/dusk/night) — drives the sky gradient and the
+  // sun glow. Real cities derive it from the sun's actual position (golden-hour
+  // twilight bands and all), falling back to the local clock only when we have
+  // no coordinates. Fictional worlds use their scripted phase.
+  const timePhase =
+    fic?.phase || sunPhase(now, location.latitude, location.longitude) || getTimePhase(now, location.timeZone);
+  // Is it actually dark out (sun below the horizon, sundown→sunup)? This — not
+  // the gradient phase — gates the stars + phase-accurate moon and the moon
+  // badge, so they appear together right at sundown, including through the
+  // dawn/dusk twilight bands when the sun has already dropped below the horizon.
+  const isDark = fic ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
   // Mood-driven worlds animate whatever their current (dynamic) weather code
   // says; single-mood worlds keep their pinned signature animation.
   const animation = fic
@@ -66,12 +76,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
     : info?.animation || null;
   const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
   const animClass = animation ? `anim-${animation}` : 'anim-clear';
-  // Real night sky: surface the moon phase whenever it's actually dark out.
-  // "Dark" is the sun's real position below the horizon (sundown→sunup) for
-  // real cities; fictional worlds use their scripted phase. The moon shows
-  // through clear, mainly-clear, and cloudy/overcast skies — only active
-  // precipitation (rain, snow, thunder) and fog hide it.
-  const isDark = fic ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
+  // The moon (badge + the drawn one in the sky) shows through clear, mainly
+  // clear, and cloudy/overcast skies — only active precipitation (rain, snow,
+  // thunder) and fog hide it.
   const moonySky = animation == null || animation === 'cloudy';
   const showCelestial = isDark && moonySky;
   const moonP = showCelestial ? moonPhase(now) : null;
@@ -116,6 +123,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       <WeatherAnimation
         type={animation}
         timePhase={timePhase}
+        night={isDark}
         weatherCode={effCode}
         twinSuns={fic?.twinSuns}
         aurora={aurora}

@@ -43,7 +43,34 @@ const HORIZON_DEG = -0.833;
 // True after sundown and before sunup at the given location. Missing coordinates
 // fall back to "sun up" (no moon), matching the prior daytime default.
 export function isSunDown(date, latitude, longitude) {
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
-  if (Number.isNaN(latitude) || Number.isNaN(longitude)) return false;
+  if (!validCoords(latitude, longitude)) return false;
   return solarAltitude(date, latitude, longitude) < HORIZON_DEG;
+}
+
+// Altitude (deg) boundaries between the time-of-day phases. The twilight band
+// (sun between DUSK_DEG and DAY_DEG) is the golden-hour/civil-twilight glow we
+// render as dawn or dusk; above it is full day, below it is night.
+const DAY_DEG = 6; // sun comfortably up
+const DUSK_DEG = -6; // end of civil twilight — properly dark below this
+
+// Real time-of-day phase from the sun's position: 'dawn' | 'day' | 'dusk' |
+// 'night'. Dawn vs dusk is decided by whether the sun is climbing or sinking.
+// Returns null when coordinates are missing so callers can fall back to a
+// clock-based phase.
+export function sunPhase(date, latitude, longitude) {
+  if (!validCoords(latitude, longitude)) return null;
+  const alt = solarAltitude(date, latitude, longitude);
+  if (alt > DAY_DEG) return 'day';
+  if (alt < DUSK_DEG) return 'night';
+  const altLater = solarAltitude(new Date(date.getTime() + 600000), latitude, longitude);
+  return altLater >= alt ? 'dawn' : 'dusk';
+}
+
+function validCoords(latitude, longitude) {
+  return (
+    typeof latitude === 'number' &&
+    typeof longitude === 'number' &&
+    !Number.isNaN(latitude) &&
+    !Number.isNaN(longitude)
+  );
 }
