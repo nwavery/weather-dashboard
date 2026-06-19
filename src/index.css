@@ -1473,8 +1473,9 @@ h2 {
   aspect-ratio: 1 / 1; /* keep it a circle — % height would resolve to the (taller) card height */
   transform: translate(-50%, -50%);
 }
-.sky-phase-dawn .sun-body { left: 22%; top: 22%; }
-.sky-phase-dusk .sun-body { left: 76%; top: 22%; }
+/* East on the right: morning sun on the right, evening sun on the left. */
+.sky-phase-dawn .sun-body { left: 78%; top: 22%; }
+.sky-phase-dusk .sun-body { left: 22%; top: 22%; }
 
 .sun-orb {
   position: absolute;

@@ -40,7 +40,14 @@ export function solarPosition(date, latitude, longitude) {
   const azSouth = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(lat) - Math.tan(dec) * Math.cos(lat));
   const azimuth = (azSouth / DEG + 180 + 360) % 360;
 
-  return { altitude, azimuth };
+  // Hour angle in degrees, normalised to [-180, 180): negative before solar
+  // noon, positive after. This runs monotonically morning→noon→afternoon
+  // everywhere on Earth, so it's what we use to place the sun left→right
+  // (compass azimuth misbehaves in the tropics and southern hemisphere, where
+  // the sun can sit due north).
+  const hourAngle = (((H / DEG) % 360) + 540) % 360 - 180;
+
+  return { altitude, azimuth, hourAngle, declination: dec / DEG };
 }
 
 // Back-compat: just the altitude.
@@ -85,11 +92,17 @@ export function sunPhase(date, latitude, longitude) {
 // horizon→zenith up the height.
 export function sunScreenPosition(date, latitude, longitude) {
   if (!validCoords(latitude, longitude)) return null;
-  const { altitude, azimuth } = solarPosition(date, latitude, longitude);
+  const { altitude, hourAngle, declination } = solarPosition(date, latitude, longitude);
   if (altitude < HORIZON_DEG) return null; // sun is down — caller shows the moon instead
 
-  // Azimuth 90°(E)→8%, 180°(S)→50%, 270°(W)→92%; clamp the rare north-of-east/west.
-  const x = clamp(8 + ((clamp(azimuth, 90, 270) - 90) / 180) * 84, 8, 92);
+  // Horizontal position from the hour angle, scaled by the half-day arc H0 (the
+  // hour angle at sunrise/sunset). East is on the right (map convention), so the
+  // sun sits at the right edge at sunrise, centre at solar noon, and left edge at
+  // sunset — consistent everywhere, independent of hemisphere/season.
+  const cosH0 = clamp(-Math.tan(latitude * DEG) * Math.tan(declination * DEG), -1, 1);
+  const H0 = Math.acos(cosH0) / DEG; // 0..180° (180 = sun up all day near the poles)
+  const frac = H0 > 0 ? clamp(hourAngle / H0, -1, 1) : 0; // -1 sunrise … +1 sunset
+  const x = clamp(50 - frac * 42, 8, 92);
   // Keep the sun in the upper "sky" band of this portrait card so it never sinks
   // into the content: low sun (horizon) → 27%, high sun (overhead) → 5%.
   const y = 27 - (clamp(altitude, 0, 52) / 52) * 22;
