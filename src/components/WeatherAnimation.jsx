@@ -431,17 +431,24 @@ function CloudLayers({ cover = 60, windX = 0 }) {
   const count = Math.max(3, Math.round(3 + cov * cov * 15)); // ~3 wisps → ~18 (overcast deck)
   const clouds = useMemo(() => {
     const bottom = 52 + cov * 26; // overcast spreads the deck further down the sky
-    return Array.from({ length: count }, (_, i) => ({
-      id: i,
-      top: -8 + (i / Math.max(1, count - 1)) * (bottom + 8),
-      // Static spread used when motion is reduced (no drift to distribute them).
-      left: -10 + (i / Math.max(1, count - 1)) * 116 + (Math.random() * 12 - 6),
-      scale: 0.6 + Math.random() * 0.9 + cov * 0.45, // bigger, overlapping when overcast
-      opacity: 0.1 + cov * cov * 0.42 + Math.random() * 0.08,
-      duration: (24 + Math.random() * 40) * windFactor,
-      delay: -(Math.random() * 45),
-      layer: i % 3,
-    }));
+    // Scatter over a jittered grid so the deck covers the sky evenly — tying
+    // both axes to the index would march them in a diagonal line.
+    const cols = Math.max(3, Math.ceil(Math.sqrt(count * 1.8)));
+    const rows = Math.max(1, Math.ceil(count / cols));
+    return Array.from({ length: count }, (_, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      return {
+        id: i,
+        left: ((col + 0.5 + (Math.random() * 0.8 - 0.4)) / cols) * 124 - 12,
+        top: -8 + ((row + 0.5 + (Math.random() * 0.8 - 0.4)) / rows) * (bottom + 8),
+        scale: 0.6 + Math.random() * 0.9 + cov * 0.45, // bigger, overlapping when overcast
+        opacity: 0.1 + cov * cov * 0.42 + Math.random() * 0.08,
+        duration: (24 + Math.random() * 40) * windFactor,
+        delay: -(Math.random() * 45),
+        layer: i % 3,
+      };
+    });
   }, [cov, count, windFactor]);
 
   return (
