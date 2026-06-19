@@ -36,6 +36,13 @@ export function weatherInfo(code) {
   return WEATHER_CODES[code] || { description: 'Unknown', icon: '50d', animation: null };
 }
 
+// OpenWeatherMap icons come in day ('…d') and night ('…n') variants. Pick the
+// night one when the sun is down, so a clear or partly-cloudy sky shows a moon
+// instead of a sun after dark.
+export function iconVariant(icon, isNight) {
+  return isNight && typeof icon === 'string' ? icon.replace(/d$/, 'n') : icon;
+}
+
 // Codes that assert liquid precipitation is falling: drizzle (51-57), rain
 // (61-67), rain showers (80-82), and thunderstorms (95-99). Open-Meteo
 // over-reports these on weak signals — we've seen code 95 with 0 mm precip and
