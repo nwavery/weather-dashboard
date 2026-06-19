@@ -1,8 +1,18 @@
 // Pure formatting / classification helpers shared across components.
+//
+// Weather values are stored canonically in °F / mph; the `units` argument
+// ('imperial' | 'metric', default 'imperial') converts at display time.
+import { fToC, mphToKmh } from './units.js';
 
-export function formatTemperature(temp) {
+export function formatTemperature(temp, units = 'imperial') {
   if (typeof temp !== 'number' || Number.isNaN(temp)) return '--';
-  return `${Math.round(temp)}°F`;
+  return units === 'metric' ? `${Math.round(fToC(temp))}°C` : `${Math.round(temp)}°F`;
+}
+
+// Wind speed from canonical mph.
+export function formatWind(mph, units = 'imperial') {
+  if (typeof mph !== 'number' || Number.isNaN(mph)) return '--';
+  return units === 'metric' ? `${Math.round(mphToKmh(mph))} km/h` : `${Math.round(mph)} mph`;
 }
 
 export function tempClass(temp) {
@@ -19,18 +29,24 @@ export function windDirection(degrees) {
   return dirs[Math.round(degrees / 45) % 8];
 }
 
-export function formatClock(date, timeZone) {
-  return date.toLocaleTimeString('en-US', {
+// Imperial → 12-hour clock; metric → 24-hour.
+export function formatClock(date, timeZone, units = 'imperial') {
+  return date.toLocaleTimeString(units === 'metric' ? 'en-GB' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true,
+    hour12: units !== 'metric',
     timeZone
   });
 }
 
-export function formatShortTime(date, timeZone) {
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
+export function formatShortTime(date, timeZone, units = 'imperial') {
+  return date.toLocaleTimeString(units === 'metric' ? 'en-GB' : 'en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: units !== 'metric',
+    timeZone
+  });
 }
 
 // en-CA yields YYYY-MM-DD

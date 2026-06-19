@@ -3,7 +3,7 @@ import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherC
 
 const OFFSETS = [1, 3, 5, 7, 9, 11];
 
-export function HourlyForecast({ hourly, timeZone, isNightAt }) {
+export function HourlyForecast({ hourly, timeZone, isNightAt, units = 'imperial' }) {
   if (!hourly?.time) {
     return (
       <div className="hourly-forecast">
@@ -38,7 +38,10 @@ export function HourlyForecast({ hourly, timeZone, isNightAt }) {
     const i = start + off;
     if (i >= hourly.time.length) break;
     const t = new Date(hourly.time[i]);
-    const label = t.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+    const label = t.toLocaleTimeString(units === 'metric' ? 'en-GB' : 'en-US', {
+      hour: 'numeric',
+      hour12: units !== 'metric'
+    });
     const info = weatherInfo(
       effectiveWeatherCode({
         weather_code: hourly.weather_code?.[i],
@@ -63,7 +66,7 @@ export function HourlyForecast({ hourly, timeZone, isNightAt }) {
             <img src={`https://openweathermap.org/img/wn/${iconVariant(info.icon, night)}.png`} alt={info.description} title={info.description} />
           </div>
         )}
-        <div className="hourly-temp">{formatTemperature(hourly.temperature_2m?.[i])}</div>
+        <div className="hourly-temp">{formatTemperature(hourly.temperature_2m?.[i], units)}</div>
         {/* Keep the row height uniform: render the slot even when there's no data */}
         <div
           className={`hourly-precip${typeof prob === 'number' && prob > 0 ? '' : ' hourly-precip--none'}`}

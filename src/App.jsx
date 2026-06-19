@@ -3,6 +3,8 @@ import { useLocations } from './hooks/useLocations.js';
 import { useClock } from './hooks/useClock.js';
 import { WeatherCard } from './components/WeatherCard.jsx';
 import { FullscreenButton } from './components/FullscreenButton.jsx';
+import { UnitsToggle } from './components/UnitsToggle.jsx';
+import { UnitsProvider } from './context/UnitsContext.jsx';
 import { SkyMapBackground } from './components/SkyMapBackground.jsx';
 import { startKeepAwake, stopKeepAwake } from './lib/keepAwake.js';
 // Smart-TV / streaming-stick browsers (and ?kiosk=1 hardware the UA sniff
@@ -71,8 +73,9 @@ export default function App() {
   );
 
   return (
-    <>
+    <UnitsProvider>
       {skyLoc ? <SkyMapBackground latitude={skyLoc.latitude} longitude={skyLoc.longitude} /> : null}
+      <UnitsToggle />
       <FullscreenButton />
       <div className="container" ref={containerRef}>
         <div className="cards-container">
@@ -94,6 +97,6 @@ export default function App() {
           · Background: tonight's sky (Yale Bright Star Catalog via d3-celestial)
         </footer>
       </div>
-    </>
+    </UnitsProvider>
   );
 }
