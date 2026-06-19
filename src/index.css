@@ -104,8 +104,49 @@ body {
   height: 22px;
   display: block;
 }
+/* Units toggle — sits just left of the full-screen button, same glass style. */
+.units-btn {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: calc(max(12px, env(safe-area-inset-right, 0px)) + 52px);
+  z-index: 1000;
+  height: 44px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.units-btn:hover,
+.units-btn:focus-visible {
+  background: rgba(0, 0, 0, 0.72);
+  transform: scale(1.06);
+  outline: none;
+}
+.units-btn .units-on { color: var(--text-primary); }
+.units-btn .units-off { color: var(--text-primary); opacity: 0.4; }
+.units-btn .units-sep { opacity: 0.4; font-weight: 400; }
+
+html.tv .units-btn {
+  top: clamp(18px, 3.2vh, 40px);
+  right: calc(clamp(20px, 3.5vw, 56px) + 68px);
+  height: 56px;
+  font-size: 1rem;
+}
+
 @media print {
-  .fullscreen-btn { display: none; }
+  .fullscreen-btn,
+  .units-btn { display: none; }
 }
 
 /* ── TV-safe mode (Fire TV / Silk / smart-TV browsers) ─────────
@@ -1473,8 +1514,9 @@ h2 {
   aspect-ratio: 1 / 1; /* keep it a circle — % height would resolve to the (taller) card height */
   transform: translate(-50%, -50%);
 }
-.sky-phase-dawn .sun-body { left: 22%; top: 22%; }
-.sky-phase-dusk .sun-body { left: 76%; top: 22%; }
+/* East on the right: morning sun on the right, evening sun on the left. */
+.sky-phase-dawn .sun-body { left: 78%; top: 22%; }
+.sky-phase-dusk .sun-body { left: 22%; top: 22%; }
 
 .sun-orb {
   position: absolute;

@@ -1,8 +1,8 @@
-import { formatTemperature, windDirection } from '../lib/format.js';
+import { formatTemperature, formatWind, windDirection } from '../lib/format.js';
 
 // `labels` optionally renames the rows for a fictional world (e.g. Arrakis
 // turns Wind into "Worm Sign"); the underlying numbers are unchanged.
-export function Metrics({ current, labels }) {
+export function Metrics({ current, labels, units = 'imperial' }) {
   const c = current;
   const L = labels || {};
   return (
@@ -14,12 +14,12 @@ export function Metrics({ current, labels }) {
       </div>
       <div className="metric" title="Dew point">
         <i className="fas fa-water"></i>
-        <span className="metric-value">{c ? formatTemperature(c.dew_point_2m) : '--'}</span>
+        <span className="metric-value">{c ? formatTemperature(c.dew_point_2m, units) : '--'}</span>
         <span className="metric-label">{L.dew || 'Dew Pt'}</span>
       </div>
       <div className="metric" title="Wind">
         <i className="fas fa-wind"></i>
-        <span className="metric-value">{c ? `${Math.round(c.wind_speed_10m)} mph` : '--'}</span>
+        <span className="metric-value">{c ? formatWind(c.wind_speed_10m, units) : '--'}</span>
         <span className="metric-label">{L.wind || (c ? windDirection(c.wind_direction_10m) : 'Wind')}</span>
       </div>
       <div className="metric" title="UV index">

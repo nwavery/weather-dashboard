@@ -1,5 +1,6 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
+import { useUnits } from '../context/UnitsContext.jsx';
 import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
@@ -33,14 +34,17 @@ function alertEnds(ends, timeZone) {
   }
 }
 
-function historicalText(weather, historical) {
+function historicalText(weather, historical, units) {
   if (!weather?.daily) return 'vs. Historical: --';
   const max = weather.daily.temperature_2m_max[0];
   const min = weather.daily.temperature_2m_min[0];
   if (typeof max !== 'number' || typeof min !== 'number') return 'vs. Historical: --';
   const predicted = (max + min) / 2;
-  if (!historical) return `Today avg: ${formatTemperature(predicted)}`;
-  const diff = Math.round(predicted - historical.baseline);
+  if (!historical) return `Today avg: ${formatTemperature(predicted, units)}`;
+  // The difference is the same number of degrees in °F or °C only by scale;
+  // convert the gap to the displayed unit so "5° warmer" matches the reading.
+  const diffF = predicted - historical.baseline;
+  const diff = Math.round(units === 'metric' ? diffF * (5 / 9) : diffF);
   const sym = diff > 0 ? '↑' : diff < 0 ? '↓' : '↔';
   const word = diff === 0 ? '' : diff > 0 ? 'warmer' : 'cooler';
   return `vs ${historical.years}y avg: ${sym} ${Math.abs(diff)}° ${word}`;
@@ -48,6 +52,7 @@ function historicalText(weather, historical) {
 
 export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate }) {
   const wx = useLocationWeather(location);
+  const { units } = useUnits();
   const current = wx.weather?.current;
   // The effective code drops phantom storms/rain (a code that claims
   // precipitation while 0 mm is falling). Use it everywhere — including the
@@ -176,7 +181,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
             />
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
-          <div className="display-value clock-value">{formatClock(now, location.timeZone)}</div>
+          <div className="display-value clock-value">{formatClock(now, location.timeZone, units)}</div>
           {showCelestial ? (
             <div className="celestial-badge">
               <span className="moon-glyph">{moonEmoji(moonP)}</span> {moonPhaseName(moonP)}
@@ -206,7 +211,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                     />
                   ) : null}
                   <div className="display-value temp-value">
-                    {current ? formatTemperature(current.temperature_2m) : 'Loading…'}
+                    {current ? formatTemperature(current.temperature_2m, units) : 'Loading…'}
                   </div>
                 </div>
                 {info && (
@@ -220,11 +225,11 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 <div className="temp-details">
                   <span className="feels-like">
                     <i className="fas fa-thermometer-half"></i>
-                    {' '}Feels like {current ? formatTemperature(current.apparent_temperature) : '--'}
+                    {' '}Feels like {current ? formatTemperature(current.apparent_temperature, units) : '--'}
                   </span>
                   <span className="historical">
                     <i className="fas fa-history"></i>
-                    {' '}{historicalText(wx.weather, wx.historical)}
+                    {' '}{historicalText(wx.weather, wx.historical, units)}
                   </span>
                 </div>
                 {twin ? (
@@ -233,10 +238,10 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   </div>
                 ) : null}
               </div>
-              <DailyForecast daily={wx.weather?.daily} timeZone={location.timeZone} />
+              <DailyForecast daily={wx.weather?.daily} timeZone={location.timeZone} units={units} />
             </div>
 
-            <Metrics current={current} labels={fic?.metrics} />
+            <Metrics current={current} labels={fic?.metrics} units={units} />
             <AirQuality
               air={wx.air}
               pollen={wx.pollen}
@@ -246,6 +251,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
             <HourlyForecast
               hourly={wx.weather?.hourly}
               timeZone={location.timeZone}
+              units={units}
               isNightAt={
                 fic
                   ? () => isDark
@@ -275,7 +281,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         <div className="refresh-info">
           <p>Auto-refreshes every 10 min</p>
           <div>
-            {wx.updatedAt ? `Updated: ${formatShortTime(wx.updatedAt, location.timeZone)}` : 'Last updated: -'}
+            {wx.updatedAt ? `Updated: ${formatShortTime(wx.updatedAt, location.timeZone, units)}` : 'Last updated: -'}
           </div>
         </div>
       </div>

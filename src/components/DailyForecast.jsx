@@ -3,7 +3,7 @@ import { weatherInfo } from '../data/weatherCodes.js';
 
 const DISPLAY_DAYS = 5;
 
-export function DailyForecast({ daily, timeZone }) {
+export function DailyForecast({ daily, timeZone, units = 'imperial' }) {
   if (!daily?.time) {
     return (
       <div className="daily-forecast">
@@ -33,9 +33,9 @@ export function DailyForecast({ daily, timeZone }) {
           <img src={`https://openweathermap.org/img/wn/${info.icon}.png`} alt={info.description} title={info.description} />
         </div>
         <div className="daily-temp">
-          <span className="daily-max">{formatTemperature(daily.temperature_2m_max?.[i])}</span>
+          <span className="daily-max">{formatTemperature(daily.temperature_2m_max?.[i], units)}</span>
           <span className="daily-sep">/</span>
-          <span className="daily-min">{formatTemperature(daily.temperature_2m_min?.[i])}</span>
+          <span className="daily-min">{formatTemperature(daily.temperature_2m_min?.[i], units)}</span>
         </div>
       </div>
     );
