@@ -168,7 +168,11 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
     const TINY_COUNT = 80;
     // Meteor showers crank up the shooting-star rate (peak nights fastest)
     const SHOOT_INTERVAL = meteorActive ? (meteorPeak ? 1100 : 1700) : 4500;
-    const showMoon = !dimmed;
+    // The phase-accurate moon is drawn on every night sky — including cloudy and
+    // overcast ones, where it reads through the drifting cloud layer. `dimmed`
+    // (cloudy nights) only fades the stars, not the moon, so it stays prominent.
+    const showMoon = true;
+    const starDim = dimmed ? 0.4 : 1;
     const phase = moonPhase();
 
     function resize() {
@@ -222,7 +226,7 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
 
       // Tiny background stars
       for (const s of tiny) {
-        ctx.globalAlpha = s.alpha;
+        ctx.globalAlpha = s.alpha * starDim;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
@@ -232,7 +236,7 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
       // Bright twinkling stars
       for (const s of stars) {
         const twinkle = 0.5 + 0.5 * Math.sin(elapsed * 0.001 * s.twinkleSpeed + s.twinkleOffset);
-        const alpha = s.alpha * (0.55 + 0.45 * twinkle);
+        const alpha = s.alpha * (0.55 + 0.45 * twinkle) * starDim;
         ctx.globalAlpha = alpha;
         const r = s.warm ? 255 : s.cool ? 200 : 255;
         const g = s.warm ? 235 : s.cool ? 215 : 255;
@@ -287,7 +291,7 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
           grad.addColorStop(0.5, `rgba(220,235,255,${0.5 * fadeOut})`);
           grad.addColorStop(1, `rgba(255,255,255,${0.95 * fadeOut})`);
 
-          ctx.globalAlpha = fadeOut;
+          ctx.globalAlpha = fadeOut * starDim;
           ctx.strokeStyle = grad;
           ctx.lineWidth = 2;
           ctx.lineCap = 'round';
@@ -322,7 +326,6 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
     <canvas
       ref={canvasRef}
       className="sky-canvas"
-      style={{ opacity: dimmed ? 0.35 : 1 }}
       aria-hidden="true"
     />
   );
@@ -494,10 +497,13 @@ function FogLayer() {
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────────
-export function WeatherAnimation({ type, timePhase = 'night', weatherCode, twinSuns, aurora = false }) {
+export function WeatherAnimation({ type, timePhase = 'night', night, weatherCode, twinSuns, aurora = false }) {
   const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
   const isFog = weatherCode === 45 || weatherCode === 48;
-  const isNight = timePhase === 'night';
+  // Whether to render the night sky (stars + moon) vs the sun glow. Driven by
+  // the sun being below the horizon, so the moon shows through twilight; falls
+  // back to the gradient phase when the flag isn't supplied.
+  const isNight = night ?? timePhase === 'night';
 
   if (isFog || type === 'fog') {
     return (
