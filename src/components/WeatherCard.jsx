@@ -1,6 +1,6 @@
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
-import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
+import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
@@ -200,7 +200,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   {info ? (
                     <img
                       className="weather-icon"
-                      src={`https://openweathermap.org/img/wn/${info.icon}@2x.png`}
+                      src={`https://openweathermap.org/img/wn/${iconVariant(info.icon, isDark)}@2x.png`}
                       alt={info.description}
                       title={info.description}
                     />
@@ -243,7 +243,15 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
               pollenError={wx.pollenError}
               labels={fic ? { ...fic.air, pollen: fic.pollenLabels } : null}
             />
-            <HourlyForecast hourly={wx.weather?.hourly} timeZone={location.timeZone} />
+            <HourlyForecast
+              hourly={wx.weather?.hourly}
+              timeZone={location.timeZone}
+              isNightAt={
+                fic
+                  ? () => isDark
+                  : (instant) => isSunDown(instant, location.latitude, location.longitude)
+              }
+            />
 
             {/* Official NWS alerts (Heat Advisory, Tornado Watch, …) */}
             {alerts.length > 0 ? (
