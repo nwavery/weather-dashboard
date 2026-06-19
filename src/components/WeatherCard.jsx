@@ -140,11 +140,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         twinSuns={fic?.twinSuns}
         aurora={aurora}
         wind={
-          fic
-            ? null
-            : current
-              ? { speed: current.wind_speed_10m, dir: current.wind_direction_10m, gust: current.wind_gusts_10m }
-              : null
+          current
+            ? { speed: current.wind_speed_10m, dir: current.wind_direction_10m, gust: current.wind_gusts_10m }
+            : null
         }
         cloudCover={fic ? 0 : current?.cloud_cover ?? 0}
         precip={fic ? 0 : current?.precipitation ?? 0}
