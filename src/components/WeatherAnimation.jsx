@@ -52,6 +52,68 @@ export function getSkyGradient(animation, timePhase) {
   return (gradients[typeKey] || gradients.clear)[timePhase] || gradients.clear.night;
 }
 
+// Continuous clear-sky gradient keyed on the sun's actual altitude (degrees), so
+// the sky blends smoothly through the day instead of snapping between the four
+// dawn/day/dusk/night presets above. Each anchor lists five top→bottom stop
+// colours (at 0/25/50/75/100%); we linearly interpolate between the two anchors
+// bracketing the current altitude. Used only for clear skies — cloudy/precip
+// skies keep their muted discrete gradients.
+const SKY_ANCHORS = [
+  { alt: -8, stops: [[1, 2, 5], [4, 13, 28], [7, 21, 53], [10, 26, 66], [12, 32, 80]] },        // night
+  { alt: 0,  stops: [[11, 10, 37], [58, 13, 58], [139, 26, 26], [232, 115, 26], [242, 201, 110]] }, // horizon twilight
+  { alt: 6,  stops: [[14, 74, 134], [31, 106, 168], [106, 143, 184], [240, 168, 90], [255, 214, 132]] }, // golden hour
+  { alt: 35, stops: [[11, 61, 110], [21, 101, 168], [41, 128, 201], [90, 180, 232], [130, 206, 245]] },  // full day
+];
+const SKY_POS = [0, 25, 50, 75, 100];
+
+export function clearSkyGradient(altitude) {
+  const loEnd = SKY_ANCHORS[0];
+  const hiEnd = SKY_ANCHORS[SKY_ANCHORS.length - 1];
+  const a = Math.max(loEnd.alt, Math.min(hiEnd.alt, altitude));
+  let lo = loEnd;
+  let hi = hiEnd;
+  for (let i = 0; i < SKY_ANCHORS.length - 1; i++) {
+    if (a >= SKY_ANCHORS[i].alt && a <= SKY_ANCHORS[i + 1].alt) {
+      lo = SKY_ANCHORS[i];
+      hi = SKY_ANCHORS[i + 1];
+      break;
+    }
+  }
+  const t = hi.alt === lo.alt ? 0 : (a - lo.alt) / (hi.alt - lo.alt);
+  const stops = SKY_POS.map((pos, i) => {
+    const c = lo.stops[i].map((lv, k) => Math.round(lv + (hi.stops[i][k] - lv) * t));
+    return `rgb(${c[0]}, ${c[1]}, ${c[2]}) ${pos}%`;
+  });
+  return `linear-gradient(to bottom, ${stops.join(', ')})`;
+}
+
+const DEG = Math.PI / 180;
+
+// Signed horizontal wind for the animations: positive blows toward screen-right
+// (east). Gusts nudge the effective strength up so blustery skies animate more
+// energetically. `wind` is { speed, dir, gust } in mph / meteorological degrees.
+function horizontalWind(wind) {
+  if (!wind) return 0;
+  const strength = Math.max(wind.speed || 0, (wind.gust || 0) * 0.7);
+  return -Math.sin((wind.dir || 0) * DEG) * strength;
+}
+
+// Precipitation intensity 0..1 from the WMO code (a sprinkle vs a downpour),
+// falling back to the measured mm when the code is unfamiliar.
+function precipRate(code, precipMm) {
+  const byCode = {
+    51: 0.25, 53: 0.4, 55: 0.55, 56: 0.3, 57: 0.5,
+    61: 0.4, 63: 0.6, 65: 0.9, 66: 0.5, 67: 0.8,
+    71: 0.35, 73: 0.6, 75: 0.9, 77: 0.4,
+    80: 0.45, 81: 0.7, 82: 1, 85: 0.5, 86: 0.85,
+    95: 0.85, 96: 0.92, 99: 1,
+  };
+  const r = byCode[code];
+  if (r != null) return r;
+  const mm = typeof precipMm === 'number' ? precipMm : 0;
+  return mm <= 0 ? 0.5 : Math.min(1, mm / 4);
+}
+
 // ─── Moon phase ─────────────────────────────────────────────────────────────────
 // Synodic-month phase in [0,1): 0 = new, 0.5 = full. Anchored to the new moon of
 // 2000-01-06 18:14 UTC. Good to within a few hours — plenty for a pretty moon.
@@ -332,37 +394,50 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false }
 }
 
 // ─── Sun glow (clear-day) ───────────────────────────────────────────────────────
-function SunGlow({ timePhase, twin = false }) {
+// `pos` ({ x, y } percentages) places the sun along its real arc — low in the
+// east at dawn, overhead at noon, low in the west at dusk. Without it (fictional
+// worlds / missing coords) the sun-body falls back to phase-based CSS positions.
+function SunGlow({ timePhase, twin = false, pos = null }) {
   const isMorning = timePhase === 'dawn';
   const isDusk = timePhase === 'dusk';
+  const bodyStyle = pos ? { left: `${pos.x}%`, top: `${pos.y}%`, bottom: 'auto' } : undefined;
   return (
     <div className="sun-glow-wrap" aria-hidden="true">
-      <div className={`sun-orb ${isMorning ? 'sun-orb--dawn' : ''} ${isDusk ? 'sun-orb--dusk' : ''}`} />
+      <div className="sun-body" style={bodyStyle}>
+        <div className={`sun-orb ${isMorning ? 'sun-orb--dawn' : ''} ${isDusk ? 'sun-orb--dusk' : ''}`} />
+        <div className="sun-rays">
+          {Array.from({ length: 12 }, (_, i) => (
+            <div key={i} className="sun-ray" style={{ '--ray-i': i }} />
+          ))}
+        </div>
+      </div>
       {/* Tatooine's second sun */}
       {twin ? <div className="sun-orb sun-orb--twin" /> : null}
-      <div className="sun-rays">
-        {Array.from({ length: 12 }, (_, i) => (
-          <div key={i} className="sun-ray" style={{ '--ray-i': i }} />
-        ))}
-      </div>
     </div>
   );
 }
 
 // ─── Cloud layers (parallax drift) ─────────────────────────────────────────────
-function CloudLayers({ density = 'medium' }) {
+// `cover` (0–100, the live cloud_cover %) sets how many clouds and how opaque,
+// so partly-cloudy and overcast actually look different. `windX` (signed mph)
+// sets drift direction and speed — clouds race downwind, dawdle when calm.
+function CloudLayers({ cover = 60, windX = 0 }) {
+  const cov = Math.max(0, Math.min(100, cover)) / 100;
+  const dir = windX < 0 ? -1 : 1;
+  // Faster drift with stronger wind (down to ~1/3 the calm duration).
+  const windFactor = Math.max(0.28, 1 - Math.abs(windX) / 55);
   const clouds = useMemo(() => {
-    const count = density === 'heavy' ? 8 : density === 'light' ? 4 : 6;
+    const count = Math.max(3, Math.round(2 + cov * 8)); // 3 wisps → ~10 for overcast
     return Array.from({ length: count }, (_, i) => ({
       id: i,
       top: 3 + (i / count) * 62,
       scale: 0.5 + Math.random() * 0.9,
-      opacity: density === 'heavy' ? 0.18 + Math.random() * 0.22 : 0.10 + Math.random() * 0.16,
-      duration: 22 + Math.random() * 38,
+      opacity: 0.07 + cov * 0.24 + Math.random() * 0.08,
+      duration: (24 + Math.random() * 40) * windFactor,
       delay: -(Math.random() * 45),
       layer: i % 3,
     }));
-  }, [density]);
+  }, [cov, windFactor]);
 
   return (
     <div className="cloud-layer-wrap" aria-hidden="true">
@@ -376,6 +451,7 @@ function CloudLayers({ density = 'medium' }) {
             '--cloud-opacity': c.opacity,
             '--cloud-duration': `${c.duration}s`,
             '--cloud-delay': `${c.delay}s`,
+            '--cloud-dir': dir,
           }}
         />
       ))}
@@ -384,18 +460,22 @@ function CloudLayers({ density = 'medium' }) {
 }
 
 // ─── Rain particles ─────────────────────────────────────────────────────────────
-function RainLayer({ intensity = 'medium', hasThunder = false }) {
+// `rate` (0..1) scales how many/how fast/how heavy the streaks are — a drizzle
+// vs a downpour. `windX` (signed mph) leans the whole curtain: because each
+// streak falls along its own rotation, a steeper lean also drifts it sideways.
+function RainLayer({ rate = 0.5, windX = 0, hasThunder = false }) {
+  const count = Math.round(22 + rate * 68); // ~22 (drizzle) → ~90 (downpour)
+  const angle = Math.max(-42, Math.min(42, windX * 1.15)); // lean degrees, signed
   const drops = useMemo(() => {
-    const count = intensity === 'heavy' ? 70 : intensity === 'light' ? 30 : 50;
     return Array.from({ length: count }, (_, i) => ({
       id: i,
-      left: Math.random() * 115 - 7,
+      left: Math.random() * 125 - 12,
       delay: Math.random() * 1.8,
-      duration: 0.48 + Math.random() * 0.32,
-      height: intensity === 'heavy' ? 28 + Math.random() * 18 : 18 + Math.random() * 12,
-      opacity: intensity === 'heavy' ? 0.55 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45,
+      duration: 0.72 - rate * 0.28 + Math.random() * 0.22, // heavier rain falls faster
+      height: 16 + rate * 26 + Math.random() * 12,
+      opacity: 0.3 + rate * 0.35 + Math.random() * 0.3,
     }));
-  }, [intensity]);
+  }, [count, rate]);
 
   const splashes = useMemo(() =>
     Array.from({ length: Math.floor(drops.length / 4) }, (_, i) => ({
@@ -408,7 +488,7 @@ function RainLayer({ intensity = 'medium', hasThunder = false }) {
   );
 
   return (
-    <div className="rain-layer-wrap" aria-hidden="true">
+    <div className="rain-layer-wrap" aria-hidden="true" style={{ '--rain-angle': `${angle}deg` }}>
       {hasThunder && <div className="lightning-flash" />}
       {drops.map((d) => (
         <div
@@ -439,18 +519,22 @@ function RainLayer({ intensity = 'medium', hasThunder = false }) {
 }
 
 // ─── Snow particles ─────────────────────────────────────────────────────────────
-function SnowLayer() {
+// `rate` (0..1) scales the flake count; `windX` (signed mph) blows the flakes
+// sideways and quickens their fall when it's gusty.
+function SnowLayer({ rate = 0.5, windX = 0 }) {
+  const count = Math.round(30 + rate * 70); // ~30 (flurries) → ~100 (heavy)
+  const windFactor = Math.max(0.55, 1 - Math.abs(windX) / 45); // faster fall in wind
   const flakes = useMemo(() =>
-    Array.from({ length: 65 }, (_, i) => ({
+    Array.from({ length: count }, (_, i) => ({
       id: i,
-      left: Math.random() * 115 - 7,
+      left: Math.random() * 125 - 12,
       size: 2.5 + Math.random() * 5.5,
       delay: Math.random() * 6,
-      duration: 4 + Math.random() * 6,
-      drift: -20 + Math.random() * 40,
+      duration: (4 + Math.random() * 6) * windFactor,
+      drift: windX * 1.8 + (-12 + Math.random() * 24), // blown along the wind
       opacity: 0.55 + Math.random() * 0.45,
     })),
-    []
+    [count, windX, windFactor]
   );
 
   return (
@@ -497,18 +581,31 @@ function FogLayer() {
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────────
-export function WeatherAnimation({ type, timePhase = 'night', night, weatherCode, twinSuns, aurora = false }) {
+export function WeatherAnimation({
+  type,
+  timePhase = 'night',
+  night,
+  weatherCode,
+  twinSuns,
+  aurora = false,
+  wind = null,
+  cloudCover = 0,
+  precip = 0,
+  sunPos = null,
+}) {
   const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
   const isFog = weatherCode === 45 || weatherCode === 48;
   // Whether to render the night sky (stars + moon) vs the sun glow. Driven by
   // the sun being below the horizon, so the moon shows through twilight; falls
   // back to the gradient phase when the flag isn't supplied.
   const isNight = night ?? timePhase === 'night';
+  const windX = horizontalWind(wind);
+  const rate = precipRate(weatherCode, precip);
 
   if (isFog || type === 'fog') {
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
-        <CloudLayers density="light" />
+        <CloudLayers cover={Math.max(cloudCover, 45)} windX={windX} />
         <FogLayer />
       </div>
     );
@@ -517,8 +614,8 @@ export function WeatherAnimation({ type, timePhase = 'night', night, weatherCode
   if (isThunder || type === 'thunder') {
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
-        <CloudLayers density="heavy" />
-        <RainLayer intensity="heavy" hasThunder={true} />
+        <CloudLayers cover={Math.max(cloudCover, 88)} windX={windX} />
+        <RainLayer rate={Math.max(rate, 0.8)} windX={windX} hasThunder={true} />
       </div>
     );
   }
@@ -526,8 +623,8 @@ export function WeatherAnimation({ type, timePhase = 'night', night, weatherCode
   if (type === 'rain') {
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
-        <CloudLayers density="medium" />
-        <RainLayer intensity="medium" hasThunder={false} />
+        <CloudLayers cover={Math.max(cloudCover, 70)} windX={windX} />
+        <RainLayer rate={rate} windX={windX} hasThunder={false} />
       </div>
     );
   }
@@ -535,43 +632,50 @@ export function WeatherAnimation({ type, timePhase = 'night', night, weatherCode
   if (type === 'snow') {
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
-        <CloudLayers density="light" />
-        <SnowLayer />
+        <CloudLayers cover={Math.max(cloudCover, 65)} windX={windX} />
+        <SnowLayer rate={rate} windX={windX} />
       </div>
     );
   }
 
   if (type === 'cloudy') {
+    // Use the real cloud cover so partly-cloudy reads lighter than overcast;
+    // CloudLayers keeps a small floor so a cloudy code never looks empty.
+    const cover = Math.max(cloudCover, 25);
     if (isNight) {
       return (
         <div className="sky-anim-wrap" aria-hidden="true">
           <StarCanvas dimmed={true} />
-          <CloudLayers density="medium" />
+          <CloudLayers cover={cover} windX={windX} />
         </div>
       );
     }
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
-        <CloudLayers density="medium" />
+        <CloudLayers cover={cover} windX={windX} />
       </div>
     );
   }
 
-  // Clear sky (type === null or undefined)
+  // Clear sky (type === null or undefined). A few wisps appear once the live
+  // cloud cover is non-trivial, so "mainly clear" reads differently from "clear".
+  const wisps = cloudCover > 15 ? <CloudLayers cover={cloudCover} windX={windX} /> : null;
   if (isNight) {
     const shower = currentMeteorShower();
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
         {aurora ? <AuroraLayer /> : null}
         <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} />
+        {wisps}
       </div>
     );
   }
 
-  // Dawn / day / dusk: sun glow + optional rays
+  // Dawn / day / dusk: sun glow following the real solar arc + optional rays
   return (
     <div className="sky-anim-wrap" aria-hidden="true">
-      <SunGlow timePhase={timePhase} twin={twinSuns} />
+      <SunGlow timePhase={timePhase} twin={twinSuns} pos={sunPos} />
+      {wisps}
     </div>
   );
 }

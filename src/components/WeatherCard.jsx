@@ -3,10 +3,11 @@ import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhas
 import { weatherInfo, effectiveWeatherCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
-import { isSunDown, sunPhase } from '../lib/sun.js';
+import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
 import {
   WeatherAnimation,
   getSkyGradient,
+  clearSkyGradient,
   moonPhase,
   moonPhaseName,
   moonEmoji,
@@ -69,12 +70,23 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // badge, so they appear together right at sundown, including through the
   // dawn/dusk twilight bands when the sun has already dropped below the horizon.
   const isDark = fic ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
+  // Real sun: its altitude smoothly colours the clear-sky gradient, and its
+  // on-screen position draws the sun along its arc (low east → overhead → low
+  // west). Both are null for fictional worlds / missing coordinates.
+  const sunAltitude = fic ? null : solarPosition(now, location.latitude, location.longitude)?.altitude;
+  const sunPos = fic ? null : sunScreenPosition(now, location.latitude, location.longitude);
   // Mood-driven worlds animate whatever their current (dynamic) weather code
   // says; single-mood worlds keep their pinned signature animation.
   const animation = fic
     ? (fic.liveAnim && info ? info.animation ?? null : fic.anim)
     : info?.animation || null;
-  const skyGrad = fic ? fic.gradient : getSkyGradient(info?.animation || null, timePhase);
+  // Clear real-city skies use the continuous sun-altitude gradient; everything
+  // else keeps the discrete per-phase gradients.
+  const skyGrad = fic
+    ? fic.gradient
+    : animation == null && typeof sunAltitude === 'number'
+      ? clearSkyGradient(sunAltitude)
+      : getSkyGradient(animation, timePhase);
   const animClass = animation ? `anim-${animation}` : 'anim-clear';
   // The moon (badge + the drawn one in the sky) shows through clear, mainly
   // clear, and cloudy/overcast skies — only active precipitation (rain, snow,
@@ -127,6 +139,16 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         weatherCode={effCode}
         twinSuns={fic?.twinSuns}
         aurora={aurora}
+        wind={
+          fic
+            ? null
+            : current
+              ? { speed: current.wind_speed_10m, dir: current.wind_direction_10m, gust: current.wind_gusts_10m }
+              : null
+        }
+        cloudCover={fic ? 0 : current?.cloud_cover ?? 0}
+        precip={fic ? 0 : current?.precipitation ?? 0}
+        sunPos={sunPos}
       />
 
       {/* Per-world ambient particles (bubbles, embers, spores…) — and flavor

@@ -1,17 +1,18 @@
-// Where is the sun right now? We decide "is it dark out" from the sun's actual
-// altitude above the horizon for a location, rather than fixed clock hours — so
-// the moon appears at real sundown and hides at real sunup, year-round and at
-// any latitude.
+// Where is the sun right now? We compute the sun's real position (altitude +
+// azimuth) for a location and time, then use it to decide whether it's dark,
+// which time-of-day phase we're in, and where to draw the sun on the card —
+// rather than leaning on fixed clock hours.
 //
 // Uses the Astronomical Almanac's low-precision solar formulas (good to ~0.01°
-// from 1950–2050), which is far more than enough to know whether the sun is up.
+// from 1950–2050), which is far more than enough for a weather backdrop.
 
 const DEG = Math.PI / 180;
 
-// Solar altitude in degrees (angle above the horizon; negative = below) at a
-// given instant for a latitude/longitude. `date` is any Date — only its UTC
-// instant matters, so no timezone juggling is needed.
-export function solarAltitude(date, latitude, longitude) {
+// Sun's horizontal coordinates at an instant for a lat/lon: altitude (degrees
+// above the horizon, negative = below) and azimuth (degrees clockwise from
+// north: 90 = east, 180 = south, 270 = west). Only the Date's UTC instant
+// matters, so there's no timezone juggling.
+export function solarPosition(date, latitude, longitude) {
   const jd = date.getTime() / 86400000 + 2440587.5; // ms-since-epoch -> Julian Day
   const n = jd - 2451545.0; // days since the J2000.0 epoch
 
@@ -31,9 +32,20 @@ export function solarAltitude(date, latitude, longitude) {
   const H = lst - ra;
 
   const lat = latitude * DEG;
-  const sinAlt =
-    Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(H);
-  return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / DEG;
+  const sinAlt = Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(H);
+  const altitude = Math.asin(Math.max(-1, Math.min(1, sinAlt))) / DEG;
+
+  // Azimuth measured from south (positive toward west), then shifted to be
+  // clockwise from north.
+  const azSouth = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(lat) - Math.tan(dec) * Math.cos(lat));
+  const azimuth = (azSouth / DEG + 180 + 360) % 360;
+
+  return { altitude, azimuth };
+}
+
+// Back-compat: just the altitude.
+export function solarAltitude(date, latitude, longitude) {
+  return solarPosition(date, latitude, longitude).altitude;
 }
 
 // Standard sunrise/sunset definition: the sun's upper limb touches the horizon,
@@ -64,6 +76,28 @@ export function sunPhase(date, latitude, longitude) {
   if (alt < DUSK_DEG) return 'night';
   const altLater = solarAltitude(new Date(date.getTime() + 600000), latitude, longitude);
   return altLater >= alt ? 'dawn' : 'dusk';
+}
+
+// Where to draw the sun on the card, as { x, y } percentages of the card, or
+// null when the sun is below the horizon / coordinates are missing. The view
+// faces the equator (sun rises on the left/east, arcs across, sets on the
+// right/west). x maps azimuth east→west across the width; y maps altitude
+// horizon→zenith up the height.
+export function sunScreenPosition(date, latitude, longitude) {
+  if (!validCoords(latitude, longitude)) return null;
+  const { altitude, azimuth } = solarPosition(date, latitude, longitude);
+  if (altitude < HORIZON_DEG) return null; // sun is down — caller shows the moon instead
+
+  // Azimuth 90°(E)→8%, 180°(S)→50%, 270°(W)→92%; clamp the rare north-of-east/west.
+  const x = clamp(8 + ((clamp(azimuth, 90, 270) - 90) / 180) * 84, 8, 92);
+  // Keep the sun in the upper "sky" band of this portrait card so it never sinks
+  // into the content: low sun (horizon) → 27%, high sun (overhead) → 5%.
+  const y = 27 - (clamp(altitude, 0, 52) / 52) * 22;
+  return { x, y };
+}
+
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
 }
 
 function validCoords(latitude, longitude) {
