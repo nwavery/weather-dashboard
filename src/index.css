@@ -1598,6 +1598,19 @@ h2 {
 }
 
 /* ── Clouds ────────────────────────────────────────────────── */
+/* The sun veiled behind a daytime overcast deck: a broad, soft, desaturated
+   glow at the sun's real position (rendered below the cloud layer). */
+.veiled-sun {
+  position: absolute;
+  width: clamp(190px, 40%, 340px);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 250, 236, 0.45) 0%, rgba(238, 240, 248, 0.18) 40%, transparent 72%);
+  filter: blur(16px);
+  pointer-events: none;
+}
+
 .cloud-layer-wrap {
   position: absolute;
   inset: 0;
@@ -1606,12 +1619,14 @@ h2 {
 
 .cloud-shape {
   position: absolute;
-  left: -30%;
+  /* Spread across the card (set per-cloud) so the deck always covers the sky;
+     the animation only adds a gentle sway on top, never the positioning. */
+  left: var(--cloud-left, 45%);
   width: clamp(200px, 35%, 420px);
   height: clamp(60px, 10%, 120px);
   background: rgba(200, 215, 228, var(--cloud-opacity, 0.18));
   border-radius: 60px;
-  animation: cloud-drift var(--cloud-duration, 30s) var(--cloud-delay, 0s) linear infinite;
+  animation: cloud-sway var(--cloud-duration, 30s) var(--cloud-delay, 0s) ease-in-out infinite alternate;
   transform: scaleX(var(--cloud-scale, 1)) scaleY(calc(var(--cloud-scale, 1) * 0.6));
   filter: blur(10px);
 }
@@ -1643,9 +1658,12 @@ h2 {
 .cloud-layer-1 { animation-duration: calc(var(--cloud-duration, 30s) * 1.5); opacity: calc(var(--cloud-opacity, 0.15) * 0.8); }
 .cloud-layer-2 { animation-duration: calc(var(--cloud-duration, 30s) * 2.2); opacity: calc(var(--cloud-opacity, 0.15) * 0.6); }
 
-@keyframes cloud-drift {
-  from { transform: translateX(0)                                scaleX(var(--cloud-scale, 1)) scaleY(calc(var(--cloud-scale, 1) * 0.65)); }
-  to   { transform: translateX(calc(var(--cloud-dir, 1) * 170%)) scaleX(var(--cloud-scale, 1)) scaleY(calc(var(--cloud-scale, 1) * 0.65)); }
+/* Gentle wind-direction sway around each cloud's spread position (element-
+   relative %, so it stays put and just breathes). Wind speed sets the pace via
+   --cloud-duration; direction biases which way it leans. */
+@keyframes cloud-sway {
+  from { transform: translateX(calc(var(--cloud-dir, 1) * -9%))  scaleX(var(--cloud-scale, 1)) scaleY(calc(var(--cloud-scale, 1) * 0.6)); }
+  to   { transform: translateX(calc(var(--cloud-dir, 1) * 20%))  scaleX(var(--cloud-scale, 1)) scaleY(calc(var(--cloud-scale, 1) * 0.6)); }
 }
 
 /* ── Rain ──────────────────────────────────────────────────── */
@@ -1866,10 +1884,9 @@ button, input {
     animation: none !important;
   }
 
-  .cloud-shape {
-    opacity: 0.12;
-    transform: none;
-  }
+  /* Clouds keep their spread `left` and real size/opacity (set on the base
+     rule); motion-off just freezes the sway above — so an overcast sky still
+     looks overcast instead of collapsing to the corner. */
 
   .rain-streak {
     opacity: 0.15;

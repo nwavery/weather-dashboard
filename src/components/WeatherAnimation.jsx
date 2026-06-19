@@ -418,26 +418,31 @@ function SunGlow({ timePhase, twin = false, pos = null }) {
 }
 
 // ─── Cloud layers (parallax drift) ─────────────────────────────────────────────
-// `cover` (0–100, the live cloud_cover %) sets how many clouds and how opaque,
-// so partly-cloudy and overcast actually look different. `windX` (signed mph)
-// sets drift direction and speed — clouds race downwind, dawdle when calm.
+// `cover` (0–100, the live cloud_cover %) sets how many clouds, how opaque, how
+// big, and how far down the sky they spread — so a few wisps (partly cloudy)
+// build into a full, moody deck at overcast. `windX` (signed mph) sets drift
+// direction and speed. Coverage ramps with cov² so light cover stays sparse
+// while heavy cover fills in dramatically.
 function CloudLayers({ cover = 60, windX = 0 }) {
-  const cov = Math.max(0, Math.min(100, cover)) / 100;
+  const cov = Math.max(0, Math.min(100, Number(cover) || 0)) / 100;
   const dir = windX < 0 ? -1 : 1;
   // Faster drift with stronger wind (down to ~1/3 the calm duration).
   const windFactor = Math.max(0.28, 1 - Math.abs(windX) / 55);
+  const count = Math.max(3, Math.round(3 + cov * cov * 15)); // ~3 wisps → ~18 (overcast deck)
   const clouds = useMemo(() => {
-    const count = Math.max(3, Math.round(2 + cov * 8)); // 3 wisps → ~10 for overcast
+    const bottom = 52 + cov * 26; // overcast spreads the deck further down the sky
     return Array.from({ length: count }, (_, i) => ({
       id: i,
-      top: 3 + (i / count) * 62,
-      scale: 0.5 + Math.random() * 0.9,
-      opacity: 0.07 + cov * 0.24 + Math.random() * 0.08,
+      top: -8 + (i / Math.max(1, count - 1)) * (bottom + 8),
+      // Static spread used when motion is reduced (no drift to distribute them).
+      left: -10 + (i / Math.max(1, count - 1)) * 116 + (Math.random() * 12 - 6),
+      scale: 0.6 + Math.random() * 0.9 + cov * 0.45, // bigger, overlapping when overcast
+      opacity: 0.1 + cov * cov * 0.42 + Math.random() * 0.08,
       duration: (24 + Math.random() * 40) * windFactor,
       delay: -(Math.random() * 45),
       layer: i % 3,
     }));
-  }, [cov, windFactor]);
+  }, [cov, count, windFactor]);
 
   return (
     <div className="cloud-layer-wrap" aria-hidden="true">
@@ -452,6 +457,7 @@ function CloudLayers({ cover = 60, windX = 0 }) {
             '--cloud-duration': `${c.duration}s`,
             '--cloud-delay': `${c.delay}s`,
             '--cloud-dir': dir,
+            '--cloud-left': `${c.left}%`,
           }}
         />
       ))}
@@ -641,7 +647,7 @@ export function WeatherAnimation({
   if (type === 'cloudy') {
     // Use the real cloud cover so partly-cloudy reads lighter than overcast;
     // CloudLayers keeps a small floor so a cloudy code never looks empty.
-    const cover = Math.max(cloudCover, 25);
+    const cover = Math.max(Number(cloudCover) || 0, 25);
     if (isNight) {
       return (
         <div className="sky-anim-wrap" aria-hidden="true">
@@ -650,8 +656,13 @@ export function WeatherAnimation({
         </div>
       );
     }
+    // Daytime: the sun is hidden, but show it veiled — a soft bright patch at
+    // its real position, behind the drifting deck — so overcast isn't lifeless.
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
+        {sunPos ? (
+          <div className="veiled-sun" style={{ left: `${sunPos.x}%`, top: `${sunPos.y}%` }} aria-hidden="true" />
+        ) : null}
         <CloudLayers cover={cover} windX={windX} />
       </div>
     );
