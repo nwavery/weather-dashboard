@@ -8,6 +8,7 @@ import { headlineFlavor } from '../lib/headline.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
 import { moonSign } from '../lib/moonSign.js';
 import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
+import { seasonalEffect } from '../lib/seasonal.js';
 import {
   WeatherAnimation,
   getSkyGradient,
@@ -172,6 +173,15 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
     : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone });
   const flavorEffect =
     flavor?.effect && !['rain', 'snow', 'thunder'].includes(animation || '') ? flavor.effect : null;
+  // Date-aware seasonal/holiday flourish (fireflies on summer nights, fireworks
+  // on New Year's, hearts on Valentine's…) — real cities only, and yielding to
+  // weather "flavor" effects which carry actual info.
+  const seasonal = fic
+    ? null
+    : seasonalEffect(now, location.latitude, location.timeZone, {
+        isDark,
+        hasPrecip: ['rain', 'snow', 'thunder', 'fog'].includes(animation || '')
+      });
   // Re-checked every clock tick so an alert drops the instant its end time
   // passes, without waiting for the next fetch (matters on always-on displays).
   const nowMs = now?.getTime ? now.getTime() : Date.now();
@@ -238,6 +248,8 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         ficEffect ? <WorldEffects kind={ficEffect} /> : null
       ) : flavorEffect ? (
         <WorldEffects kind={flavorEffect} />
+      ) : seasonal ? (
+        <WorldEffects kind={seasonal} />
       ) : null}
 
       {/* A drifting horizon silhouette — life in the world */}
