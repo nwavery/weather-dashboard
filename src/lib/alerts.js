@@ -49,6 +49,7 @@ export async function fetchAlerts(location) {
       class: classOf(p.event),
       severity: p.severity || 'Unknown',
       headline: p.headline || '',
+      onset: p.onset || p.effective || null,
       ends: p.ends || p.expires || null
     }))
     .sort(

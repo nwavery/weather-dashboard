@@ -23,12 +23,32 @@ import { HourlyForecast } from './HourlyForecast.jsx';
 import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
 
-// Alert chips show a compact "until" time in the card's local zone.
-function alertEnds(ends, timeZone) {
-  if (!ends) return '';
+// Compact alert timing in the card's local zone. A weekday is shown whenever
+// the time isn't today, and an alert that hasn't started yet reads as an
+// upcoming window — so e.g. a heat advisory for tomorrow evening doesn't look
+// like it "ended" tonight (it used to print just "until 8:00 PM").
+function fmtTime(date, timeZone) {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
+}
+function dayPrefix(date, timeZone, nowMs) {
   try {
-    const t = new Date(ends).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
-    return ` until ${t}`;
+    const dayOf = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone });
+    if (dayOf(date.getTime()) === dayOf(nowMs)) return '';
+    return `${date.toLocaleDateString('en-US', { weekday: 'short', timeZone })} `;
+  } catch {
+    return '';
+  }
+}
+function alertTiming(onsetStr, endsStr, timeZone, nowMs) {
+  try {
+    const ends = endsStr ? new Date(endsStr) : null;
+    const onset = onsetStr ? new Date(onsetStr) : null;
+    if (onset && onset.getTime() > nowMs) {
+      const start = `${dayPrefix(onset, timeZone, nowMs)}${fmtTime(onset, timeZone)}`;
+      return ends ? ` · ${start}–${fmtTime(ends, timeZone)}` : ` · from ${start}`;
+    }
+    if (ends) return ` until ${dayPrefix(ends, timeZone, nowMs)}${fmtTime(ends, timeZone)}`;
+    return '';
   } catch {
     return '';
   }
@@ -273,7 +293,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 {alerts.slice(0, 2).map((a) => (
                   <div key={a.id} className={`weather-alert weather-alert--${a.class}`} title={a.headline}>
                     <span className="alert-icon">⚠️</span> {a.event}
-                    <span className="alert-ends">{alertEnds(a.ends, location.timeZone)}</span>
+                    <span className="alert-ends">{alertTiming(a.onset, a.ends, location.timeZone, nowMs)}</span>
                     {alerts.length > 2 && a === alerts[1] ? (
                       <span className="alert-more"> +{alerts.length - 2} more</span>
                     ) : null}
