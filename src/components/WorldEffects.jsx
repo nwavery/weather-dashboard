@@ -402,6 +402,147 @@ function Pumpkin() {
   );
 }
 
+// ── Seasonal & holiday effects (real cities) ──────────────────────────────
+// Drifting, blinking fireflies (warm summer nights)
+function Fireflies() {
+  const flies = useMemo(() =>
+    Array.from({ length: 18 }, (_, i) => ({
+      id: i,
+      left: 4 + Math.random() * 92,
+      top: 24 + Math.random() * 68,
+      duration: 4 + Math.random() * 5,
+      delay: -(Math.random() * 9),
+      dx: -22 + Math.random() * 44,
+      dy: -18 + Math.random() * 36,
+      blink: 1.4 + Math.random() * 2.4,
+    })),
+    []
+  );
+  return (
+    <>
+      {flies.map((f) => (
+        <div
+          key={f.id}
+          className="fx-firefly"
+          style={{
+            left: `${f.left}%`,
+            top: `${f.top}%`,
+            '--fx-duration': `${f.duration}s`,
+            '--fx-delay': `${f.delay}s`,
+            '--fx-dx': `${f.dx}px`,
+            '--fx-dy': `${f.dy}px`,
+            '--fx-blink': `${f.blink}s`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Bursting fireworks (New Year's Eve, July 4th)
+function Fireworks() {
+  const bursts = useMemo(() =>
+    Array.from({ length: 5 }, (_, i) => ({
+      id: i,
+      left: 12 + Math.random() * 76,
+      top: 10 + Math.random() * 42,
+      duration: 2 + Math.random() * 1.6,
+      delay: -(Math.random() * 9),
+      hue: [45, 0, 210, 300, 130, 28][i % 6],
+    })),
+    []
+  );
+  return (
+    <>
+      {bursts.map((b) => (
+        <div
+          key={b.id}
+          className="fx-firework"
+          style={{
+            left: `${b.left}%`,
+            top: `${b.top}%`,
+            '--fx-duration': `${b.duration}s`,
+            '--fx-delay': `${b.delay}s`,
+            '--fx-hue': b.hue,
+          }}
+        >
+          {Array.from({ length: 14 }, (_, j) => (
+            <i key={j} className="fx-firespark" style={{ '--fx-a': `${(j / 14) * 360}deg` }} />
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Floating hearts (Valentine's Day)
+function Hearts() {
+  const hearts = useMemo(() =>
+    Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      left: 4 + Math.random() * 92,
+      size: 9 + Math.random() * 10,
+      duration: 6 + Math.random() * 5,
+      delay: -(Math.random() * 11),
+      sway: -18 + Math.random() * 36,
+      hue: [340, 350, 0, 328][i % 4],
+    })),
+    []
+  );
+  return (
+    <>
+      {hearts.map((h) => (
+        <div
+          key={h.id}
+          className="fx-heart"
+          style={{
+            left: `${h.left}%`,
+            width: `${h.size}px`,
+            height: `${h.size}px`,
+            '--fx-duration': `${h.duration}s`,
+            '--fx-delay': `${h.delay}s`,
+            '--fx-sway': `${h.sway}px`,
+            '--fx-hue': h.hue,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Gentle drifting snowflakes (Christmas — even when it isn't snowing)
+function Snowflakes() {
+  const flakes = useMemo(() =>
+    Array.from({ length: 16 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      size: 3 + Math.random() * 4,
+      duration: 7 + Math.random() * 6,
+      delay: -(Math.random() * 13),
+      drift: -16 + Math.random() * 32,
+    })),
+    []
+  );
+  return (
+    <>
+      {flakes.map((f) => (
+        <div
+          key={f.id}
+          className="fx-snowflake"
+          style={{
+            left: `${f.left}%`,
+            width: `${f.size}px`,
+            height: `${f.size}px`,
+            '--fx-duration': `${f.duration}s`,
+            '--fx-delay': `${f.delay}s`,
+            '--fx-drift': `${f.drift}px`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 const EFFECTS = {
   bubbles: Bubbles,
   embers: Embers,
@@ -415,6 +556,10 @@ const EFFECTS = {
   eruption: Eruption,
   bats: Bats,
   pumpkin: Pumpkin,
+  fireflies: Fireflies,
+  fireworks: Fireworks,
+  hearts: Hearts,
+  snowflakes: Snowflakes,
 };
 
 export function WorldEffects({ kind }) {
