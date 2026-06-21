@@ -31,9 +31,18 @@ export async function fetchAlerts(location) {
   if (!res.ok) throw new Error(`Alerts API ${res.status}`);
   const data = await res.json();
 
+  const now = Date.now();
   const alerts = (data?.features || [])
     .map((f) => f?.properties)
-    .filter((p) => p?.event)
+    .filter((p) => {
+      if (!p?.event) return false;
+      // NWS keeps some alerts in the "active" feed past their end time until
+      // they're formally cancelled/expired — drop any whose hazard has already
+      // ended so a stale advisory doesn't linger (e.g. on an always-on display).
+      const end = p.ends || p.expires;
+      if (end && new Date(end).getTime() <= now) return false;
+      return true;
+    })
     .map((p) => ({
       id: p.id,
       event: p.event,

@@ -118,7 +118,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
     : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone });
   const flavorEffect =
     flavor?.effect && !['rain', 'snow', 'thunder'].includes(animation || '') ? flavor.effect : null;
-  const alerts = fic ? [] : wx.alerts || [];
+  // Re-checked every clock tick so an alert drops the instant its end time
+  // passes, without waiting for the next fetch (matters on always-on displays).
+  const nowMs = now?.getTime ? now.getTime() : Date.now();
+  const alerts = fic
+    ? []
+    : (wx.alerts || []).filter((a) => !a.ends || new Date(a.ends).getTime() > nowMs);
   // A rare world event happening right now (Mt. Doom erupting…) takes over the
   // fictional card's tagline and ambient effect for its hour.
   const worldEvent = fic ? wx.event : null;
