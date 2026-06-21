@@ -5,6 +5,7 @@ import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherC
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
+import { moonSign } from '../lib/moonSign.js';
 import {
   WeatherAnimation,
   getSkyGradient,
@@ -121,6 +122,10 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   const moonySky = animation == null || animation === 'cloudy';
   const showCelestial = isDark && moonySky && !fic?.skyBody;
   const moonP = showCelestial ? moonPhase(now) : null;
+  // The Moon's zodiac sign (a fun astrology touch) — shown for real cities any
+  // time of day, since the Moon sits in a sign 24/7. It drifts ~13°/day, so the
+  // sign changes every ~2-3 days. Fictional worlds keep their own flavor.
+  const mSign = fic ? null : moonSign(now);
   // Meteor showers and the aurora need a genuinely clear sky — you can't see
   // them through cloud cover — so they keep the stricter gate.
   const clearDarkSky = isDark && animation == null;
@@ -218,6 +223,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   {' · '}☄️ {shower.name}{shower.peak ? ' peak' : ''}
                 </span>
               ) : null}
+            </div>
+          ) : null}
+          {mSign ? (
+            <div className="moon-sign" title={`The Moon is currently in ${mSign.name}`}>
+              <span className="moon-sign-glyph">{mSign.glyph}</span> Moon in {mSign.name}
+              <span className="moon-sign-blurb"> · {mSign.blurb}</span>
             </div>
           ) : null}
         </div>

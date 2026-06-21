@@ -389,6 +389,22 @@ html.tv-fit .container {
   white-space: nowrap;
 }
 
+/* Moon's zodiac sign (real cities) — a small astrology touch under the clock */
+.moon-sign {
+  margin-top: 4px;
+  font-size: clamp(0.66rem, 1vw, 0.78rem);
+  color: rgba(220, 224, 245, 0.7);
+  letter-spacing: 0.02em;
+}
+.moon-sign .moon-sign-glyph {
+  color: rgba(212, 200, 255, 0.95);
+  font-size: 1.1em;
+}
+.moon-sign .moon-sign-blurb {
+  color: rgba(220, 224, 245, 0.5);
+  font-style: italic;
+}
+
 /* "Your real weather matches a fictional world" wink badge (real cities only) */
 .twin-badge {
   margin-top: 10px;
