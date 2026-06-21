@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { reverseGeocode, geocodeCity } from '../lib/openMeteo.js';
 import { isDemo, DEMO_LOCATIONS } from '../lib/demoData.js';
 import { findFictional, fictionalByIndex, FICTIONAL_COUNT } from '../lib/fictionalCities.js';
+import { findSecretPlace } from '../lib/secretPlaces.js';
 
 const FALLBACK = {
   name: 'Oklahoma City, OK',
@@ -281,8 +282,10 @@ export function useLocations() {
     if (demo || !PINNED_CITY) return undefined;
     let cancelled = false;
     (async () => {
-      const fic = findFictional(PINNED_CITY);
-      const place = fic || (await geocodeCity(PINNED_CITY).catch(() => null));
+      // Secret named places (real coords) win, then fictional, then geocoding —
+      // so e.g. ?city=Rohan is a deterministic pin to an exact home location.
+      const place =
+        findSecretPlace(PINNED_CITY) || findFictional(PINNED_CITY) || (await geocodeCity(PINNED_CITY).catch(() => null));
       if (cancelled) return;
       if (place) {
         setLocations((prev) => prev.map((l) => (l.key === 'current' ? { ...l, ...place } : l)));
@@ -328,6 +331,19 @@ export function useLocations() {
       saveRotatePref(key, false);
       setLocations((prev) => prev.map((l) => (l.key === key ? { ...l, ...place } : l)));
     };
+    // A secret named place resolves to fixed real coordinates (real weather) and
+    // is remembered like any manual pick, so it survives reloads on a TV/kiosk.
+    const secret = findSecretPlace(cityName);
+    if (secret) {
+      pin({ ...secret, fictional: false, theme: null, badge: '' });
+      saveManual(key, {
+        name: secret.name,
+        latitude: secret.latitude,
+        longitude: secret.longitude,
+        timeZone: secret.timeZone
+      });
+      return { ok: true };
+    }
     const fic = findFictional(cityName);
     if (fic) {
       pin(fic);
