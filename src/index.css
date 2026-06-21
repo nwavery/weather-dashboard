@@ -618,6 +618,17 @@ h2 {
   text-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
 
+/* Sunrise/sunset + daylight (real cities) */
+.sun-times {
+  margin-bottom: 6px;
+  font-size: clamp(0.72rem, 1.2vw, 0.84rem);
+  color: rgba(255, 236, 200, 0.72);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.sun-times .sun-sub {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .feels-like i,
 .historical i {
   opacity: 0.6;

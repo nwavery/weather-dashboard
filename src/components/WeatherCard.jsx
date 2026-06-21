@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useLocationWeather } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { useUnits } from '../context/UnitsContext.jsx';
@@ -6,6 +7,7 @@ import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../li
 import { headlineFlavor } from '../lib/headline.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
 import { moonSign } from '../lib/moonSign.js';
+import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
 import {
   WeatherAnimation,
   getSkyGradient,
@@ -53,6 +55,13 @@ function alertTiming(onsetStr, endsStr, timeZone, nowMs) {
   } catch {
     return '';
   }
+}
+
+// "3h 12m" / "45m" for a positive duration in ms.
+function formatDuration(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(m / 60);
+  return h ? `${h}h ${m % 60}m` : `${m}m`;
 }
 
 function historicalText(weather, historical, units) {
@@ -126,6 +135,26 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // time of day, since the Moon sits in a sign 24/7. It drifts ~13°/day, so the
   // sign changes every ~2-3 days. Fictional worlds keep their own flavor.
   const mSign = fic ? null : moonSign(now);
+  // Sunrise/sunset + daylight for real cities. The times only change daily, so
+  // memoize on the local calendar day (the scan is ~1400 cheap trig ops); the
+  // live "until sunset" countdown below uses `now` directly.
+  const lat = location.latitude;
+  const lon = location.longitude;
+  const tz = location.timeZone;
+  let localDay = '';
+  try {
+    localDay = now.toLocaleDateString('en-CA', { timeZone: tz });
+  } catch {
+    /* ignore */
+  }
+  const sun = useMemo(() => {
+    if (fic || typeof lat !== 'number' || typeof lon !== 'number') return null;
+    const di = daylightInfo(now, lat, lon, tz);
+    if (!di) return null;
+    const tomorrow = sunTimes(new Date(now.getTime() + 86400e3), lat, lon, tz);
+    return { ...di, nextSunrise: tomorrow?.sunrise || null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fic, lat, lon, tz, localDay]);
   // Meteor showers and the aurora need a genuinely clear sky — you can't see
   // them through cloud cover — so they keep the stricter gate.
   const clearDarkSky = isDark && animation == null;
@@ -156,6 +185,22 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // Rotating in-world "dispatch" ticker (deterministic by the clock). Yields to
   // a rare event's tagline when one is active.
   const dispatch = fic && !worldEvent ? worldDispatch(fic.id, now?.getTime ? now.getTime() : Date.now()) : null;
+
+  // Live sun countdown + daylight-change label (recomputed each clock tick).
+  let sunUntil = null;
+  let daylightDelta = null;
+  if (sun && sun.polar == null) {
+    const t = now.getTime();
+    if (sun.sunrise && t < sun.sunrise.getTime()) sunUntil = `sunrise in ${formatDuration(sun.sunrise.getTime() - t)}`;
+    else if (sun.sunset && t < sun.sunset.getTime()) sunUntil = `sunset in ${formatDuration(sun.sunset.getTime() - t)}`;
+    else if (sun.nextSunrise) sunUntil = `sunrise in ${formatDuration(sun.nextSunrise.getTime() - t)}`;
+    if (typeof sun.deltaMin === 'number') {
+      daylightDelta =
+        sun.deltaMin === 0
+          ? 'same daylight as yesterday'
+          : `${sun.deltaMin > 0 ? '+' : '−'}${Math.abs(sun.deltaMin)} min vs yesterday`;
+    }
+  }
 
   return (
     <div
@@ -271,6 +316,22 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                     {' '}{historicalText(wx.weather, wx.historical, units)}
                   </span>
                 </div>
+                {sun ? (
+                  <div className="sun-times">
+                    {sun.polar === 'day' ? (
+                      <span>☀️ Midnight sun — daylight all day</span>
+                    ) : sun.polar === 'night' ? (
+                      <span>🌌 Polar night — no sunrise today</span>
+                    ) : (
+                      <span className="sun-riseset">
+                        🌅 {formatShortTime(sun.sunrise, location.timeZone, units)} · 🌇{' '}
+                        {formatShortTime(sun.sunset, location.timeZone, units)}
+                      </span>
+                    )}
+                    {sunUntil ? <span className="sun-sub"> · {sunUntil}</span> : null}
+                    {daylightDelta ? <span className="sun-sub"> · {daylightDelta}</span> : null}
+                  </div>
+                ) : null}
                 {twin ? (
                   <div className="twin-badge" title="Your real weather matches a fictional world">
                     {twin.emoji} {twin.text}
