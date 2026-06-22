@@ -405,6 +405,17 @@ html.tv-fit .container {
   font-style: italic;
 }
 
+/* Live Sun × Moon blend ("today's cosmic weather") */
+.sky-vibe {
+  margin-top: 2px;
+  font-size: clamp(0.63rem, 0.95vw, 0.74rem);
+  color: rgba(220, 224, 245, 0.48);
+  letter-spacing: 0.02em;
+}
+.sky-vibe .sky-vibe-sun {
+  color: rgba(255, 224, 150, 0.85);
+}
+
 /* "Your real weather matches a fictional world" wink badge (real cities only) */
 .twin-badge {
   margin-top: 10px;
