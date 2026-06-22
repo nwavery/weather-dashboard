@@ -65,6 +65,17 @@ function formatDuration(ms) {
   return h ? `${h}h ${m % 60}m` : `${m}m`;
 }
 
+// Daylight gained/lost vs yesterday, to the second (e.g. "+1 min 47 sec vs
+// yesterday", "−12 sec vs yesterday"). Near a solstice it shrinks to a few
+// seconds rather than rounding away to "same".
+function formatDaylightDelta(sec) {
+  if (typeof sec !== 'number') return null;
+  const a = Math.abs(sec);
+  const sign = sec > 0 ? '+' : sec < 0 ? '−' : '';
+  const body = a < 60 ? `${a} sec` : `${Math.floor(a / 60)} min ${a % 60} sec`;
+  return `${sign}${body} vs yesterday`;
+}
+
 function historicalText(weather, historical, units) {
   if (!weather?.daily) return 'vs. Historical: --';
   const max = weather.daily.temperature_2m_max[0];
@@ -205,12 +216,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
     if (sun.sunrise && t < sun.sunrise.getTime()) sunUntil = `sunrise in ${formatDuration(sun.sunrise.getTime() - t)}`;
     else if (sun.sunset && t < sun.sunset.getTime()) sunUntil = `sunset in ${formatDuration(sun.sunset.getTime() - t)}`;
     else if (sun.nextSunrise) sunUntil = `sunrise in ${formatDuration(sun.nextSunrise.getTime() - t)}`;
-    if (typeof sun.deltaMin === 'number') {
-      daylightDelta =
-        sun.deltaMin === 0
-          ? 'same daylight as yesterday'
-          : `${sun.deltaMin > 0 ? '+' : '−'}${Math.abs(sun.deltaMin)} min vs yesterday`;
-    }
+    daylightDelta = formatDaylightDelta(sun.deltaSec);
   }
 
   return (

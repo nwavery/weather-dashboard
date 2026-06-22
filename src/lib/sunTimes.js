@@ -83,6 +83,9 @@ export function daylightInfo(date, lat, lon, timeZone) {
   const lenOf = (t) => (t && t.sunrise && t.sunset ? t.sunset.getTime() - t.sunrise.getTime() : null);
   const dayMs = lenOf(today);
   const yestMs = lenOf(yest);
-  const deltaMin = dayMs != null && yestMs != null ? Math.round((dayMs - yestMs) / 60000) : null;
-  return { sunrise: today.sunrise, sunset: today.sunset, polar: today.polar, dayMs, deltaMin };
+  // Seconds of daylight gained/lost vs yesterday. The absolute sunrise/sunset
+  // carry ~a minute of model slop, but it's systematic and cancels in the
+  // day-to-day difference, so seconds here are trustworthy.
+  const deltaSec = dayMs != null && yestMs != null ? Math.round((dayMs - yestMs) / 1000) : null;
+  return { sunrise: today.sunrise, sunset: today.sunset, polar: today.polar, dayMs, deltaSec };
 }
