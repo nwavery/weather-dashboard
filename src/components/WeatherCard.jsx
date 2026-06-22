@@ -283,18 +283,6 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
               ) : null}
             </div>
           ) : null}
-          {mSign ? (
-            <div className="moon-sign" title={`The Moon is currently in ${mSign.name}`}>
-              <span className="moon-sign-glyph">{mSign.glyph}</span> Moon in {mSign.name}
-              <span className="moon-sign-blurb"> · {mSign.blurb}</span>
-            </div>
-          ) : null}
-          {vibe ? (
-            <div className="sky-vibe" title="Today's Sun × Moon blend">
-              <span className="sky-vibe-sun">☉ {vibe.sun.name} season</span>
-              <span className="sky-vibe-text"> · {vibe.text}</span>
-            </div>
-          ) : null}
         </div>
 
         {wx.weatherError ? (
@@ -377,6 +365,24 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   : (instant) => isSunDown(instant, location.latitude, location.longitude)
               }
             />
+
+            {/* Astrology readout: Moon's sign + the live Sun×Moon blend */}
+            {mSign || vibe ? (
+              <div className="astro-section">
+                {mSign ? (
+                  <div className="moon-sign" title={`The Moon is currently in ${mSign.name}`}>
+                    <span className="moon-sign-glyph">{mSign.glyph}</span> Moon in {mSign.name}
+                    <span className="moon-sign-blurb"> · {mSign.blurb}</span>
+                  </div>
+                ) : null}
+                {vibe ? (
+                  <div className="sky-vibe" title="Today's Sun × Moon blend">
+                    <span className="sky-vibe-sun">☉ {vibe.sun.name} season</span>
+                    <span className="sky-vibe-text"> · {vibe.text}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* Official NWS alerts (Heat Advisory, Tornado Watch, …) */}
             {alerts.length > 0 ? (
