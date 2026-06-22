@@ -411,9 +411,10 @@ function SunGlow({ timePhase, twin = false, pos = null }) {
             <div key={i} className="sun-ray" style={{ '--ray-i': i }} />
           ))}
         </div>
+        {/* Tatooine's second sun — nested in the sun-body so the binary pair
+            arcs across the sky together (offset by CSS). */}
+        {twin ? <div className="sun-orb sun-orb--twin" /> : null}
       </div>
-      {/* Tatooine's second sun */}
-      {twin ? <div className="sun-orb sun-orb--twin" /> : null}
     </div>
   );
 }

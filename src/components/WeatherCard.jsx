@@ -5,7 +5,7 @@ import { useUnits } from '../context/UnitsContext.jsx';
 import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
-import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
+import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
 import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
 import { seasonalEffect } from '../lib/seasonal.js';
@@ -122,24 +122,34 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // `.fic-livephase` CSS). Other worlds stay scripted (fixed phase, painted sky).
   const realSun = !!fic?.realSun;
   const twin = fic ? null : fictionalTwin(wx.weather, wx.air);
-  // Time-of-day phase (dawn/day/dusk/night) — drives the sky gradient and the
-  // sun glow. Real cities derive it from the sun's actual position (golden-hour
-  // twilight bands and all), falling back to the local clock only when we have
-  // no coordinates. Fictional worlds use their scripted phase.
-  const timePhase =
-    (fic && !realSun && fic.phase) ||
-    sunPhase(now, location.latitude, location.longitude) ||
-    getTimePhase(now, location.timeZone);
-  // Is it actually dark out (sun below the horizon, sundown→sunup)? This — not
-  // the gradient phase — gates the stars + phase-accurate moon and the moon
-  // badge, so they appear together right at sundown, including through the
-  // dawn/dusk twilight bands when the sun has already dropped below the horizon.
-  const isDark = (fic && !realSun) ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
-  // Real sun: its altitude smoothly colours the clear-sky gradient, and its
-  // on-screen position draws the sun along its arc (low east → overhead → low
-  // west). Both are null for fictional worlds / missing coordinates.
-  const sunAltitude = (fic && !realSun) ? null : solarPosition(now, location.latitude, location.longitude)?.altitude;
-  const sunPos = (fic && !realSun) ? null : sunScreenPosition(now, location.latitude, location.longitude);
+  // Time-of-day phase, darkness, and the sun's on-screen arc come from one of
+  // three regimes. `timePhase` (dawn/day/dusk/night) drives the gradient + sun
+  // glow; `isDark` (sun below the horizon) gates the stars + phase-accurate moon
+  // so they appear right at sundown; `sunAltitude`/`sunPos` colour the clear sky
+  // and draw the sun along its arc.
+  //  • Off-world planets with a canonical rotation (Bespin 12 h, Naboo 26 h,
+  //    Tatooine 23 h…) spin on the generic day model, anchored to their local clock.
+  //  • Frozen worlds (Mordor's gloom, Halloween's eternal night…) keep their
+  //    scripted phase and painted sky — no moving sun.
+  //  • Real cities and Earth-like worlds (Wakanda, Winterfell, Oz…) use the precise
+  //    solar ephemeris from their coordinates — real seasonal daylight + golden-hour
+  //    twilight — falling back to the local clock when coordinates are missing.
+  const worldDay = fic?.dayLength || null;
+  const ws = worldDay ? worldSun(now, location.timeZone, worldDay, fic.dayPhase) : null;
+  let timePhase, isDark, sunAltitude, sunPos;
+  if (ws) {
+    ({ phase: timePhase, dark: isDark, altitude: sunAltitude, pos: sunPos } = ws);
+  } else if (fic && !realSun) {
+    timePhase = fic.phase || getTimePhase(now, location.timeZone);
+    isDark = fic.phase === 'night';
+    sunAltitude = null;
+    sunPos = null;
+  } else {
+    timePhase = sunPhase(now, location.latitude, location.longitude) || getTimePhase(now, location.timeZone);
+    isDark = isSunDown(now, location.latitude, location.longitude);
+    sunAltitude = solarPosition(now, location.latitude, location.longitude)?.altitude ?? null;
+    sunPos = sunScreenPosition(now, location.latitude, location.longitude);
+  }
   // Mood-driven worlds animate whatever their current (dynamic) weather code
   // says; single-mood worlds keep their pinned signature animation.
   const animation = fic
@@ -239,7 +249,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
 
   return (
     <div
-      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''} ${fic?.livePhase ? 'fic-livephase' : ''}`}
+      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''} ${fic?.livePhase || fic?.dayLength ? 'fic-livephase' : ''}`}
       style={{ '--sky-gradient': skyGrad }}
     >
       {/* Full-bleed sky background */}

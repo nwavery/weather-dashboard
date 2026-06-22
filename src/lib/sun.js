@@ -121,3 +121,70 @@ function validCoords(latitude, longitude) {
     !Number.isNaN(longitude)
   );
 }
+
+// ── Generic per-world day model ─────────────────────────────────────────────
+// The real-Earth ephemeris above only fits genuine Earth places. Other worlds
+// spin on their own canonical clock — Bespin every 12 h, Naboo every 26 h,
+// Tatooine every 23 h — so we model their sky with a simple continuous day cycle
+// of a given length rather than Earth's orbit. The sun climbs to WORLD_NOON_ALT
+// at local midday and dips symmetrically below the horizon at night; phase,
+// darkness and on-screen position come out the same shape as the real-sun
+// helpers, so the rest of the card treats these worlds identically.
+const WORLD_NOON_ALT = 64; // how high the sun rides at local noon (degrees)
+
+// Local time as continuous hours since the Unix epoch for an IANA zone. Reading
+// the wall-clock hour directly jumps at midnight; this doesn't, so a day cycle
+// of any length advances smoothly across the boundary.
+function zoneHours(date, timeZone) {
+  try {
+    const p = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+      .formatToParts(date)
+      .reduce((a, x) => ((a[x.type] = x.value), a), {});
+    const h = p.hour === '24' ? 0 : Number(p.hour); // some engines emit hour 24 at midnight
+    const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, h, +p.minute, +p.second);
+    return asUTC / 3600000;
+  } catch {
+    return date.getTime() / 3600000;
+  }
+}
+
+function frac(v) {
+  return v - Math.floor(v);
+}
+
+// Sky state for a world rotating once every `dayLengthHours`, anchored to its
+// local clock so the sun rides highest at local noon. `phaseShift` (0..1)
+// optionally rotates the cycle. Returns { phase, dark, altitude, pos } mirroring
+// the real-sun helpers: phase ∈ 'dawn'|'day'|'dusk'|'night', and pos is { x, y }
+// card percentages, or null when the sun is below the horizon.
+export function worldSun(date, timeZone, dayLengthHours, phaseShift = 0) {
+  const len = dayLengthHours > 0 ? dayLengthHours : 24;
+  // cyclePos: 0 = local solar midnight, 0.5 = local solar noon.
+  const cyclePos = frac(zoneHours(date, timeZone) / len + (phaseShift || 0));
+  const altitude = WORLD_NOON_ALT * -Math.cos(2 * Math.PI * cyclePos);
+  const rising = cyclePos < 0.5;
+
+  let phase;
+  if (altitude > DAY_DEG) phase = 'day';
+  else if (altitude < DUSK_DEG) phase = 'night';
+  else phase = rising ? 'dawn' : 'dusk';
+
+  const dark = altitude < HORIZON_DEG;
+  let pos = null;
+  if (!dark) {
+    const dayFrac = clamp((cyclePos - 0.25) / 0.5, 0, 1); // 0 sunrise … 1 sunset
+    const x = clamp(92 - dayFrac * 84, 8, 92); // rises east (right) → sets west (left)
+    const y = 27 - (clamp(altitude, 0, 52) / 52) * 22; // horizon 27% → zenith 5%
+    pos = { x, y };
+  }
+  return { phase, dark, altitude, pos };
+}
