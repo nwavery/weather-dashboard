@@ -116,23 +116,30 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // Fictional cities supply their own background gradient, animation, time-of-day
   // phase, and condition text; real cities derive them from the live weather.
   const fic = isFictional(location) ? fictionalTheme(location.theme) : null;
+  // Earth-canon fictional worlds (Wakanda, Hogwarts…) carry real coordinates and
+  // run the live solar model just like a real city: the sun arcs across the card
+  // and they actually go dark at night (their themed gradient is dimmed by the
+  // `.fic-livephase` CSS). Other worlds stay scripted (fixed phase, painted sky).
+  const realSun = !!fic?.realSun;
   const twin = fic ? null : fictionalTwin(wx.weather, wx.air);
   // Time-of-day phase (dawn/day/dusk/night) — drives the sky gradient and the
   // sun glow. Real cities derive it from the sun's actual position (golden-hour
   // twilight bands and all), falling back to the local clock only when we have
   // no coordinates. Fictional worlds use their scripted phase.
   const timePhase =
-    fic?.phase || sunPhase(now, location.latitude, location.longitude) || getTimePhase(now, location.timeZone);
+    (fic && !realSun && fic.phase) ||
+    sunPhase(now, location.latitude, location.longitude) ||
+    getTimePhase(now, location.timeZone);
   // Is it actually dark out (sun below the horizon, sundown→sunup)? This — not
   // the gradient phase — gates the stars + phase-accurate moon and the moon
   // badge, so they appear together right at sundown, including through the
   // dawn/dusk twilight bands when the sun has already dropped below the horizon.
-  const isDark = fic ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
+  const isDark = (fic && !realSun) ? fic.phase === 'night' : isSunDown(now, location.latitude, location.longitude);
   // Real sun: its altitude smoothly colours the clear-sky gradient, and its
   // on-screen position draws the sun along its arc (low east → overhead → low
   // west). Both are null for fictional worlds / missing coordinates.
-  const sunAltitude = fic ? null : solarPosition(now, location.latitude, location.longitude)?.altitude;
-  const sunPos = fic ? null : sunScreenPosition(now, location.latitude, location.longitude);
+  const sunAltitude = (fic && !realSun) ? null : solarPosition(now, location.latitude, location.longitude)?.altitude;
+  const sunPos = (fic && !realSun) ? null : sunScreenPosition(now, location.latitude, location.longitude);
   // Mood-driven worlds animate whatever their current (dynamic) weather code
   // says; single-mood worlds keep their pinned signature animation.
   const animation = fic

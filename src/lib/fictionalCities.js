@@ -306,7 +306,7 @@ const CITIES = [
   },
   {
     id: 'wakanda', name: 'Wakanda', world: 'Africa (hidden)', timeZone: 'Africa/Nairobi',
-    aliases: ['wakanda'],
+    aliases: ['wakanda'], realSun: true, lat: 0.5, lon: 37.5,
     gradient: 'linear-gradient(to bottom,#0c3b2e 0%,#16614a 28%,#2f8f5e 55%,#7cb86a 80%,#e7d98a 100%)',
     anim: null, phase: 'day', condition: 'Lush · Vibranium Clear',
     weather: ({ temp: 79, code: 1, feels: 81, humidity: 65, dew: 66, wind: 6, windDir: 120, uv: 8 }),
@@ -414,7 +414,7 @@ const CITIES = [
   },
   {
     id: 'jurassic-park', name: 'Jurassic Park', world: 'Isla Nublar', timeZone: 'America/Costa_Rica',
-    aliases: ['jurassic park', 'isla nublar'],
+    aliases: ['jurassic park', 'isla nublar'], realSun: true, lat: 10.5, lon: -85.6,
     gradient: 'linear-gradient(to bottom,#0a1410 0%,#152a1e 28%,#21402c 52%,#2e5038 75%,#3a6242 100%)',
     anim: 'thunder', phase: 'dusk', condition: 'Tropical · Storm Incoming',
     weather: ({ temp: 84, code: 95, feels: 92, humidity: 88, dew: 78, wind: 18, windDir: 110, uv: 4 }),
@@ -423,7 +423,7 @@ const CITIES = [
   },
   {
     id: 'hundred-acre-wood', name: 'Hundred Acre Wood', world: 'Ashdown Forest', timeZone: 'Europe/London',
-    aliases: ['hundred acre wood', '100 acre wood', 'acre wood', 'pooh'],
+    aliases: ['hundred acre wood', '100 acre wood', 'acre wood', 'pooh'], realSun: true, lat: 51.06, lon: 0.07,
     gradient: 'linear-gradient(to bottom,#5a8fc0 0%,#8fb6dc 25%,#cdd29a 52%,#e6c878 76%,#f2dd92 100%)',
     anim: 'cloudy', phase: 'day', condition: 'Blustery · A Rather Blustery Day', effect: 'leaves',
     weather: ({ temp: 62, code: 2, feels: 60, humidity: 68, dew: 50, wind: 22, windDir: 250, uv: 4 }),
@@ -450,7 +450,7 @@ const CITIES = [
   },
   {
     id: 'hogwarts', name: 'Hogwarts', world: 'Scottish Highlands', timeZone: 'Europe/London',
-    aliases: ['hogwarts', 'hogsmeade'],
+    aliases: ['hogwarts', 'hogsmeade'], realSun: true, lat: 56.8, lon: -5.1,
     gradient: 'linear-gradient(to bottom,#14101f 0%,#241d36 28%,#33304f 52%,#445166 76%,#6b7d6a 100%)',
     anim: 'rain', phase: 'dusk', condition: 'Misty · Mischief Managed', effect: 'sparkles',
     weather: ({ temp: 52, code: 63, feels: 48, humidity: 88, dew: 48, wind: 12, windDir: 240, uv: 2 }),
@@ -489,7 +489,7 @@ const CITIES = [
     // geocode normally. Reachable only via the 'simpsons'/'homer' aliases, kept
     // off the datalist and out of the rotation (see `hidden`).
     id: 'springfield', name: 'Springfield', world: 'USA', timeZone: 'America/Chicago', hidden: true,
-    aliases: ['simpsons', 'homer'],
+    aliases: ['simpsons', 'homer'], realSun: true, lat: 39.8, lon: -89.65,
     gradient: 'linear-gradient(to bottom,#1a6fc4 0%,#3f97df 26%,#7dc0ef 52%,#bfe0f5 76%,#f2e06a 100%)',
     anim: null, phase: 'day', condition: "Sunny · Mmm… Weather",
     weather: ({ temp: 72, code: 1, feels: 73, humidity: 55, dew: 54, wind: 7, windDir: 200, uv: 7 }),
@@ -505,7 +505,7 @@ export const FICTIONAL_NAMES = VISIBLE.map((c) => c.name);
 export const FICTIONAL_COUNT = VISIBLE.length;
 
 function placeOf(c) {
-  return { name: c.name, latitude: 0, longitude: 0, timeZone: c.timeZone, fictional: true, theme: c.id, badge: c.world };
+  return { name: c.name, latitude: c.lat ?? 0, longitude: c.lon ?? 0, timeZone: c.timeZone, fictional: true, theme: c.id, badge: c.world };
 }
 
 // The i-th fictional city as a location object (wraps around). Used by the
@@ -730,6 +730,9 @@ export function fictionalTheme(id) {
     // real local time (the fixed gradient gets dimmed at dusk/night via CSS).
     phase: livePhase ? null : c.phase,
     livePhase,
+    // Earth-canon worlds (Wakanda, Hogwarts…) run the real solar model from their
+    // coordinates: the sun arcs across the card and they go dark at night.
+    realSun: !!c.realSun,
     // Worlds with multiple moods animate whatever the current data says
     // (rain layer when the mood is rain), instead of one pinned animation.
     liveAnim: !!c.dyn?.moods && c.dyn.moods.length > 1,
