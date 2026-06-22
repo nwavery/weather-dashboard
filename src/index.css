@@ -1670,13 +1670,17 @@ h2 {
   animation: sun-pulse 6s ease-in-out infinite alternate;
 }
 
-/* Tatooine's second, smaller sun (Mos Eisley twin suns) */
+/* Tatooine's second, smaller sun (Mos Eisley twin suns). Positioned relative to
+   the .sun-body so it rides the solar arc alongside the primary sun, offset to
+   the right and a touch higher. Biased sideways rather than up because the sun
+   hugs the top of the card near noon — an upward offset would clip off-screen.
+   Sizes are % of the sun-body, so the pair scales together. */
 .sun-orb--twin {
   inset: auto;
-  right: 11%;
-  top: 13%;
+  left: 74%;
+  top: 14%;
   transform: none;
-  width: clamp(54px, 11%, 104px);
+  width: 56%;
   aspect-ratio: 1 / 1;
   background: radial-gradient(circle, #fff1cc 0%, #ffd680 40%, #ff9a36 70%, transparent 100%);
   box-shadow:
