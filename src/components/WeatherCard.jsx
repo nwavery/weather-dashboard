@@ -78,17 +78,28 @@ function formatDaylightDelta(sec) {
 
 function historicalText(weather, historical, units) {
   if (!weather?.daily) return 'vs. Historical: --';
+  // Compare like with like: the baseline is the historical daily MEAN, so today
+  // must be the daily mean too. Open-Meteo's forecast gives a full-day mean
+  // (observed + forecast hours). The (max+min)/2 midpoint runs ~1-2° warm vs the
+  // true mean, so only fall back to it when the mean field is unavailable.
+  const mean = weather.daily.temperature_2m_mean?.[0];
   const max = weather.daily.temperature_2m_max[0];
   const min = weather.daily.temperature_2m_min[0];
-  if (typeof max !== 'number' || typeof min !== 'number') return 'vs. Historical: --';
-  const predicted = (max + min) / 2;
+  const predicted =
+    typeof mean === 'number' && !Number.isNaN(mean)
+      ? mean
+      : typeof max === 'number' && typeof min === 'number'
+        ? (max + min) / 2
+        : null;
+  if (predicted == null) return 'vs. Historical: --';
   if (!historical) return `Today avg: ${formatTemperature(predicted, units)}`;
   // The difference is the same number of degrees in °F or °C only by scale;
   // convert the gap to the displayed unit so "5° warmer" matches the reading.
   const diffF = predicted - historical.baseline;
   const diff = Math.round(units === 'metric' ? diffF * (5 / 9) : diffF);
-  const sym = diff > 0 ? '↑' : diff < 0 ? '↓' : '↔';
-  const word = diff === 0 ? '' : diff > 0 ? 'warmer' : 'cooler';
+  if (diff === 0) return `vs ${historical.years}y avg: ↔ right on average`;
+  const sym = diff > 0 ? '↑' : '↓';
+  const word = diff > 0 ? 'warmer' : 'cooler';
   return `vs ${historical.years}y avg: ${sym} ${Math.abs(diff)}° ${word}`;
 }
 
