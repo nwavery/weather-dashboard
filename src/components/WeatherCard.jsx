@@ -6,7 +6,7 @@ import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherC
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition } from '../lib/sun.js';
-import { moonSign } from '../lib/moonSign.js';
+import { moonSign, skyVibe } from '../lib/moonSign.js';
 import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
 import { seasonalEffect } from '../lib/seasonal.js';
 import {
@@ -136,6 +136,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // time of day, since the Moon sits in a sign 24/7. It drifts ~13°/day, so the
   // sign changes every ~2-3 days. Fictional worlds keep their own flavor.
   const mSign = fic ? null : moonSign(now);
+  const vibe = fic ? null : skyVibe(now);
   // Sunrise/sunset + daylight for real cities. The times only change daily, so
   // memoize on the local calendar day (the scan is ~1400 cheap trig ops); the
   // live "until sunset" countdown below uses `now` directly.
@@ -286,6 +287,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
             <div className="moon-sign" title={`The Moon is currently in ${mSign.name}`}>
               <span className="moon-sign-glyph">{mSign.glyph}</span> Moon in {mSign.name}
               <span className="moon-sign-blurb"> · {mSign.blurb}</span>
+            </div>
+          ) : null}
+          {vibe ? (
+            <div className="sky-vibe" title="Today's Sun × Moon blend">
+              <span className="sky-vibe-sun">☉ {vibe.sun.name} season</span>
+              <span className="sky-vibe-text"> · {vibe.text}</span>
             </div>
           ) : null}
         </div>
