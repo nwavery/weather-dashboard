@@ -188,3 +188,12 @@ export function worldSun(date, timeZone, dayLengthHours, phaseShift = 0) {
   }
   return { phase, dark, altitude, pos };
 }
+
+// Fraction through a world's local day (0 = solar midnight, 0.5 = solar noon) for
+// a given rotation length. Shared with the fictional temperature model so a
+// world's warmth rides the same cycle as its sky (warmest mid-"afternoon",
+// coldest before "dawn") on whatever clock it spins — Bespin's 12 h included.
+export function worldDayFraction(date, timeZone, dayLengthHours) {
+  const len = dayLengthHours > 0 ? dayLengthHours : 24;
+  return frac(zoneHours(date, timeZone) / len);
+}

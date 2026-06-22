@@ -6,6 +6,7 @@
 // the same trick the ?demo=1 harness uses.
 
 import { effectiveWeatherCode } from '../data/weatherCodes.js';
+import { worldDayFraction } from './sun.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -175,10 +176,12 @@ function makeWeather(c) {
   const { temp, code, feels, humidity, dew, wind, windDir, uv, precipProb } = c.weather;
   const dyn = c.dyn || {};
   const seed = hashStr(c.id);
-  const lock = !!dyn.lockPhase;
-  // Phase-locked worlds are a frozen moment of day, so they skip the diurnal
-  // swing (no afternoon warm-up on a card whose sky is always night) and keep
-  // their slow multi-hour drift instead.
+  // Worlds with a canonical rotation (dayLength) genuinely cycle, so they get a
+  // real day↔night temperature swing keyed to that cycle. Phase-locked worlds
+  // with no rotation are a frozen moment of day, so they skip the diurnal swing
+  // (no afternoon warm-up on a card whose sky is always night) and just drift.
+  const cyc = !!c.dayLength;
+  const lock = !!dyn.lockPhase && !cyc;
   const amp = lock ? 0 : dyn.amp ?? 8;
   const drift = dyn.drift ?? 4;
   const moods = dyn.moods || [code];
@@ -186,8 +189,21 @@ function makeWeather(c) {
   const nowMs = Date.now();
   const now = nowInZone(c.timeZone);
 
-  const tempAt = (ms, zoned) =>
-    temp + (amp / 2) * diurnal(zoned) + (noise1(seed ^ 0x51ab, ms / (6 * 3600e3)) * 2 - 1) * drift;
+  // Cycling worlds interpolate between their day temp (`weather.temp`) and a
+  // `tempNight`, tracking the sun's height so warmth and the day/night label move
+  // together: warmest at local solar noon, coldest at solar midnight — on
+  // whatever clock the world spins (Bespin's 12 h included).
+  const dayTemp = temp;
+  const nightTemp = typeof c.tempNight === 'number' ? c.tempNight : temp;
+  const TWO_PI = Math.PI * 2;
+  const sunUp01 = (ms) => Math.max(0, Math.cos(TWO_PI * (worldDayFraction(new Date(ms), c.timeZone, c.dayLength) - 0.5)));
+  const warmth01 = (ms) => (1 + Math.cos(TWO_PI * (worldDayFraction(new Date(ms), c.timeZone, c.dayLength) - 0.5))) / 2;
+
+  const tempAt = (ms, zoned) => {
+    const jitter = (noise1(seed ^ 0x51ab, ms / (6 * 3600e3)) * 2 - 1) * drift;
+    if (cyc) return nightTemp + (dayTemp - nightTemp) * warmth01(ms) + jitter;
+    return temp + (amp / 2) * diurnal(zoned) + jitter;
+  };
 
   const curCode = moodAt(seed, nowMs, moods);
   const curTemp = tempAt(nowMs, now);
@@ -200,11 +216,14 @@ function makeWeather(c) {
     weather_code: curCode,
     wind_speed_10m: Math.max(0, Math.round(wind * (0.65 + wob * 0.7))),
     wind_direction_10m: Math.round((windDir + (wob * 2 - 1) * 40 + 360) % 360),
-    uv_index: lock ? uv : Math.max(0, Math.round(uv * Math.max(0, diurnal(now)))),
+    uv_index: cyc
+      ? Math.max(0, Math.round(uv * sunUp01(nowMs)))
+      : lock ? uv : Math.max(0, Math.round(uv * Math.max(0, diurnal(now)))),
     dew_point_2m: Math.round(Math.min(dew + (curTemp - temp) * 0.5, curTemp - 1))
   };
 
-  // Daily: one mood sample + drift per day, spread around the base temp.
+  // Daily: one mood sample + drift per day. Cycling worlds span night→day temps;
+  // others spread around the base temp.
   const spread = Math.max(amp, drift * 1.5, 6);
   const daily = { time: [], temperature_2m_max: [], temperature_2m_min: [], weather_code: [] };
   for (let i = 0; i < 6; i++) {
@@ -213,8 +232,8 @@ function makeWeather(c) {
     const dayMs = nowMs + i * 86400e3;
     const dn = rand01(seed ^ 0xd417, Math.floor(dayMs / 86400e3)) * 2 - 1;
     daily.time.push(isoDate(d));
-    daily.temperature_2m_max.push(Math.round(temp + spread / 2 + dn * drift));
-    daily.temperature_2m_min.push(Math.round(temp - spread / 2 + dn * drift));
+    daily.temperature_2m_max.push(Math.round((cyc ? dayTemp : temp + spread / 2) + dn * drift));
+    daily.temperature_2m_min.push(Math.round((cyc ? nightTemp : temp - spread / 2) + dn * drift));
     daily.weather_code.push(moodAt(seed, dayMs, moods));
   }
 
@@ -270,9 +289,9 @@ const pollen = (t, g, w) => ({ tree: ptype(t), grass: ptype(g), weed: ptype(w), 
 const CITIES = [
   {
     id: 'mos-eisley', name: 'Mos Eisley', world: 'Tatooine', timeZone: 'Africa/Nairobi',
-    aliases: ['mos eisley', 'tatooine'], dayLength: 23,
+    aliases: ['mos eisley', 'tatooine'], dayLength: 23, tempNight: 42,
     gradient: 'linear-gradient(to bottom,#3a1a06 0%,#9c4a12 22%,#d98324 48%,#e8a24a 70%,#f3c884 100%)',
-    anim: null, phase: 'day', condition: 'Scorching · Twin Suns', twinSuns: true,
+    anim: null, phase: 'day', condition: 'Scorching · Twin Suns', conditionNight: 'Frigid · Twin Suns Set', twinSuns: true,
     weather: ({ temp: 121, code: 0, feels: 131, humidity: 4, dew: 18, wind: 22, windDir: 95, uv: 12, precipProb: 0 }),
     dyn: { lockPhase: true, drift: 6, moods: [0, 1] },
     air: { us_aqi: 96, pm2_5: 40, ozone: 58 }, pollen: pollen(null, null, null), historical: { baseline: 119, years: 10 }
@@ -288,9 +307,9 @@ const CITIES = [
   },
   {
     id: 'cloud-city', name: 'Cloud City', world: 'Bespin', timeZone: 'Europe/Lisbon',
-    aliases: ['cloud city', 'bespin'], dayLength: 12,
+    aliases: ['cloud city', 'bespin'], dayLength: 12, tempNight: 58,
     gradient: 'linear-gradient(to bottom,#7a2f1e 0%,#c85a2a 25%,#e88a3c 50%,#f0b15e 72%,#f7d79b 100%)',
-    anim: 'cloudy', phase: 'dusk', condition: 'Breezy · Endless Sunset',
+    anim: 'cloudy', phase: 'dusk', condition: 'Breezy · Above the Clouds', conditionNight: 'Breezy · City Lights',
     weather: ({ temp: 71, code: 2, feels: 70, humidity: 60, dew: 56, wind: 18, windDir: 270, uv: 5 }),
     dyn: { lockPhase: true, drift: 4, moods: [2, 1, 3] },
     air: { us_aqi: 28, pm2_5: 7, ozone: 40 }, pollen: pollen(null, null, null), historical: { baseline: 70, years: 10 }
@@ -741,6 +760,9 @@ export function fictionalTheme(id) {
     // (rain layer when the mood is rain), instead of one pinned animation.
     liveAnim: !!c.dyn?.moods && c.dyn.moods.length > 1,
     condition: c.condition,
+    // Optional night-time tagline for cycling worlds (Tatooine's suns have set),
+    // chosen by the card when it's dark out.
+    conditionNight: c.conditionNight || null,
     className: `fic-${c.id}`,
     twinSuns: !!c.twinSuns,
     aurora: !!c.aurora,

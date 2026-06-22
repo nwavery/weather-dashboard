@@ -342,7 +342,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 {info && (
                   <div className="weather-desc" title={flavor?.detail || undefined}>
                     {worldEvent?.tagline ||
-                      fic?.condition ||
+                      (isDark && fic?.conditionNight ? fic.conditionNight : fic?.condition) ||
                       (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
