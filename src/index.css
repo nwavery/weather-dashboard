@@ -391,7 +391,13 @@ html.tv-fit .container {
   white-space: nowrap;
 }
 
-/* Moon's zodiac sign (real cities) — a small astrology touch under the clock */
+/* Astrology readout, now sitting below the hourly strip */
+.astro-section {
+  margin-top: clamp(8px, 1.5vw, 14px);
+  text-align: center;
+}
+
+/* Moon's zodiac sign (real cities) — a small astrology touch */
 .moon-sign {
   margin-top: 4px;
   font-size: clamp(0.66rem, 1vw, 0.78rem);
