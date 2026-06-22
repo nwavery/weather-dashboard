@@ -270,7 +270,7 @@ const pollen = (t, g, w) => ({ tree: ptype(t), grass: ptype(g), weed: ptype(w), 
 const CITIES = [
   {
     id: 'mos-eisley', name: 'Mos Eisley', world: 'Tatooine', timeZone: 'Africa/Nairobi',
-    aliases: ['mos eisley', 'tatooine'],
+    aliases: ['mos eisley', 'tatooine'], dayLength: 23,
     gradient: 'linear-gradient(to bottom,#3a1a06 0%,#9c4a12 22%,#d98324 48%,#e8a24a 70%,#f3c884 100%)',
     anim: null, phase: 'day', condition: 'Scorching · Twin Suns', twinSuns: true,
     weather: ({ temp: 121, code: 0, feels: 131, humidity: 4, dew: 18, wind: 22, windDir: 95, uv: 12, precipProb: 0 }),
@@ -279,7 +279,7 @@ const CITIES = [
   },
   {
     id: 'hoth', name: 'Hoth', world: 'Outer Rim', timeZone: 'Antarctica/McMurdo',
-    aliases: ['hoth'],
+    aliases: ['hoth'], dayLength: 23,
     gradient: 'linear-gradient(to bottom,#1b2b44 0%,#33567f 30%,#6f9ec9 60%,#b8d6ee 85%,#e8f2fb 100%)',
     anim: 'snow', phase: 'day', condition: 'Blizzard · Whiteout',
     weather: ({ temp: -42, code: 75, feels: -61, humidity: 78, dew: -48, wind: 35, windDir: 350, uv: 1 }),
@@ -288,7 +288,7 @@ const CITIES = [
   },
   {
     id: 'cloud-city', name: 'Cloud City', world: 'Bespin', timeZone: 'Europe/Lisbon',
-    aliases: ['cloud city', 'bespin'],
+    aliases: ['cloud city', 'bespin'], dayLength: 12,
     gradient: 'linear-gradient(to bottom,#7a2f1e 0%,#c85a2a 25%,#e88a3c 50%,#f0b15e 72%,#f7d79b 100%)',
     anim: 'cloudy', phase: 'dusk', condition: 'Breezy · Endless Sunset',
     weather: ({ temp: 71, code: 2, feels: 70, humidity: 60, dew: 56, wind: 18, windDir: 270, uv: 5 }),
@@ -333,7 +333,7 @@ const CITIES = [
   },
   {
     id: 'the-shire', name: 'The Shire', world: 'Eriador', timeZone: 'Europe/London',
-    aliases: ['the shire', 'shire', 'hobbiton'],
+    aliases: ['the shire', 'shire', 'hobbiton'], realSun: true, lat: 51.8, lon: -1.3,
     gradient: 'linear-gradient(to bottom,#2e6fa8 0%,#5fa0d0 25%,#8fc4a0 55%,#7cb86a 78%,#9bd07a 100%)',
     anim: null, phase: 'day', condition: 'Pleasant · Second Breakfast', effect: 'pollen',
     weather: ({ temp: 64, code: 1, feels: 65, humidity: 70, dew: 54, wind: 5, windDir: 230, uv: 5 }),
@@ -360,7 +360,7 @@ const CITIES = [
   },
   {
     id: 'dagobah', name: 'Dagobah', world: 'Outer Rim', timeZone: 'Asia/Jakarta',
-    aliases: ['dagobah'],
+    aliases: ['dagobah'], dayLength: 24,
     gradient: 'linear-gradient(to bottom,#0c1208 0%,#1b2a14 30%,#2f4421 55%,#4a5f30 80%,#6b7a44 100%)',
     anim: 'fog', phase: 'day', condition: 'Murky · Do or Do Not',
     weather: ({ temp: 76, code: 45, feels: 80, humidity: 96, dew: 73, wind: 4, windDir: 200, uv: 2, precipProb: 60 }),
@@ -378,7 +378,7 @@ const CITIES = [
   },
   {
     id: 'naboo', name: 'Naboo', world: 'Mid Rim', timeZone: 'Europe/Rome',
-    aliases: ['naboo', 'theed'],
+    aliases: ['naboo', 'theed'], dayLength: 26,
     gradient: 'linear-gradient(to bottom,#0b4a6e 0%,#1f7fae 25%,#41a7d0 50%,#8fd0c0 78%,#d8f0c8 100%)',
     anim: null, phase: 'day', condition: 'Serene · Lakeside Clear',
     weather: ({ temp: 72, code: 1, feels: 73, humidity: 58, dew: 55, wind: 6, windDir: 150, uv: 7 }),
@@ -387,7 +387,7 @@ const CITIES = [
   },
   {
     id: 'rivendell', name: 'Rivendell', world: 'Eriador', timeZone: 'Europe/London',
-    aliases: ['rivendell', 'imladris'],
+    aliases: ['rivendell', 'imladris'], realSun: true, lat: 52.5, lon: -2.0,
     gradient: 'linear-gradient(to bottom,#1a2236 0%,#3b4a5e 25%,#7d7a5e 50%,#c4a45e 75%,#e8cf86 100%)',
     anim: 'fog', phase: 'day', condition: 'Misty · The Last Homely House',
     weather: ({ temp: 58, code: 45, feels: 57, humidity: 82, dew: 52, wind: 4, windDir: 240, uv: 3 }),
@@ -396,7 +396,7 @@ const CITIES = [
   },
   {
     id: 'winterfell', name: 'Winterfell', world: 'The North', timeZone: 'Europe/Oslo',
-    aliases: ['winterfell'],
+    aliases: ['winterfell'], realSun: true, lat: 59.9, lon: 10.75,
     gradient: 'linear-gradient(to bottom,#12161f 0%,#222c3a 30%,#3a4655 58%,#5a6675 82%,#8a96a4 100%)',
     anim: 'snow', phase: 'day', condition: 'Bitter · Winter Is Coming',
     weather: ({ temp: 24, code: 73, feels: 13, humidity: 80, dew: 19, wind: 20, windDir: 0, uv: 1 }),
@@ -405,7 +405,7 @@ const CITIES = [
   },
   {
     id: 'emerald-city', name: 'Emerald City', world: 'Land of Oz', timeZone: 'America/Chicago',
-    aliases: ['emerald city', 'oz'],
+    aliases: ['emerald city', 'oz'], realSun: true, lat: 39.0, lon: -95.7,
     gradient: 'linear-gradient(to bottom,#053b2a 0%,#0a6e43 28%,#16a85e 55%,#5fd07e 80%,#c8f0a0 100%)',
     anim: null, phase: 'day', condition: 'Radiant · Off to See the Wizard',
     weather: ({ temp: 74, code: 0, feels: 75, humidity: 45, dew: 50, wind: 8, windDir: 270, uv: 8 }),
@@ -733,6 +733,10 @@ export function fictionalTheme(id) {
     // Earth-canon worlds (Wakanda, Hogwarts…) run the real solar model from their
     // coordinates: the sun arcs across the card and they go dark at night.
     realSun: !!c.realSun,
+    // Other worlds with a canonical rotation spin on the generic day model:
+    // dayLength is the rotation period in standard hours (Bespin 12, Naboo 26…).
+    dayLength: c.dayLength || null,
+    dayPhase: c.dayPhase || 0,
     // Worlds with multiple moods animate whatever the current data says
     // (rain layer when the mood is rain), instead of one pinned animation.
     liveAnim: !!c.dyn?.moods && c.dyn.moods.length > 1,
