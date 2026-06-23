@@ -98,7 +98,7 @@ function upcomingPrecip(hourly, timeZone) {
 
 // Returns { label, effect } or null. `effect` is a WorldEffects kind (or null);
 // the card only renders it when the base animation isn't a precipitation scene.
-export function headlineFlavor({ current, air, hourly, timeZone }) {
+export function headlineFlavor({ current, air, hourly, timeZone, effCode }) {
   if (!current) return null;
   const wind = current.wind_speed_10m ?? 0;
   const gusts = current.wind_gusts_10m ?? 0;
@@ -106,7 +106,10 @@ export function headlineFlavor({ current, air, hourly, timeZone }) {
   const feels = current.apparent_temperature;
   const dew = current.dew_point_2m;
   const precip = current.precipitation ?? 0;
-  const code = current.weather_code;
+  // Prefer the card's effective code (phantom-storm-suppressed, and overridden by
+  // a live NWS observation) so we don't flag "Rain incoming" while the sky is
+  // already showing observed rain.
+  const code = typeof effCode === 'number' ? effCode : current.weather_code;
   const aqi = air?.us_aqi;
 
   if (typeof aqi === 'number' && aqi >= SMOKE_AQI) {
