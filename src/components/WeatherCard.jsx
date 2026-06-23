@@ -5,7 +5,7 @@ import { useUnits } from '../context/UnitsContext.jsx';
 import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
-import { observedOverride } from '../lib/observation.js';
+import { freshObservation } from '../lib/observation.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
 import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
@@ -108,13 +108,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   const wx = useLocationWeather(location);
   const { units } = useUnits();
   const current = wx.weather?.current;
-  // The effective code drops phantom storms/rain (a code that claims
-  // precipitation while 0 mm is falling), and — for US points — lets a fresh
-  // nearby NWS observation override the model when real precip is falling that
-  // Open-Meteo missed. Use it everywhere (including the animation) so the
-  // headline and the sky never disagree.
-  const observedCode = observedOverride(wx.observation);
-  const effCode = current ? observedCode ?? effectiveWeatherCode(current) : undefined;
+  // The effective code drops phantom storms/rain (a code claiming precip while
+  // 0 mm is falling) and — for US points — defers to a fresh nearby NWS
+  // observation both ways: it adds real precip the model missed and drops model
+  // precip the station doesn't see. Use it everywhere (including the animation)
+  // so the headline and the sky never disagree.
+  const effCode = current ? effectiveWeatherCode(current, freshObservation(wx.observation)) : undefined;
   const info = current ? weatherInfo(effCode) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
   // Fictional cities supply their own background gradient, animation, time-of-day
