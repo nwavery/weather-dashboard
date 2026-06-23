@@ -1,10 +1,12 @@
 // Nearest NWS station's *observed* present weather (api.weather.gov, keyless,
-// US-only). Open-Meteo is a forecast model and can miss or mistime localized
-// rain that's actually falling — we've watched a station report Light Rain while
-// Open-Meteo still showed overcast/0 mm. When a recent observation reports
-// precipitation, we let ground truth override the rendered condition so the card
-// matches reality. Non-US points (no station) and any API hiccup resolve to null,
-// leaving the model's value untouched.
+// US-only). Open-Meteo is a forecast model and can both miss and overstate
+// localized rain — we've watched a station report Light Rain while Open-Meteo
+// showed overcast/0 mm, then ~90 min later watched Open-Meteo claim "violent rain
+// showers" while the station read Partly Cloudy. A recent station observation is
+// ground truth, so we let it override the rendered condition BOTH ways: add real
+// precip the model missed, and drop model precip the station doesn't see. Non-US
+// points (no station) and any API hiccup resolve to null, leaving the model's
+// value untouched.
 
 const STATION_TTL_MS = 24 * 60 * 60 * 1000; // the nearest station is stable
 const OBS_TTL_MS = 2 * 60 * 1000; // don't re-pull the obs faster than this
@@ -47,8 +49,11 @@ async function nearestStation(latitude, longitude) {
   return station;
 }
 
-// Latest observation for a location as { code, observedAt, station }, or null
-// when there's no station (non-US), no current precipitation, or any error.
+// Latest observation for a location as { precipCode, dry, observedAt, station },
+// or null when there's no station (non-US), no usable reading, or any error.
+// `precipCode` is the WMO code when precip is falling; `dry` is true when the
+// station reported and saw none — so the caller can both add missed rain and
+// drop model rain the station contradicts.
 export async function fetchObservation(location) {
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
@@ -62,8 +67,10 @@ export async function fetchObservation(location) {
     const res = await nwsFetch(`https://api.weather.gov/stations/${station.id}/observations/latest`);
     if (!res.ok) throw new Error(`obs ${res.status}`);
     const props = (await res.json())?.properties;
-    const code = precipCodeFromObservation(props);
-    const data = code == null ? null : { code, observedAt: props?.timestamp || null, station: station.name };
+    const observedAt = props?.timestamp || null;
+    const precipCode = precipCodeFromObservation(props);
+    // Without a timestamp we can't trust freshness, so don't let it override.
+    const data = observedAt ? { precipCode, dry: precipCode == null, observedAt, station: station.name } : null;
 
     obsCache.set(station.id, { expires: Date.now() + OBS_TTL_MS, data });
     return data;
@@ -98,10 +105,11 @@ function precipCodeFromObservation(props) {
   return null; // fog / mist / haze / clear / cloudy → let the model keep the sky
 }
 
-// The observed code to render *now*, or null when there's no fresh precip
-// override (no obs, not precipitating, or the observation has gone stale).
-export function observedOverride(obs) {
-  if (!obs || typeof obs.code !== 'number' || !obs.observedAt) return null;
+// The observation to trust *now*, or null when there's none or it's gone stale
+// (NWS issues special obs on precip changes and we re-pull every refresh, so a
+// fresh reading reflects onset/cessation within minutes).
+export function freshObservation(obs) {
+  if (!obs || !obs.observedAt) return null;
   if (Date.now() - new Date(obs.observedAt).getTime() > OBS_MAX_AGE_MS) return null;
-  return obs.code;
+  return obs;
 }

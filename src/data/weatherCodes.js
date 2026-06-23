@@ -51,21 +51,37 @@ export function iconVariant(icon, isNight) {
 // liquid-equivalent precipitation, so 0 mm there isn't a reliable "spurious" tell.
 const PRECIP_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]);
 
+// Cloud-cover (%) → a non-precipitation WMO code (clear … overcast).
+function cloudCoverCode(cc) {
+  if (typeof cc !== 'number') return 2; // unknown cloud cover — at least not precipitating
+  if (cc < 20) return 0; // clear sky
+  if (cc < 50) return 1; // mainly clear
+  if (cc < 85) return 2; // partly cloudy
+  return 3; // overcast
+}
+
 // When a precipitation code reports exactly 0 mm of precipitation, treat it as
 // spurious and fall back to a cloud-cover-derived condition (so a "rain" or
 // "thunderstorm" over a dry sky renders as clear/cloudy instead).
 // `slot` is { weather_code, precipitation, cloud_cover } — works for the
 // `current` object or a single hourly entry. (Demo/fictional data has no
 // precipitation field, so their intentional rain/storms pass through unchanged.)
-export function effectiveWeatherCode(slot) {
+//
+// `observation` (optional, current slot only) is a fresh nearby NWS reading and
+// is ground truth, so it overrides the model BOTH ways: surface real precip the
+// model missed (`precipCode`), and drop model precip the station doesn't see
+// (`dry`), falling back to the model's cloud cover. Omitted for hourly slots and
+// fictional matches, leaving the model untouched.
+export function effectiveWeatherCode(slot, observation) {
   const code = slot?.weather_code;
+  if (observation) {
+    if (observation.precipCode != null) return observation.precipCode;
+    if (observation.dry && typeof code === 'number' && PRECIP_CODES.has(code)) {
+      return cloudCoverCode(slot?.cloud_cover);
+    }
+  }
   if (code == null || !PRECIP_CODES.has(code)) return code;
   const precip = slot.precipitation;
   if (typeof precip !== 'number' || precip > 0) return code; // real precip, or no precip data
-  const cc = slot.cloud_cover;
-  if (typeof cc !== 'number') return 2; // unknown cloud cover — at least not precipitating
-  if (cc < 20) return 0; // clear sky
-  if (cc < 50) return 1; // mainly clear
-  if (cc < 85) return 2; // partly cloudy
-  return 3; // overcast
+  return cloudCoverCode(slot.cloud_cover);
 }
