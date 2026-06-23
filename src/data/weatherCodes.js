@@ -51,6 +51,12 @@ export function iconVariant(icon, isNight) {
 // liquid-equivalent precipitation, so 0 mm there isn't a reliable "spurious" tell.
 const PRECIP_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]);
 
+// Does this WMO code assert precipitation is falling? (Used to decide whether a
+// radar echo should add precip the model/observation isn't already showing.)
+export function isPrecipCode(code) {
+  return PRECIP_CODES.has(code);
+}
+
 // Cloud-cover (%) → a non-precipitation WMO code (clear … overcast).
 function cloudCoverCode(cc) {
   if (typeof cc !== 'number') return 2; // unknown cloud cover — at least not precipitating

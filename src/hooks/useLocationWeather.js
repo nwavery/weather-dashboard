@@ -3,6 +3,7 @@ import { fetchWeather, fetchAirQuality, fetchHistoricalAverage } from '../lib/op
 import { fetchPollen } from '../lib/pollen.js';
 import { fetchAlerts } from '../lib/alerts.js';
 import { fetchObservation } from '../lib/observation.js';
+import { fetchRadar } from '../lib/radar.js';
 import { isDemo, demoStateFor } from '../lib/demoData.js';
 import { isFictional, fictionalStateFor } from '../lib/fictionalCities.js';
 
@@ -26,6 +27,7 @@ const INITIAL = {
   historical: null,
   alerts: [],
   observation: null,
+  radar: null,
   updatedAt: null
 };
 
@@ -80,13 +82,14 @@ export function useLocationWeather(location) {
 
     const run = async () => {
       const loc = { latitude: lat, longitude: lng, timeZone: tz };
-      const [w, a, p, h, al, obs] = await Promise.allSettled([
+      const [w, a, p, h, al, obs, rd] = await Promise.allSettled([
         fetchWeather(loc),
         fetchAirQuality(loc),
         fetchPollen(loc),
         fetchHistoricalAverage(loc),
         fetchAlerts(loc),
-        fetchObservation(loc)
+        fetchObservation(loc),
+        fetchRadar(loc)
       ]);
       if (!active) return; // location changed mid-flight — drop the stale result
 
@@ -104,6 +107,7 @@ export function useLocationWeather(location) {
         historical: h.status === 'fulfilled' ? h.value : prev.historical,
         alerts: al.status === 'fulfilled' ? al.value : prev.alerts,
         observation: obs.status === 'fulfilled' ? obs.value : prev.observation,
+        radar: rd.status === 'fulfilled' ? rd.value : prev.radar,
         updatedAt: weatherOk ? new Date() : prev.updatedAt
       }));
 
