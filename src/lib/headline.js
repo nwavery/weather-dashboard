@@ -5,8 +5,8 @@
 // it. Fictional cities never use this — they have their own taglines.
 //
 // Precedence (most attention-worthy first):
-//   Smoky haze > Blowing dust > Storm brewing > Scorching/Frigid > Windy >
-//   dew-point comfort (Bone-dry → Miserable)
+//   Smoky haze > Blowing dust > incoming precip (on the way→imminent) >
+//   Scorching/Frigid > Windy > dew-point comfort (Bone-dry → Miserable)
 
 const WINDY_MPH = 20;
 const GUSTY_MPH = 35;
@@ -15,11 +15,11 @@ const DUST_MAX_RH = 25;
 const SMOKE_AQI = 150;
 const SCORCHING_F = 102;
 const FRIGID_F = 10;
-const BREWING_PROB = 70; // % chance that flags an incoming storm…
-const BREWING_MM = 0.5; // …or this much forecast precip in an upcoming hour — a real
+const BREWING_PROB = 70; // % chance that flags incoming precip…
+const BREWING_MM = 0.5; // …or this much forecast precip in an upcoming slot — a real
 //                          downpour can arrive on deceptively low stated odds, so the
 //                          forecast amount and weather code count too, not just the %.
-const BREWING_LOOKAHEAD_H = 3;
+const LOOKAHEAD_MIN = 180; // look this far ahead (minutes) for incoming precip
 
 const THUNDER_CODES = new Set([95, 96, 99]);
 const SNOW_CODES = new Set([71, 73, 75, 77, 85, 86]);
@@ -48,57 +48,84 @@ function dewComfort(dew) {
   return { label: band.label, effect: null, detail: `Dew point ${Math.round(dew)}° — ${band.detail}` };
 }
 
-// Scan the next few hours for precipitation the current (still-benign) sky
-// doesn't show yet. Considers the forecast amount and weather code, not just the
-// stated probability — a real downpour sometimes arrives on a deceptively low
-// chance (we've seen ~16 mm forecast sitting at ~30%). Hourly times are naive
-// local-to-location strings, so compare against the wall-clock in the location's
-// zone (same approach as HourlyForecast). Returns the soonest incoming precip as
-// { kind, maxProb, maxMm, hoursAway }, or null when the next few hours look dry.
-function upcomingPrecip(hourly, timeZone) {
-  if (!hourly?.time) return null;
-  let nowZone;
+// Current wall-clock in a location's zone. Open-Meteo's time arrays are naive
+// local-to-location strings, so we compare against this (same trick as elsewhere).
+function zoneNow(timeZone) {
   try {
-    nowZone = new Date(new Date().toLocaleString('en-US', { timeZone }));
+    return new Date(new Date().toLocaleString('en-US', { timeZone }));
   } catch {
-    nowZone = new Date();
+    return new Date();
   }
-  nowZone.setMinutes(0, 0, 0);
-  const start = hourly.time.findIndex((t) => new Date(t) >= nowZone);
-  if (start === -1) return null;
-  const end = Math.min(start + BREWING_LOOKAHEAD_H + 1, hourly.time.length);
+}
 
-  const probs = hourly.precipitation_probability || [];
-  const mms = hourly.precipitation || [];
-  const codes = hourly.weather_code || [];
-  let maxProb = 0;
-  let maxMm = 0;
+// Max precipitation probability over the look-ahead. Probability is hourly-only,
+// so this scans the hourly series as a backstop trigger / detail.
+function upcomingProb(hourly, now) {
+  if (!hourly?.time || !hourly?.precipitation_probability) return 0;
+  let max = 0;
+  for (let i = 0; i < hourly.time.length; i++) {
+    const min = (new Date(hourly.time[i]) - now) / 60000;
+    if (min <= -60 || min > LOOKAHEAD_MIN) continue;
+    const p = hourly.precipitation_probability[i];
+    if (typeof p === 'number' && p > max) max = p;
+  }
+  return max;
+}
+
+// Soonest upcoming precipitation the current (still-benign) sky doesn't show yet
+// — from 15-minute data when available (so "<30 min" is real, not guessed from an
+// hour bucket), falling back to hourly. Triggers on a rain/snow/thunder code or a
+// meaningful forecast amount, not just probability (a real downpour can sit at a
+// low stated chance). Returns { kind, leadMin, maxMm, maxProb } or null when the
+// next few hours look dry.
+function upcomingPrecip(minutely, hourly, timeZone) {
+  const now = zoneNow(timeZone);
+  const useMin = Array.isArray(minutely?.time) && minutely.time.length > 0;
+  const series = useMin ? minutely : hourly;
+  if (!series?.time) return null;
+  const slot = useMin ? 15 : 60; // minutes a slot represents
+  const times = series.time;
+  const mms = series.precipitation || [];
+  const codes = series.weather_code || [];
   let kind = null;
-  let hoursAway = null;
-  for (let i = start; i < end; i++) {
-    if (typeof probs[i] === 'number') maxProb = Math.max(maxProb, probs[i]);
-    if (typeof mms[i] === 'number') maxMm = Math.max(maxMm, mms[i]);
+  let leadMin = null;
+  let maxMm = 0;
+  for (let i = 0; i < times.length; i++) {
+    const min = (new Date(times[i]) - now) / 60000;
+    if (min <= -slot) continue; // slot already fully past
+    if (min > LOOKAHEAD_MIN) break; // beyond the look-ahead
+    const m = typeof mms[i] === 'number' ? mms[i] : 0;
+    if (m > maxMm) maxMm = m;
     const c = codes[i];
     // Snow legitimately reports ~0 mm liquid-equivalent, so trust its code; rain
     // counts by code or by a meaningful forecast amount.
-    const wet =
-      THUNDER_CODES.has(c) ||
-      SNOW_CODES.has(c) ||
-      RAIN_CODES.has(c) ||
-      (typeof mms[i] === 'number' && mms[i] >= BREWING_MM);
-    if (wet && kind === null) {
+    if (kind === null && (THUNDER_CODES.has(c) || SNOW_CODES.has(c) || RAIN_CODES.has(c) || m >= BREWING_MM)) {
       kind = THUNDER_CODES.has(c) ? 'thunder' : SNOW_CODES.has(c) ? 'snow' : 'rain';
-      hoursAway = i - start;
+      leadMin = Math.max(0, Math.round(min));
     }
   }
-  if (kind === null && maxProb < BREWING_PROB) return null; // dry, low odds → no heads-up
-  if (kind === null) kind = 'rain'; // high odds but no amount/code landed yet
-  return { kind, maxProb, maxMm, hoursAway: hoursAway ?? 0 };
+  const maxProb = upcomingProb(hourly, now);
+  if (kind === null) {
+    if (maxProb < BREWING_PROB) return null; // dry, low odds → no heads-up
+    kind = 'rain'; // high odds but no amount/code landed in a slot
+    leadMin = LOOKAHEAD_MIN;
+  }
+  return { kind, leadMin, maxMm, maxProb };
+}
+
+// Tiered heads-up wording by lead time — an escalating gradient as it closes in:
+// on the way (~3 h) → approaching (~2 h) → incoming (~1 h) → imminent (<30 min).
+function leadLabel(kind, leadMin) {
+  const noun = kind === 'thunder' ? 'Storm' : kind === 'snow' ? 'Snow' : 'Rain';
+  if (leadMin < 30) return `${noun} imminent`;
+  if (leadMin < 90) return `${noun} incoming`;
+  if (leadMin < 150) return `${noun} approaching`;
+  return kind === 'thunder' ? 'Storm brewing' : `${noun} on the way`;
 }
 
 // Returns { label, effect } or null. `effect` is a WorldEffects kind (or null);
 // the card only renders it when the base animation isn't a precipitation scene.
-export function headlineFlavor({ current, air, hourly, timeZone, effCode }) {
+export function headlineFlavor({ current, air, hourly, minutely, timeZone, effCode }) {
   if (!current) return null;
   const wind = current.wind_speed_10m ?? 0;
   const gusts = current.wind_gusts_10m ?? 0;
@@ -119,17 +146,18 @@ export function headlineFlavor({ current, air, hourly, timeZone, effCode }) {
     return { label: 'Blowing dust', effect: 'sand' };
   }
   // Heads-up for incoming precip while the sky still looks benign (codes 0-3) and
-  // it isn't already falling. Named by what's actually coming.
+  // it isn't already falling. Wording escalates as it closes in (on the way →
+  // imminent), with the precise lead time + amount in the tooltip.
   if (typeof code === 'number' && code <= 3 && precip === 0) {
-    const up = upcomingPrecip(hourly, timeZone);
+    const up = upcomingPrecip(minutely, hourly, timeZone);
     if (up) {
-      const label = up.kind === 'thunder' ? 'Storm brewing' : up.kind === 'snow' ? 'Snow incoming' : 'Rain incoming';
-      const when = up.hoursAway <= 0 ? 'within the hour' : `in ~${up.hoursAway}h`;
+      const m = up.leadMin;
+      const when = m < 60 ? `in ~${Math.max(5, Math.round(m / 5) * 5)} min` : `in ~${Math.round(m / 60)} h`;
       const detail =
         up.maxMm >= BREWING_MM
           ? `≈${Math.round(up.maxMm)} mm forecast ${when}`
-          : `${up.maxProb}% chance of precip in the next ${BREWING_LOOKAHEAD_H}h`;
-      return { label, effect: null, detail };
+          : `${up.maxProb}% chance within ${Math.round(LOOKAHEAD_MIN / 60)} h`;
+      return { label: leadLabel(up.kind, m), effect: null, detail };
     }
   }
   if (typeof feels === 'number' && feels >= SCORCHING_F) {

@@ -223,7 +223,14 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // word is always on deck when nothing more urgent claims the headline.
   const flavor = fic
     ? null
-    : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone, effCode });
+    : headlineFlavor({
+        current,
+        air: wx.air,
+        hourly: wx.weather?.hourly,
+        minutely: wx.weather?.minutely_15,
+        timeZone: location.timeZone,
+        effCode
+      });
   const flavorEffect =
     flavor?.effect && !['rain', 'snow', 'thunder'].includes(animation || '') ? flavor.effect : null;
   // Date-aware seasonal/holiday flourish (fireflies on summer nights, fireworks
