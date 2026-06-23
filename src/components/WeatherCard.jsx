@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { useLocationWeather, REFRESH_MS } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { useUnits } from '../context/UnitsContext.jsx';
-import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
+import { weatherInfo, effectiveWeatherCode, iconVariant, isPrecipCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import { freshObservation } from '../lib/observation.js';
+import { radarToCode } from '../lib/radar.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
 import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
@@ -110,10 +111,19 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   const current = wx.weather?.current;
   // The effective code drops phantom storms/rain (a code claiming precip while
   // 0 mm is falling) and — for US points — defers to a fresh nearby NWS
-  // observation both ways: it adds real precip the model missed and drops model
-  // precip the station doesn't see. Use it everywhere (including the animation)
-  // so the headline and the sky never disagree.
-  const effCode = current ? effectiveWeatherCode(current, freshObservation(wx.observation)) : undefined;
+  // observation both ways (adds real precip the model missed, drops precip the
+  // station doesn't see). Use it everywhere (including the animation) so the
+  // headline and the sky never disagree.
+  const obs = freshObservation(wx.observation);
+  let effCode = current ? effectiveWeatherCode(current, obs) : undefined;
+  // Global fallback: with no authoritative station observation, if neither the
+  // model nor we already show precip but live radar sees an echo overhead, add
+  // it (rain vs snow by temperature). Radar only adds — "no echo" can mean "no
+  // coverage", so it never suppresses.
+  if (current && !obs && typeof effCode === 'number' && !isPrecipCode(effCode)) {
+    const rc = radarToCode(wx.radar, current.temperature_2m);
+    if (rc != null) effCode = rc;
+  }
   const info = current ? weatherInfo(effCode) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
   // Fictional cities supply their own background gradient, animation, time-of-day
