@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "node --test",
     "start": "node server/index.js",
     "serve": "npm run build && node server/index.js"
   },
