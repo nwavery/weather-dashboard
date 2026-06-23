@@ -476,11 +476,15 @@ function CloudLayers({ cover = 60, windX = 0 }) {
 
 // ─── Rain particles ─────────────────────────────────────────────────────────────
 // `rate` (0..1) scales how many/how fast/how heavy the streaks are — a drizzle
-// vs a downpour. `windX` (signed mph) leans the whole curtain: because each
-// streak falls along its own rotation, a steeper lean also drifts it sideways.
+// vs a downpour. `windX` (signed mph, + = toward screen-right) leans the whole
+// curtain: because each streak falls along its own rotation, a steeper lean also
+// drifts it sideways.
 function RainLayer({ rate = 0.5, windX = 0, hasThunder = false }) {
   const count = Math.round(22 + rate * 68); // ~22 (drizzle) → ~90 (downpour)
-  const angle = Math.max(-42, Math.min(42, windX * 1.15)); // lean degrees, signed
+  // CSS rotate() is clockwise, which tilts a falling streak toward the LEFT, so
+  // negate: a rightward wind (+windX) must lean the rain right, with the snow,
+  // clouds and blustery leaves.
+  const angle = Math.max(-42, Math.min(42, -windX * 1.15)); // lean degrees, signed
   const drops = useMemo(() => {
     return Array.from({ length: count }, (_, i) => ({
       id: i,
