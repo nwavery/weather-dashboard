@@ -19,17 +19,29 @@ const SHAPES = {
       </g>
     )
   },
-  // AT-AT walker striding across the snow
+  // AT-AT walker striding across the snow — long hull, a neck angling down to a
+  // boxy head with twin chin guns, and four knee-bent legs mid-stride.
   walker: {
     band: 'ground',
-    viewBox: '0 0 130 90',
+    viewBox: '0 0 150 100',
     body: (
       <g>
-        <path d="M30 30 L96 30 L104 44 L96 52 L30 52 Z" />
-        <path d="M96 34 L120 30 L120 40 L100 44 Z" />
-        <rect x="34" y="52" width="7" height="32" /><rect x="52" y="52" width="7" height="30" />
-        <rect x="78" y="52" width="7" height="32" /><rect x="92" y="52" width="7" height="30" />
-        <rect x="30" y="82" width="13" height="5" /><rect x="74" y="82" width="13" height="5" />
+        {/* hull with a sloped nose */}
+        <path d="M22 30 L94 30 L106 38 L106 42 L94 48 L22 48 Z" />
+        {/* neck angling down-forward to the head */}
+        <path d="M96 36 L104 34 L120 50 L112 53 Z" />
+        {/* command head */}
+        <path d="M110 46 L134 47 L138 52 L137 58 L112 59 Z" />
+        {/* twin chin guns */}
+        <rect x="122" y="59" width="3" height="6" /><rect x="128" y="59" width="3" height="6" />
+        {/* four knee-bent legs, splayed mid-stride */}
+        <path d="M29 48 L36 48 L33 66 L28 84 L21 84 L26 66 Z" />
+        <path d="M47 48 L54 48 L55 66 L53 84 L46 84 L48 66 Z" />
+        <path d="M74 48 L81 48 L82 66 L80 84 L73 84 L75 66 Z" />
+        <path d="M92 48 L99 48 L104 66 L108 84 L101 84 L97 66 Z" />
+        {/* feet */}
+        <rect x="19" y="84" width="13" height="5" /><rect x="43" y="84" width="13" height="5" />
+        <rect x="70" y="84" width="13" height="5" /><rect x="98" y="84" width="13" height="5" />
       </g>
     )
   },
@@ -45,32 +57,36 @@ const SHAPES = {
       </g>
     )
   },
-  // Banshee / mountain dragon wheeling over Pandora
+  // Banshee wheeling over Pandora — overhead: body, crested head, two swept
+  // wings, a forked tail.
   banshee: {
     band: 'mid',
-    viewBox: '0 0 130 70',
+    viewBox: '0 0 130 72',
     body: (
       <g>
-        <path d="M65 38 q-34 -30 -60 -6 q24 -6 40 14 q-22 -4 -34 8 q22 -2 38 8 Z" />
-        <path d="M65 38 q34 -30 60 -6 q-24 -6 -40 14 q22 -4 34 8 q-22 -2 -38 8 Z" />
-        <ellipse cx="65" cy="40" rx="9" ry="20" />
-        <path d="M65 20 q4 -12 10 -14 q-2 8 -4 12 Z" />
+        <ellipse cx="65" cy="40" rx="7" ry="18" />
+        <path d="M65 8 L59 18 L65 24 L71 18 Z" />
+        <path d="M62 30 C44 20 24 22 4 34 C22 38 42 40 58 45 C53 40 59 34 62 35 Z" />
+        <path d="M68 30 C86 20 106 22 126 34 C108 38 88 40 72 45 C77 40 71 34 68 35 Z" />
+        <path d="M62 55 L60 70 L65 65 L70 70 L68 55 Z" />
       </g>
     )
   },
-  // Game of Thrones dragon (Winterfell) — side profile, gliding right: long
-  // open-jawed neck, a big membrane wing, body, spade-tipped tail, tucked legs.
+  // Game of Thrones dragon (Winterfell) — side profile, gliding right: an
+  // open-jawed head on a long neck, a big raised bat wing, a spade-tipped tail
+  // sweeping back, and tucked hind legs.
   dragon: {
     band: 'mid',
-    viewBox: '0 0 170 110',
+    viewBox: '0 0 190 120',
     body: (
       <g>
-        <ellipse cx="82" cy="64" rx="17" ry="10" />
-        <path d="M96 58 C110 56 120 48 126 38 C129 33 134 30 142 30 L152 26 L146 34 L151 37 L141 40 C137 45 128 51 116 57 C108 61 100 63 96 66 Z" />
-        <path d="M86 52 C70 18 92 2 120 1 C108 12 114 22 111 29 C121 20 133 23 131 34 C117 39 101 47 88 53 Z" />
-        <path d="M72 63 C48 72 25 68 7 72 C14 68 13 64 17 62 L2 60 L9 66 L2 71 L13 70 C37 72 55 67 73 60 Z" />
-        <path d="M78 72 q-3 10 -11 15 q9 -2 13 -9 Z" />
-        <path d="M90 73 q-1 10 -9 16 q9 -3 13 -10 Z" />
+        {/* belly → neck → open jaw, back down to the back, out to the spade tail */}
+        <path d="M14 92 C40 96 70 92 96 84 C112 79 124 69 140 54 L150 60 L176 58 L160 50 L182 45 L149 43 L150 34 L141 41 C120 50 104 58 90 62 C64 70 38 78 22 84 L8 86 Z" />
+        {/* raised bat wing, finger-scalloped trailing edge */}
+        <path d="M88 60 C66 34 52 20 46 10 Q53 36 61 59 Q69 53 79 63 Q87 56 98 61 Z" />
+        {/* tucked hind legs */}
+        <path d="M70 84 q-4 12 -12 18 q10 -2 16 -10 Z" />
+        <path d="M92 82 q-2 12 -10 17 q10 -2 15 -9 Z" />
       </g>
     )
   },
@@ -97,23 +113,25 @@ const SHAPES = {
       </g>
     )
   },
-  // Witch on a broomstick crossing the moon (Halloween Town)
+  // Witch on a broomstick (Halloween Town) — flying left: bold broomstick with a
+  // bristle fan trailing at the back, a hunched figure in a pointed hat, cape
+  // streaming behind.
   witch: {
     band: 'mid',
-    viewBox: '0 0 150 80',
+    viewBox: '0 0 170 90',
     body: (
       <g>
-        {/* broomstick */}
-        <rect x="18" y="50" width="86" height="3" rx="1.5" transform="rotate(-8 60 51)" />
-        {/* bristles */}
-        <path d="M104 40 l24 4 l-26 6 l24 8 l-28 4 Z" />
-        {/* witch body hunched forward */}
-        <path d="M58 50 q4 -16 16 -18 q10 -1 14 6 q-2 8 -10 10 q-10 3 -20 2 Z" />
+        {/* broomstick (handle to the left) + bristle fan at the back */}
+        <path d="M6 43 L150 51 L150 56 L6 48 Z" />
+        <path d="M120 53 L152 44 L143 54 L152 67 L120 61 Z" />
+        {/* cape streaming back */}
+        <path d="M64 47 C80 47 94 53 104 64 Q90 57 64 53 Z" />
+        {/* hunched body + head */}
+        <path d="M52 50 C48 37 57 29 69 30 C79 31 82 40 77 50 C70 55 60 55 52 50 Z" />
+        <ellipse cx="70" cy="27" rx="6" ry="6" />
         {/* pointed hat */}
-        <path d="M70 32 l22 -22 l6 16 Z" />
-        <ellipse cx="84" cy="30" rx="16" ry="3" />
-        {/* trailing cape */}
-        <path d="M58 50 q-16 2 -26 12 q14 -2 22 0 Z" />
+        <path d="M60 28 L96 11 L80 31 Z" />
+        <ellipse cx="69" cy="29" rx="14" ry="2.6" />
       </g>
     )
   }
