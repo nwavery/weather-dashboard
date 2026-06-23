@@ -5,6 +5,7 @@ import { useUnits } from '../context/UnitsContext.jsx';
 import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
+import { observedOverride } from '../lib/observation.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
 import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
@@ -108,9 +109,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   const { units } = useUnits();
   const current = wx.weather?.current;
   // The effective code drops phantom storms/rain (a code that claims
-  // precipitation while 0 mm is falling). Use it everywhere — including the
-  // animation — so the headline and the sky never disagree.
-  const effCode = current ? effectiveWeatherCode(current) : undefined;
+  // precipitation while 0 mm is falling), and — for US points — lets a fresh
+  // nearby NWS observation override the model when real precip is falling that
+  // Open-Meteo missed. Use it everywhere (including the animation) so the
+  // headline and the sky never disagree.
+  const observedCode = observedOverride(wx.observation);
+  const effCode = current ? observedCode ?? effectiveWeatherCode(current) : undefined;
   const info = current ? weatherInfo(effCode) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
   // Fictional cities supply their own background gradient, animation, time-of-day
@@ -210,7 +214,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // word is always on deck when nothing more urgent claims the headline.
   const flavor = fic
     ? null
-    : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone });
+    : headlineFlavor({ current, air: wx.air, hourly: wx.weather?.hourly, timeZone: location.timeZone, effCode });
   const flavorEffect =
     flavor?.effect && !['rain', 'snow', 'thunder'].includes(animation || '') ? flavor.effect : null;
   // Date-aware seasonal/holiday flourish (fireflies on summer nights, fireworks
