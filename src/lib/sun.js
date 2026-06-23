@@ -135,9 +135,14 @@ const WORLD_NOON_ALT = 64; // how high the sun rides at local noon (degrees)
 // Local time as continuous hours since the Unix epoch for an IANA zone. Reading
 // the wall-clock hour directly jumps at midnight; this doesn't, so a day cycle
 // of any length advances smoothly across the boundary.
-function zoneHours(date, timeZone) {
-  try {
-    const p = new Intl.DateTimeFormat('en-US', {
+//
+// Intl.DateTimeFormat construction isn't free and worldSun runs every clock tick
+// for on-screen "spin" worlds, so the formatter is memoized per timezone.
+const zoneFmtCache = new Map();
+function zoneFormatter(timeZone) {
+  let f = zoneFmtCache.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
       timeZone,
       hour12: false,
       year: 'numeric',
@@ -146,7 +151,15 @@ function zoneHours(date, timeZone) {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
-    })
+    });
+    zoneFmtCache.set(timeZone, f);
+  }
+  return f;
+}
+
+function zoneHours(date, timeZone) {
+  try {
+    const p = zoneFormatter(timeZone)
       .formatToParts(date)
       .reduce((a, x) => ((a[x.type] = x.value), a), {});
     const h = p.hour === '24' ? 0 : Number(p.hour); // some engines emit hour 24 at midnight

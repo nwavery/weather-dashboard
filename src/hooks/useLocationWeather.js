@@ -16,6 +16,19 @@ import { isFictional, fictionalStateFor } from '../lib/fictionalCities.js';
 // failed fetch, retry sooner so a transient throttle recovers quickly.
 export const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
+const FETCH_TIMEOUT_MS = 12 * 1000; // cap every fetch so one stall can't freeze the loop
+
+// Race a fetch against a timeout so a single hung request (a stalled connection
+// that never errors) can't block Promise.allSettled and freeze the refresh loop —
+// the next run is only scheduled after the batch settles. The timer is cleared
+// whichever side wins.
+function withTimeout(promise, ms = FETCH_TIMEOUT_MS) {
+  let id;
+  const timeout = new Promise((_, reject) => {
+    id = setTimeout(() => reject(new Error('timed out')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(id));
+}
 
 const INITIAL = {
   loading: true,
@@ -83,13 +96,13 @@ export function useLocationWeather(location) {
     const run = async () => {
       const loc = { latitude: lat, longitude: lng, timeZone: tz };
       const [w, a, p, h, al, obs, rd] = await Promise.allSettled([
-        fetchWeather(loc),
-        fetchAirQuality(loc),
-        fetchPollen(loc),
-        fetchHistoricalAverage(loc),
-        fetchAlerts(loc),
-        fetchObservation(loc),
-        fetchRadar(loc)
+        withTimeout(fetchWeather(loc)),
+        withTimeout(fetchAirQuality(loc)),
+        withTimeout(fetchPollen(loc)),
+        withTimeout(fetchHistoricalAverage(loc)),
+        withTimeout(fetchAlerts(loc)),
+        withTimeout(fetchObservation(loc)),
+        withTimeout(fetchRadar(loc))
       ]);
       if (!active) return; // location changed mid-flight — drop the stale result
 

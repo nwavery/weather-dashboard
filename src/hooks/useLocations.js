@@ -172,12 +172,21 @@ function deviceTimeZone() {
   }
 }
 
+// Bound a network call so a stalled provider can't hang location detection — on
+// timeout we just move on to the next provider (or skip name enrichment).
+function timed(promise, ms = 8000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms))
+  ]);
+}
+
 // IP-based geolocation for devices with no location services at all (Fire TV
 // sticks, Raspberry Pi kiosks, desktops that deny the prompt). Keyless,
 // CORS-friendly providers; home-ISP accuracy is metro-level — fine for weather.
 async function ipLocate() {
   try {
-    const res = await fetch('https://ipwho.is/');
+    const res = await timed(fetch('https://ipwho.is/'));
     if (res.ok) {
       const d = await res.json();
       if (d?.success && typeof d.latitude === 'number' && typeof d.longitude === 'number') {
@@ -193,11 +202,11 @@ async function ipLocate() {
     /* fall through */
   }
   try {
-    const res = await fetch('https://geolocation-db.com/json/');
+    const res = await timed(fetch('https://geolocation-db.com/json/'));
     if (res.ok) {
       const d = await res.json();
       if (typeof d.latitude === 'number' && typeof d.longitude === 'number') {
-        const resolved = await reverseGeocode(d.latitude, d.longitude).catch(() => null);
+        const resolved = await timed(reverseGeocode(d.latitude, d.longitude)).catch(() => null);
         return {
           name: resolved?.name || d.city || 'Your area',
           latitude: d.latitude,
