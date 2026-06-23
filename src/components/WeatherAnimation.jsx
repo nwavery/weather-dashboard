@@ -102,10 +102,10 @@ function horizontalWind(wind) {
 // falling back to the measured mm when the code is unfamiliar.
 function precipRate(code, precipMm) {
   const byCode = {
-    51: 0.25, 53: 0.4, 55: 0.55, 56: 0.3, 57: 0.5,
-    61: 0.4, 63: 0.6, 65: 0.9, 66: 0.5, 67: 0.8,
+    51: 0.18, 53: 0.3, 55: 0.45, 56: 0.2, 57: 0.4,
+    61: 0.3, 63: 0.55, 65: 0.9, 66: 0.38, 67: 0.8,
     71: 0.35, 73: 0.6, 75: 0.9, 77: 0.4,
-    80: 0.45, 81: 0.7, 82: 1, 85: 0.5, 86: 0.85,
+    80: 0.35, 81: 0.65, 82: 1, 85: 0.5, 86: 0.85,
     95: 0.85, 96: 0.92, 99: 1,
   };
   const r = byCode[code];
@@ -480,7 +480,7 @@ function CloudLayers({ cover = 60, windX = 0 }) {
 // curtain: because each streak falls along its own rotation, a steeper lean also
 // drifts it sideways.
 function RainLayer({ rate = 0.5, windX = 0, hasThunder = false }) {
-  const count = Math.round(22 + rate * 68); // ~22 (drizzle) → ~90 (downpour)
+  const count = Math.round(14 + rate * 72); // ~14 (sprinkle) → ~86 (downpour)
   // CSS rotate() is clockwise, which tilts a falling streak toward the LEFT, so
   // negate: a rightward wind (+windX) must lean the rain right, with the snow,
   // clouds and blustery leaves.
