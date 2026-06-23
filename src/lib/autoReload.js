@@ -1,4 +1,4 @@
-// Kiosk auto-update: an always-on wall display refreshes its DATA every 10
+// Kiosk auto-update: an always-on wall display refreshes its DATA every few
 // minutes but never re-loads the app CODE, so deploys don't reach it until
 // someone walks over and reloads. In kiosk contexts (see runtime.js) we check
 // for a new bundle periodically and reload during the quiet pre-dawn window.
