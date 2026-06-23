@@ -6,10 +6,13 @@ import { isDemo, demoStateFor } from '../lib/demoData.js';
 import { isFictional, fictionalStateFor } from '../lib/fictionalCities.js';
 
 // Weather changes slowly, and Open-Meteo's free tier is rate-limited per IP — so
-// refresh every 10 min (not every minute, which an always-on display can use to
+// refresh every 5 min (not every minute, which an always-on display can use to
 // burn through the daily quota and get 429s that surface as "Failed to fetch").
-// After a failed fetch, retry sooner so a transient throttle recovers quickly.
-const REFRESH_MS = 10 * 60 * 1000;
+// Air quality (15 min) and the historical archive (12 h) are cached, so a refresh
+// usually only re-hits the forecast endpoint: ~390 Open-Meteo calls/day per card,
+// well under the ~10k/day free limit (≈20 cards' worth of headroom). After a
+// failed fetch, retry sooner so a transient throttle recovers quickly.
+const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
 
 const INITIAL = {
