@@ -12,7 +12,7 @@ import { isFictional, fictionalStateFor } from '../lib/fictionalCities.js';
 // usually only re-hits the forecast endpoint: ~390 Open-Meteo calls/day per card,
 // well under the ~10k/day free limit (≈20 cards' worth of headroom). After a
 // failed fetch, retry sooner so a transient throttle recovers quickly.
-const REFRESH_MS = 5 * 60 * 1000;
+export const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
 
 const INITIAL = {

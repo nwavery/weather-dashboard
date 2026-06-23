@@ -34,7 +34,7 @@ Browser (React SPA)
 - **Pollen:** tree / grass / weed levels (Google Universal Pollen Index 0–5).
 - Editable locations (✏️ → geocoded via Open-Meteo) and current-location detection.
 - Weather-driven animations (rain / snow / clouds), temperature-tinted cards.
-- Auto-refresh every minute; responsive on desktop and mobile.
+- Auto-refresh every 5 minutes; responsive on desktop and mobile.
 
 ## Project structure
 

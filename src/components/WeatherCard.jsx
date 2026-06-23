@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useLocationWeather } from '../hooks/useLocationWeather.js';
+import { useLocationWeather, REFRESH_MS } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { useUnits } from '../context/UnitsContext.jsx';
 import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherCodes.js';
@@ -438,7 +438,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         {status ? <div className="info-display">{status}</div> : null}
 
         <div className="refresh-info">
-          <p>Auto-refreshes every 10 min</p>
+          <p>Auto-refreshes every {Math.round(REFRESH_MS / 60000)} min</p>
           <div>
             {wx.updatedAt ? `Updated: ${formatShortTime(wx.updatedAt, location.timeZone, units)}` : 'Last updated: -'}
           </div>
