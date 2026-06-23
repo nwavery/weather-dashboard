@@ -97,10 +97,16 @@ function upcomingPrecip(minutely, hourly, timeZone) {
     const m = typeof mms[i] === 'number' ? mms[i] : 0;
     if (m > maxMm) maxMm = m;
     const c = codes[i];
-    // Snow legitimately reports ~0 mm liquid-equivalent, so trust its code; rain
-    // counts by code or by a meaningful forecast amount.
-    if (kind === null && (THUNDER_CODES.has(c) || SNOW_CODES.has(c) || RAIN_CODES.has(c) || m >= BREWING_MM)) {
-      kind = THUNDER_CODES.has(c) ? 'thunder' : SNOW_CODES.has(c) ? 'snow' : 'rain';
+    const isSnow = SNOW_CODES.has(c);
+    const isThunder = THUNDER_CODES.has(c);
+    const isRain = RAIN_CODES.has(c);
+    // Mirror the current-conditions phantom guard: Open-Meteo over-reports rain &
+    // thunder codes carrying 0 mm (a forecast "thunderstorm" with no precip), so a
+    // rain/thunder code only counts when it's actually wet. Snow legitimately
+    // reports ~0 mm liquid-equivalent, so trust its code.
+    const wet = isSnow || m >= BREWING_MM || ((isRain || isThunder) && m > 0);
+    if (kind === null && wet) {
+      kind = isThunder ? 'thunder' : isSnow ? 'snow' : 'rain';
       leadMin = Math.max(0, Math.round(min));
     }
   }
