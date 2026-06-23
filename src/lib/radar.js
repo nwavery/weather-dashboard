@@ -88,8 +88,10 @@ export async function fetchRadar(location) {
   const fx = ((longitude + 180) / 360) * n;
   const latR = (lat * Math.PI) / 180;
   const fy = ((1 - Math.asinh(Math.tan(latR)) / Math.PI) / 2) * n;
-  const xt = Math.floor(fx);
-  const yt = Math.floor(fy);
+  // Clamp to valid tile indices so the antimeridian (lon ±180 → fx === n) and the
+  // poles don't ask for an out-of-range tile that 404s.
+  const xt = Math.min(Math.max(Math.floor(fx), 0), n - 1);
+  const yt = Math.min(Math.max(Math.floor(fy), 0), n - 1);
   const px = Math.floor((fx - xt) * 256);
   const py = Math.floor((fy - yt) * 256);
 
