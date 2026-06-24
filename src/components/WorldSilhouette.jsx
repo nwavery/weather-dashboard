@@ -113,25 +113,24 @@ const SHAPES = {
       </g>
     )
   },
-  // Witch on a broomstick (Halloween Town) — flying left: bold broomstick with a
-  // bristle fan trailing at the back, a hunched figure in a pointed hat, cape
-  // streaming behind.
+  // Witch on a broomstick (Halloween Town) — flying right: handle forward (right),
+  // bristle fan trailing at the back (left), cape and hat streaming behind.
   witch: {
     band: 'mid',
     viewBox: '0 0 170 90',
     body: (
       <g>
-        {/* broomstick (handle to the left) + bristle fan at the back */}
-        <path d="M6 43 L150 51 L150 56 L6 48 Z" />
-        <path d="M120 53 L152 44 L143 54 L152 67 L120 61 Z" />
-        {/* cape streaming back */}
-        <path d="M64 47 C80 47 94 53 104 64 Q90 57 64 53 Z" />
+        {/* broomstick (handle to the right) + bristle fan trailing left */}
+        <path d="M164 43 L20 51 L20 56 L164 48 Z" />
+        <path d="M50 53 L18 44 L27 54 L18 67 L50 61 Z" />
+        {/* cape streaming back (leftward) */}
+        <path d="M106 47 C90 47 76 53 66 64 Q80 57 106 53 Z" />
         {/* hunched body + head */}
-        <path d="M52 50 C48 37 57 29 69 30 C79 31 82 40 77 50 C70 55 60 55 52 50 Z" />
-        <ellipse cx="70" cy="27" rx="6" ry="6" />
-        {/* pointed hat */}
-        <path d="M60 28 L96 11 L80 31 Z" />
-        <ellipse cx="69" cy="29" rx="14" ry="2.6" />
+        <path d="M118 50 C122 37 113 29 101 30 C91 31 88 40 93 50 C100 55 110 55 118 50 Z" />
+        <ellipse cx="100" cy="27" rx="6" ry="6" />
+        {/* pointed hat streaming back */}
+        <path d="M110 28 L74 11 L90 31 Z" />
+        <ellipse cx="101" cy="29" rx="14" ry="2.6" />
       </g>
     )
   }
