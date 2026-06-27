@@ -1,3 +1,5 @@
+import { feelsLike } from './feelsLike.js';
+
 // Headline "flavor" for real cities: the WMO weather code only describes the
 // sky, so conditions like wind, humidity extremes, smoke, or an imminent storm
 // never reach the headline on their own. This resolver picks AT MOST ONE
@@ -136,7 +138,7 @@ export function headlineFlavor({ current, air, hourly, minutely, timeZone, effCo
   const wind = current.wind_speed_10m ?? 0;
   const gusts = current.wind_gusts_10m ?? 0;
   const rh = current.relative_humidity_2m;
-  const feels = current.apparent_temperature;
+  const feels = feelsLike(current.temperature_2m, rh, wind);
   const dew = current.dew_point_2m;
   const precip = current.precipitation ?? 0;
   // Prefer the card's effective code (phantom-storm-suppressed, and overridden by
