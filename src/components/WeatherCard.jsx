@@ -5,6 +5,7 @@ import { useUnits } from '../context/UnitsContext.jsx';
 import { weatherInfo, effectiveWeatherCode, iconVariant, isPrecipCode } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
+import { feelsLike } from '../lib/feelsLike.js';
 import { freshObservation } from '../lib/observation.js';
 import { radarToCode } from '../lib/radar.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
@@ -370,7 +371,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 <div className="temp-details">
                   <span className="feels-like">
                     <i className="fas fa-thermometer-half"></i>
-                    {' '}Feels like {current ? formatTemperature(current.apparent_temperature, units) : '--'}
+                    {' '}Feels like {current ? formatTemperature(fic ? current.apparent_temperature : feelsLike(current.temperature_2m, current.relative_humidity_2m, current.wind_speed_10m), units) : '--'}
                   </span>
                   <span className="historical">
                     <i className="fas fa-history"></i>
