@@ -29,6 +29,7 @@ const benign = {
   wind_gusts_10m: 9,
   relative_humidity_2m: 55,
   apparent_temperature: 70,
+  temperature_2m: 70,
   dew_point_2m: 48
 };
 const flavor = (opts) =>
@@ -65,7 +66,7 @@ test('not flagged when it is already precipitating (effCode is a precip code)', 
 test('higher-priority flavors outrank the heads-up', () => {
   assert.equal(flavor({ air: { us_aqi: 200 }, minutely: minutely(15) }).label, 'Smoky haze');
   assert.equal(
-    flavor({ current: { ...benign, apparent_temperature: 105 }, minutely: minutely(99999) }).label,
+    flavor({ current: { ...benign, temperature_2m: 100, relative_humidity_2m: 65 }, minutely: minutely(99999) }).label,
     'Scorching'
   );
 });

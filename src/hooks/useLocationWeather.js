@@ -50,6 +50,9 @@ function friendly(reason) {
   if (/failed to fetch|networkerror|load failed|err_failed/i.test(m)) {
     return 'weather service busy — retrying…';
   }
+  if (/timed out/i.test(m)) {
+    return 'slow connection — retrying…';
+  }
   return m;
 }
 
@@ -93,7 +96,13 @@ export function useLocationWeather(location) {
 
     if (lat == null || lng == null) return undefined;
 
+    let inFlight = false;
+    let lastSuccess = 0; // epoch ms of the last successful weather fetch
+    let failures = 0; // consecutive failed weather fetches
+
     const run = async () => {
+      if (inFlight) return; // a visibility kick can race the timer — never overlap
+      inFlight = true;
       const loc = { latitude: lat, longitude: lng, timeZone: tz };
       const [w, a, p, h, al, obs, rd] = await Promise.allSettled([
         withTimeout(fetchWeather(loc)),
@@ -104,9 +113,17 @@ export function useLocationWeather(location) {
         withTimeout(fetchObservation(loc)),
         withTimeout(fetchRadar(loc))
       ]);
+      inFlight = false;
       if (!active) return; // location changed mid-flight — drop the stale result
 
       const weatherOk = w.status === 'fulfilled';
+      const hadWeather = weatherOk || lastSuccess > 0;
+      if (weatherOk) {
+        lastSuccess = Date.now();
+        failures = 0;
+      } else {
+        failures += 1;
+      }
       setState((prev) => ({
         loading: false,
         // Keep the last good values when a refresh fails (transient rate-limit /
@@ -124,15 +141,32 @@ export function useLocationWeather(location) {
         updatedAt: weatherOk ? new Date() : prev.updatedAt
       }));
 
-      // Normal cadence on success; quicker retry after a failure.
-      if (active) timer = setTimeout(run, weatherOk ? REFRESH_MS : RETRY_MS);
+      // Normal cadence on success. On failure: a card that has data can wait the
+      // polite flat retry (rate-limit friendly), but a card with NOTHING to show
+      // recovers with a quick exponential backoff (4s, 8s, 16s, 32s, then 60s).
+      const retryMs = hadWeather ? RETRY_MS : Math.min(4000 * 2 ** (failures - 1), RETRY_MS);
+      if (active) timer = setTimeout(run, weatherOk ? REFRESH_MS : retryMs);
     };
+
+    // Mobile browsers freeze timers and in-flight fetches in background tabs, so
+    // a resumed tab can sit on a stale card (or a spurious "timed out" from the
+    // thawed race) until a leftover timer fires. On becoming visible, refresh
+    // immediately if we're overdue or never got data at all.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !active) return;
+      if (Date.now() - lastSuccess >= REFRESH_MS) {
+        if (timer) clearTimeout(timer);
+        run();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     setState((s) => ({ ...s, loading: true }));
     run();
 
     return () => {
       active = false;
+      document.removeEventListener('visibilitychange', onVisible);
       if (timer) clearTimeout(timer);
     };
   }, [demo, fictional, theme, lat, lng, tz]);
