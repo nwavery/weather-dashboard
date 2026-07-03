@@ -1,6 +1,7 @@
 // Keyless Open-Meteo clients: forecast, air quality, historical archive, and
 // forward/reverse geocoding. Lightweight in-memory caches keep refreshes cheap.
 import { formatDateYYYYMMDD } from './format.js';
+import { fetchWithTimeout } from './fetchTimeout.js';
 
 const HISTORICAL_LOOKBACK_YEARS = 10;
 const AQ_TTL_MS = 15 * 60 * 1000; // 15 min
@@ -25,7 +26,7 @@ export async function fetchWeather(location) {
     `&minutely_15=precipitation,weather_code&forecast_minutely_15=16` +
     `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${tzParam(timeZone)}&forecast_days=6`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Weather API ${res.status}`);
   const data = await res.json();
   if (!data?.current || !data?.daily || !data?.hourly) throw new Error('Incomplete weather data');
@@ -40,7 +41,7 @@ export async function fetchAirQuality(location) {
   const url =
     `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${location.latitude}&longitude=${location.longitude}` +
     `&current=us_aqi,pm2_5,ozone&timezone=${tzParam(location.timeZone)}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Air quality API ${res.status}`);
   const data = await res.json();
   if (!data?.current) throw new Error('Incomplete air quality data');
@@ -68,7 +69,7 @@ export async function fetchHistoricalAverage(location) {
     `https://archive-api.open-meteo.com/v1/archive?latitude=${location.latitude}&longitude=${location.longitude}` +
     `&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=${tzParam(tz)}` +
     `&start_date=${formatDateYYYYMMDD(start, tz)}&end_date=${formatDateYYYYMMDD(end, tz)}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Archive API ${res.status}`);
   const data = await res.json();
   const dates = data?.daily?.time;
@@ -97,7 +98,7 @@ export async function fetchHistoricalAverage(location) {
 
 export async function geocodeCity(name) {
   if (!name || !name.trim()) return null;
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name.trim())}&count=1&language=en&format=json`
   );
   if (!res.ok) throw new Error(`Geocoding API ${res.status}`);
@@ -110,7 +111,7 @@ export async function geocodeCity(name) {
 // Open-Meteo reverse first, BigDataCloud as a CORS-friendly fallback.
 export async function reverseGeocode(latitude, longitude) {
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`
     );
     if (res.ok) {
@@ -122,7 +123,7 @@ export async function reverseGeocode(latitude, longitude) {
     /* fall through */
   }
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
     );
     if (res.ok) {

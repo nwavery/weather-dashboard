@@ -46,14 +46,15 @@ const INITIAL = {
 
 // Turn raw fetch failures into something friendlier than "Failed to fetch".
 function friendly(reason) {
-  const m = reason?.message || String(reason || 'error');
+  const m = `${reason?.name || ''} ${reason?.message || String(reason || 'error')}`.trim();
   if (/failed to fetch|networkerror|load failed|err_failed/i.test(m)) {
     return 'weather service busy — retrying…';
   }
-  if (/timed out/i.test(m)) {
+  // Our own 12s race, or an AbortError from fetchWithTimeout's per-request abort.
+  if (/timed out|abort/i.test(m)) {
     return 'slow connection — retrying…';
   }
-  return m;
+  return reason?.message || String(reason || 'error');
 }
 
 // Fetches weather + air quality + pollen + historical baseline for one location,

@@ -1,8 +1,10 @@
 // Pollen comes from our own backend (/api/pollen), which holds the Google key.
 // The browser never sees the key. Returns { tree, grass, weed, regionCode },
 // each pollen type being { value, category, inSeason } or null.
+import { fetchWithTimeout } from './fetchTimeout.js';
+
 export async function fetchPollen(location) {
-  const res = await fetch(`/api/pollen?lat=${location.latitude}&lng=${location.longitude}`);
+  const res = await fetchWithTimeout(`/api/pollen?lat=${location.latitude}&lng=${location.longitude}`);
   if (!res.ok) {
     let code = `http_${res.status}`;
     try {
