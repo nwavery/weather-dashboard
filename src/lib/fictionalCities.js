@@ -93,19 +93,23 @@ const clampN = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 // has the event, a second hash picks its hour within a themed LOCAL-time
 // `window` (so Quidditch lands in the afternoon, not at 1 AM). The hourly strip
 // can see one coming, and every viewer agrees on when it happens.
+// Each event carries a takeover skin: `accent` ('R,G,B') re-keys the card frame,
+// glow, banner, and hourly tick; `pulse` is the breathing-glow period (each
+// event's heartbeat — a 5s whalesong swell vs a 1.15s containment klaxon); and
+// every event has an `effect` so all twelve read as their OWN spectacle.
 const EVENTS = {
-  mordor: { chance: 1.0, window: [8, 22], emoji: '🌋', name: 'Mt. Doom erupts', tagline: 'ERUPTION · Mt. Doom Awakens', effect: 'eruption' },
-  'mos-eisley': { chance: 0.5, window: [11, 16], emoji: '🏁', name: 'Podrace day', tagline: 'PODRACE · Watch For Banking Racers', effect: 'sand' },
-  hoth: { chance: 0.4, window: [19, 23], emoji: '🐾', name: 'Wampa sighting', tagline: 'WAMPA WATCH · Stay Indoors' },
-  pandora: { chance: 0.6, window: [7, 19], emoji: '🦅', name: 'Toruk flyover', tagline: 'TORUK PASSES · Look Up' },
-  atlantis: { chance: 0.5, window: [8, 20], emoji: '🐋', name: 'Whale migration', tagline: 'WHALESONG · Migration Passing' },
-  asgard: { chance: 0.6, window: [10, 20], emoji: '🌈', name: 'Bifröst opening', tagline: 'BIFRÖST OPEN · Arrivals From The Realms', effect: 'sparkles' },
-  'jurassic-park': { chance: 0.7, window: [13, 22], emoji: '🦖', name: 'Containment breach', tagline: 'CONTAINMENT BREACH · T-Rex Loose' },
-  hogwarts: { chance: 0.6, window: [14, 17], emoji: '🧹', name: 'Quidditch match', tagline: 'QUIDDITCH · Gryffindor vs Slytherin', effect: 'sparkles' },
-  'the-shire': { chance: 0.4, window: [20, 23], emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'sparkles' },
-  'bikini-bottom': { chance: 0.5, window: [10, 16], emoji: '🐙', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration' },
-  'halloween-town': { chance: 1.0, window: [19, 23], emoji: '🎃', name: 'Lighting of the Pumpkin', tagline: 'PUMPKIN LIT · The Town Gathers', effect: 'pumpkin' },
-  springfield: { chance: 0.5, window: [8, 12], emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts' }
+  mordor: { chance: 1.0, window: [8, 22], emoji: '🌋', name: 'Mt. Doom erupts', tagline: 'ERUPTION · Mt. Doom Awakens', effect: 'eruption', accent: '255,90,31', pulse: '2.4s' },
+  'mos-eisley': { chance: 0.5, window: [11, 16], emoji: '🏁', name: 'Podrace day', tagline: 'PODRACE · Watch For Banking Racers', effect: 'traffic', accent: '255,196,72', pulse: '1.6s' },
+  hoth: { chance: 0.4, window: [19, 23], emoji: '🐾', name: 'Wampa sighting', tagline: 'WAMPA WATCH · Stay Indoors', effect: 'smoke', accent: '159,216,255', pulse: '3.6s' },
+  pandora: { chance: 0.6, window: [7, 19], emoji: '🦅', name: 'Toruk flyover', tagline: 'TORUK PASSES · Look Up', effect: 'bats', accent: '255,94,58', pulse: '3s' },
+  atlantis: { chance: 0.5, window: [8, 20], emoji: '🐋', name: 'Whale migration', tagline: 'WHALESONG · Migration Passing', effect: 'beams', accent: '63,208,214', pulse: '5s' },
+  asgard: { chance: 0.6, window: [10, 20], emoji: '🌈', name: 'Bifröst opening', tagline: 'BIFRÖST OPEN · Arrivals From The Realms', effect: 'beams', accent: '143,156,255', pulse: '2.8s' },
+  'jurassic-park': { chance: 0.7, window: [13, 22], emoji: '🦖', name: 'Containment breach', tagline: 'CONTAINMENT BREACH · T-Rex Loose', effect: 'leaves', accent: '255,64,48', pulse: '1.15s' },
+  hogwarts: { chance: 0.6, window: [14, 17], emoji: '🧹', name: 'Quidditch match', tagline: 'QUIDDITCH · Gryffindor vs Slytherin', effect: 'fireflies', accent: '255,210,74', pulse: '2.2s' },
+  'the-shire': { chance: 0.4, window: [20, 23], emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'fireworks', accent: '199,125,255', pulse: '2.6s' },
+  'bikini-bottom': { chance: 0.5, window: [10, 16], emoji: '🐙', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration', effect: 'jellies', accent: '255,138,194', pulse: '4s' },
+  'halloween-town': { chance: 1.0, window: [19, 23], emoji: '🎃', name: 'Lighting of the Pumpkin', tagline: 'PUMPKIN LIT · The Town Gathers', effect: 'pumpkin', accent: '255,140,26', pulse: '1.8s' },
+  springfield: { chance: 0.5, window: [8, 12], emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts', effect: 'donuts', accent: '255,122,184', pulse: '2.4s' }
 };
 
 const EVENT_GATE = 0xabcdef01;
@@ -561,6 +565,18 @@ export function findFictional(query) {
   return placeOf(c);
 }
 
+// Preview override: ?worldevent=1 forces every world's event on; ?worldevent=<id>
+// forces just that world's. Lets you see any spectacle without waiting for its hour.
+function forcedEvent(id) {
+  if (typeof window === 'undefined' || !EVENTS[id]) return null;
+  try {
+    const v = new URLSearchParams(window.location.search).get('worldevent');
+    return v === '1' || v === id ? EVENTS[id] : null;
+  } catch {
+    return null;
+  }
+}
+
 export function fictionalStateFor(id) {
   const c = byId(id);
   if (!c) return null;
@@ -573,7 +589,7 @@ export function fictionalStateFor(id) {
     pollenError: null,
     historical: c.historical,
     // The rare world event happening RIGHT NOW (Mt. Doom mid-eruption), if any.
-    event: eventForHour(id, Date.now()),
+    event: forcedEvent(id) || eventForHour(id, Date.now()),
     updatedAt: new Date()
   };
 }

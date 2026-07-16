@@ -270,8 +270,11 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
 
   return (
     <div
-      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''} ${fic?.livePhase || fic?.dayLength ? 'fic-livephase' : ''}`}
-      style={{ '--sky-gradient': skyGrad }}
+      className={`card ${cardClass} sky-card sky-phase-${timePhase} ${animClass} ${fic ? fic.className : ''} ${fic?.livePhase || fic?.dayLength ? 'fic-livephase' : ''} ${worldEvent ? 'card--event' : ''}`}
+      style={{
+        '--sky-gradient': skyGrad,
+        ...(worldEvent ? { '--event-rgb': worldEvent.accent, '--event-pulse': worldEvent.pulse } : null)
+      }}
     >
       {/* Full-bleed sky background */}
       <div className="sky-bg" aria-hidden="true" />
@@ -311,6 +314,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       {/* A drifting horizon silhouette — life in the world */}
       {fic?.silhouette ? <WorldSilhouette kind={fic.silhouette} /> : null}
 
+      {/* Rare world event: breathing accent wash under the scrim */}
+      {worldEvent ? <div className="event-glow" aria-hidden="true" /> : null}
+
       {/* Gradient scrim for text legibility */}
       <div className="card-scrim" aria-hidden="true" />
 
@@ -340,6 +346,22 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
           ) : null}
         </div>
 
+        {/* Rare world event: full-bleed ribbon — chip, name, tagline */}
+        {worldEvent ? (
+          <div className="event-banner" role="status">
+            <span className="event-banner-chip">
+              <i className="event-live-dot" aria-hidden="true" />
+              Happening now
+            </span>
+            <div className="event-banner-title">
+              <span className="event-banner-emoji" aria-hidden="true">{worldEvent.emoji}</span>
+              <span className="event-banner-name">{worldEvent.name}</span>
+              <span className="event-banner-emoji event-banner-emoji--alt" aria-hidden="true">{worldEvent.emoji}</span>
+            </div>
+            <div className="event-banner-tagline">{worldEvent.tagline}</div>
+          </div>
+        ) : null}
+
         {wx.weatherError ? (
           <div className="error-display">Weather error: {wx.weatherError}</div>
         ) : (
@@ -362,8 +384,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                 </div>
                 {info && (
                   <div className="weather-desc" title={flavor?.detail || undefined}>
-                    {worldEvent?.tagline ||
-                      (isDark && fic?.conditionNight ? fic.conditionNight : fic?.condition) ||
+                    {(isDark && fic?.conditionNight ? fic.conditionNight : fic?.condition) ||
                       (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
