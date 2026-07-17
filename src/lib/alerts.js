@@ -3,6 +3,8 @@
 // (and any API hiccup) just resolve to no alerts. Cached briefly per point —
 // the hook refreshes on its normal cadence anyway.
 
+import { fetchWithTimeout } from './fetchTimeout.js';
+
 const ALERTS_TTL_MS = 5 * 60 * 1000;
 const cache = new Map();
 
@@ -24,7 +26,7 @@ export async function fetchAlerts(location) {
   const hit = cache.get(key);
   if (hit && hit.expires > Date.now()) return hit.data;
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://api.weather.gov/alerts/active?point=${latitude.toFixed(4)},${longitude.toFixed(4)}`,
     { headers: { Accept: 'application/geo+json' } }
   );

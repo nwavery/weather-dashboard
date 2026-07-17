@@ -827,7 +827,9 @@ h2 {
   line-height: clamp(26px, 3.5vw, 34px);
   margin: 3px 0;
   animation: event-pulse 1.6s ease-in-out infinite;
-  filter: drop-shadow(0 0 7px rgba(255, 150, 60, 0.75));
+  /* Event-accent glow while the card is in event state; upcoming ticks on a
+     normal card fall back to the original orange (--event-rgb unset there). */
+  filter: drop-shadow(0 0 7px rgba(var(--event-rgb, 255, 150, 60), 0.75));
 }
 @keyframes event-pulse {
   0%, 100% { transform: scale(1); }
@@ -2049,4 +2051,281 @@ button, input {
   .lightning-flash {
     display: none;
   }
+}
+
+/* ══ Rare world event takeover ═══════════════════════════════════ */
+/* One inline triplet (--event-rgb, from the EVENTS map) re-keys the frame,
+   glow, banner, particles, and hourly tick at once. Double-class selectors
+   (.card.card--event) are deliberate: they must beat .card.hot / .card:hover.
+   All looping animation is opacity/transform only (always-on displays). */
+.card.card--event {
+  --accent: rgb(var(--event-rgb));      /* hijack the existing temp-accent system */
+  --accent-rgb: var(--event-rgb);
+  /* Static halo — lives on .card itself because overflow:hidden clips any
+     outer shadow on ::after. Bleeds into the grid gaps; reads across a room. */
+  box-shadow:
+    0 4px 6px rgba(0,0,0,0.4),
+    0 20px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(var(--event-rgb), 0.55),
+    0 0 36px 4px rgba(var(--event-rgb), 0.38),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+/* Upgrade the z-20 border pseudo from hairline to event frame */
+.card.card--event::after {
+  border: 2px solid rgba(var(--event-rgb), 0.85);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--event-rgb), 0.30),
+    inset 0 -3px 0 rgba(var(--event-rgb), 0.9);
+}
+@media (max-width: 480px) {
+  /* soften the halo where phone grid gaps are tightest */
+  .card.card--event {
+    box-shadow:
+      0 4px 6px rgba(0,0,0,0.4),
+      0 20px 60px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(var(--event-rgb), 0.55),
+      0 0 22px 2px rgba(var(--event-rgb), 0.38),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+}
+
+/* Breathing accent wash: edge vignette + horizon glow, screen-blended so each
+   world's .fic-* gradient shows through tinted, not repainted. z-2 = above sky
+   and weather animation, BELOW .card-scrim (z-3) — legibility math untouched.
+   Center stays transparent to 55% so the temp/clock never sit under tint. */
+.event-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 120% 120% at 50% 50%,
+      transparent 55%,
+      rgba(var(--event-rgb), 0.26) 82%,
+      rgba(var(--event-rgb), 0.50) 100%),
+    radial-gradient(ellipse 120% 55% at 50% 108%,
+      rgba(var(--event-rgb), 0.32) 0%, transparent 62%);
+  animation: event-glow-breathe var(--event-pulse, 2.8s) ease-in-out infinite;
+}
+@keyframes event-glow-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* ── Event banner: full-bleed ribbon under the clock ────────────── */
+/* Carries its own dark scrim band + white letterforms (accent only in glows/
+   hairlines), so it's legible over all 12 gradients, Hoth's near-white included. */
+.event-banner {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  margin: 0 calc(var(--card-pad) * -1) clamp(8px, 1.2vw, 14px);  /* full-bleed */
+  padding: clamp(6px, 1vw, 10px) var(--card-pad) clamp(7px, 1.1vw, 11px);
+  background: linear-gradient(90deg,
+    rgba(6,8,14,0) 0%, rgba(6,8,14,0.58) 14%,
+    rgba(6,8,14,0.58) 86%, rgba(6,8,14,0) 100%);
+  border-block: 1px solid rgba(var(--event-rgb), 0.5);
+  /* one-shot unfurl: the node mounts once when the event hour arrives */
+  animation: event-banner-in 700ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+@keyframes event-banner-in {
+  0%   { transform: translateY(-10px) scaleY(0.4); opacity: 0; }
+  60%  { transform: translateY(0) scaleY(1.04); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+/* shine sweep — transform-only overlay, no background-position painting */
+.event-banner::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 34%;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+    transparent 0%, rgba(255,255,255,0.16) 40%,
+    rgba(var(--event-rgb), 0.28) 52%,
+    rgba(255,255,255,0.16) 64%, transparent 100%);
+  transform: translateX(-120%) skewX(-12deg);
+  animation: event-shimmer 4.2s ease-in-out infinite;
+}
+@keyframes event-shimmer {
+  0%        { transform: translateX(-120%) skewX(-12deg); }
+  38%, 100% { transform: translateX(420%) skewX(-12deg); }
+}
+.event-banner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 3px 11px 3px 9px;
+  border-radius: 999px;
+  font-size: clamp(0.58rem, 0.95vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(var(--event-rgb), 0.30);
+  border: 1px solid rgba(var(--event-rgb), 0.65);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.event-live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 2px rgba(var(--event-rgb), 0.9);
+  animation: event-dot 1.4s ease-in-out infinite;
+}
+@keyframes event-dot {
+  0%, 100% { transform: scale(0.7); opacity: 0.6; }
+  50%      { transform: scale(1);   opacity: 1; }
+}
+.event-banner-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;                       /* long names wrap on 320px phones */
+  gap: clamp(6px, 1vw, 12px);
+  line-height: 1.15;
+}
+.event-banner-name {
+  font-size: clamp(1.1rem, 2.6vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow:
+    0 2px 10px rgba(0,0,0,0.75),
+    0 0 26px rgba(var(--event-rgb), 0.55),
+    0 0 60px rgba(var(--event-rgb), 0.25);
+}
+.event-banner-emoji {
+  font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+  filter: drop-shadow(0 0 10px rgba(var(--event-rgb), 0.8));
+  animation: event-pulse 1.6s ease-in-out infinite;
+}
+.event-banner-emoji--alt { animation-delay: -0.8s; }  /* antiphase bookends */
+.event-banner-tagline {
+  margin-top: 3px;
+  font-size: clamp(0.68rem, 1.2vw, 0.84rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.78);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+}
+/* Asgard: the ribbon IS the rainbow bridge */
+.fic-asgard .event-banner {
+  background: linear-gradient(90deg,
+    rgba(255,82,82,0.28), rgba(255,183,77,0.28), rgba(255,225,77,0.28),
+    rgba(105,219,124,0.28), rgba(77,171,247,0.28), rgba(177,151,252,0.28));
+}
+/* TV: compact ribbon, bigger type */
+html.tv .event-banner { padding-block: 5px 6px; margin-bottom: 6px; }
+html.tv .event-banner-name { font-size: clamp(1.25rem, 2.1vw, 2rem); }
+
+/* ── New fx kind: beams — god-rays (Atlantis) / the Bifröst (Asgard) ── */
+.fx-beam {
+  position: absolute;
+  top: -12%;
+  height: 130%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: linear-gradient(180deg,
+    rgba(var(--event-rgb, 160,220,255), 0.40) 0%,
+    rgba(var(--event-rgb, 160,220,255), 0.08) 72%,
+    transparent 100%);
+  animation: fx-beam-sway var(--fx-duration) ease-in-out var(--fx-delay) infinite alternate;
+}
+@keyframes fx-beam-sway {
+  from { transform: skewX(var(--fx-tilt, 14deg)) translateX(-14px); opacity: 0.35; }
+  to   { transform: skewX(calc(var(--fx-tilt, 14deg) * 0.55)) translateX(18px); opacity: 0.85; }
+}
+.fic-asgard .fx-beam {
+  background: linear-gradient(180deg,
+    rgba(255,90,90,0.40) 0%, rgba(255,190,60,0.38) 22%,
+    rgba(120,220,130,0.36) 44%, rgba(80,180,255,0.36) 66%,
+    rgba(160,110,255,0.34) 86%, transparent 100%);
+}
+
+/* ── New fx kind: jellies — pink bells riding the current (Bikini Bottom) ── */
+/* Reuses the fx-bubble-rise keyframes (same --fx-sway / --fx-opacity contract). */
+.fx-jelly {
+  position: absolute;
+  bottom: -34px;
+  pointer-events: none;
+  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+  background: radial-gradient(circle at 50% 28%,
+    rgba(255,214,238,0.9) 0%, rgba(255,138,194,0.4) 62%, transparent 100%);
+  box-shadow: 0 0 12px rgba(255,138,194,0.55);
+  animation: fx-bubble-rise var(--fx-duration) ease-in-out var(--fx-delay) infinite;
+}
+.fx-jelly::after {                       /* tentacle skirt, static */
+  content: '';
+  position: absolute;
+  top: 88%; left: 22%; right: 22%;
+  height: 90%;
+  background: linear-gradient(180deg, rgba(255,170,214,0.55), transparent);
+  border-radius: 0 0 40% 40%;
+}
+
+/* ── New fx kind: donuts — frosted rings tumbling from the sky (Springfield) ── */
+.fx-donut {
+  position: absolute;
+  top: -30px;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 5px solid #ff7ab8;             /* frosting ring — the hole stays transparent */
+  box-shadow: 0 0 0 2px rgba(217,160,90,0.9), 0 2px 6px rgba(0,0,0,0.35);
+  animation: fx-donut-fall var(--fx-duration) linear var(--fx-delay) infinite;
+}
+@keyframes fx-donut-fall {
+  0%   { transform: translate(0, -4vh) rotate(0deg); opacity: 0; }
+  8%   { opacity: 0.95; }
+  92%  { opacity: 0.95; }
+  100% { transform: translate(var(--fx-drift, 20px), 114vh) rotate(320deg); opacity: 0; }
+}
+
+/* ── Per-world event reskins (existing kinds, new costumes) ─────── */
+/* Podracers: Coruscant's skylane streaks become engine-glow racers.
+   Scoped by world class, so Coruscant's own traffic is untouched. */
+.fic-mos-eisley .fx-ship {
+  background: linear-gradient(to right, rgba(255,179,71,0), rgba(255,208,120,1));
+  box-shadow: 0 0 8px 1px rgba(255,179,71,0.85);
+}
+.fic-mos-eisley .fx-ship--rev {
+  background: linear-gradient(to left, rgba(255,140,60,0), rgba(255,180,100,1));
+  box-shadow: 0 0 8px 1px rgba(255,150,70,0.8);
+}
+/* Hoth whiteout squall: the smoke bands go icy — visibility drops */
+.fic-hoth .fx-smoke-band {
+  background: repeating-linear-gradient(93deg,
+    rgba(220,240,255,0) 0, rgba(220,240,255,0) 46px,
+    rgba(230,245,255,0.22) 70px, rgba(220,240,255,0) 102px);
+}
+/* Crimson banshees scatter as the Toruk passes */
+.fic-pandora .fx-bat-wings {
+  background: #a63a20;
+  filter: drop-shadow(0 1px 3px rgba(120,20,0,0.5));
+}
+/* Golden Snitches darting over the pitch */
+.fic-hogwarts .fx-firefly {
+  background: radial-gradient(circle, #fff3c4 0%, #ffd24a 50%, rgba(255,210,74,0) 75%);
+  box-shadow: 0 0 10px 2px rgba(255,210,74,0.8);
+}
+/* Something huge is moving: the SKY shakes; z-4 text stays perfectly still */
+.fic-jurassic-park.card--event .sky-bg {
+  animation: fx-tremor 1.8s ease-in-out infinite;
+}
+@keyframes fx-tremor {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(1px, -1px); }
+  75%      { transform: translate(-1px, 1px); }
+}
+
+/* ── Reduced motion: the takeover stays visible, just static ────── */
+@media (prefers-reduced-motion: reduce) {
+  .event-glow, .event-banner, .event-banner::after,
+  .event-banner-emoji, .event-live-dot { animation: none; }
+  .event-glow { opacity: 0.85; }
+  .fx-beam, .fx-jelly, .fx-donut { animation: none; opacity: 0.5; }
+  .fic-jurassic-park.card--event .sky-bg { animation: none; }
 }

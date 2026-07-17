@@ -543,6 +543,108 @@ function Snowflakes() {
   );
 }
 
+// God-rays sweeping the sky — Atlantis's whale migration and, rainbow-skinned
+// via .fic-asgard CSS, the Bifröst. Color comes from the card's --event-rgb.
+function Beams() {
+  const beams = useMemo(() =>
+    Array.from({ length: 4 }, (_, i) => ({
+      id: i,
+      left: 10 + i * 22 + Math.random() * 8,
+      width: 26 + Math.random() * 30,
+      duration: 6 + Math.random() * 5,
+      delay: -(Math.random() * 11),
+      tilt: 10 + Math.random() * 10,
+    })),
+    []
+  );
+  return (
+    <>
+      {beams.map((b) => (
+        <div
+          key={b.id}
+          className="fx-beam"
+          style={{
+            left: `${b.left}%`,
+            width: `${b.width}px`,
+            '--fx-duration': `${b.duration}s`,
+            '--fx-delay': `${b.delay}s`,
+            '--fx-tilt': `${b.tilt}deg`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Translucent jellyfish bells rising on the current (Bikini Bottom's bloom).
+// Same prop contract as Bubbles — the CSS reuses the fx-bubble-rise keyframes.
+function Jellies() {
+  const jellies = useMemo(() =>
+    Array.from({ length: 10 }, (_, i) => ({
+      id: i,
+      left: 4 + Math.random() * 88,
+      size: 14 + Math.random() * 12,
+      duration: 9 + Math.random() * 7,
+      delay: -(Math.random() * 16),
+      sway: 10 + Math.random() * 12,
+      opacity: 0.5 + Math.random() * 0.35,
+    })),
+    []
+  );
+  return (
+    <>
+      {jellies.map((j) => (
+        <div
+          key={j.id}
+          className="fx-jelly"
+          style={{
+            left: `${j.left}%`,
+            width: `${j.size}px`,
+            height: `${j.size * 0.9}px`,
+            '--fx-duration': `${j.duration}s`,
+            '--fx-delay': `${j.delay}s`,
+            '--fx-sway': `${j.sway}px`,
+            '--fx-opacity': j.opacity,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Frosted donuts tumbling from the sky (Springfield's Donut day)
+function Donuts() {
+  const donuts = useMemo(() =>
+    Array.from({ length: 9 }, (_, i) => ({
+      id: i,
+      left: 4 + Math.random() * 88,
+      size: 14 + Math.random() * 10,
+      duration: 6 + Math.random() * 4,
+      delay: -(Math.random() * 10),
+      drift: -24 + Math.random() * 48,
+    })),
+    []
+  );
+  return (
+    <>
+      {donuts.map((d) => (
+        <div
+          key={d.id}
+          className="fx-donut"
+          style={{
+            left: `${d.left}%`,
+            width: `${d.size}px`,
+            height: `${d.size}px`,
+            '--fx-duration': `${d.duration}s`,
+            '--fx-delay': `${d.delay}s`,
+            '--fx-drift': `${d.drift}px`,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 const EFFECTS = {
   bubbles: Bubbles,
   embers: Embers,
@@ -560,6 +662,9 @@ const EFFECTS = {
   fireworks: Fireworks,
   hearts: Hearts,
   snowflakes: Snowflakes,
+  beams: Beams,
+  jellies: Jellies,
+  donuts: Donuts,
 };
 
 export function WorldEffects({ kind }) {
