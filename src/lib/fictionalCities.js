@@ -639,7 +639,7 @@ const WORLD_EXTRAS = {
     dispatches: ['Bat-signal lit over downtown', 'Sirens near the Narrows', "Something's off at Ace Chemicals", 'GCPD on the move', 'Stay off the streets tonight']
   },
   'the-shire': {
-    silhouette: 'balloon',
+    silhouette: 'cart',
     metrics: { humidity: 'Dewiness', dew: 'Morning Dew', wind: 'Gentle Breeze', uv: 'Soft Sun' },
     air: { title: 'Fresh Air & Pollen', aqi: 'Freshness', pm: 'Pollen', ozone: 'Meadow' },
     pollen: { tree: 'Oak', grass: 'Meadow', weed: 'Pipe-weed' },
@@ -698,6 +698,7 @@ const WORLD_EXTRAS = {
     dispatches: ['Life finds a way', 'The raptors are testing the fences', "T. rex paddock — power's flickering", 'Brachiosaurs by the lagoon', 'Hold onto your butts']
   },
   'hundred-acre-wood': {
+    silhouette: 'balloon',
     metrics: { humidity: 'Dampness', wind: 'Blustery Wind', uv: 'Dappled Sun' },
     air: { title: 'Air & Honey', aqi: 'Sweetness', pm: 'Pollen', ozone: 'Meadow' },
     pollen: { tree: 'Oak', grass: 'Thistle', weed: 'Honeysuckle' },

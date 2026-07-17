@@ -1,136 +1,184 @@
 // A single iconic silhouette that drifts across the world's scene — life on the
 // horizon. Pure CSS-animated SVG, rendered above the sky/effects but below the
 // text scrim. Ground-dwellers trundle along the bottom; fliers wheel up high.
+//
+// Drawing rules (from the 2026-07 silhouette review): every shape must
+// unambiguously face RIGHT (all bands travel left→right); no feature thinner
+// than ~5 viewBox units (finer detail vanishes at the 64-150px render size);
+// joints overlap 2-3u (never abut — abutting edges shimmer while animating);
+// no per-element opacity (the group alpha lives on .silhouette-svg in CSS);
+// and each shape should fill ~90%+ of its viewBox so siblings render at the
+// same apparent scale.
 
 const SHAPES = {
-  // Jawa sandcrawler trundling along the dunes
+  // Jawa sandcrawler — tall trapezoid hull whose raked, overhanging prow leads
+  // right, riding one solid tread slab.
   sandcrawler: {
     band: 'ground',
-    viewBox: '0 0 120 70',
+    viewBox: '0 0 130 80',
     body: (
       <g>
-        <path d="M14 54 L106 54 L96 22 L40 22 L24 38 L14 38 Z" />
-        <rect x="40" y="28" width="6" height="6" opacity="0.5" />
-        <rect x="54" y="28" width="6" height="6" opacity="0.5" />
-        <rect x="68" y="28" width="6" height="6" opacity="0.5" />
-        <rect x="10" y="54" width="100" height="9" rx="4" />
-        <circle cx="22" cy="63" r="5" /><circle cx="42" cy="63" r="5" />
-        <circle cx="62" cy="63" r="5" /><circle cx="82" cy="63" r="5" /><circle cx="100" cy="63" r="5" />
+        <path d="M8 66 L12 3 L128 3 L128 14 L93 49 L89 66 Z" />
+        <rect x="2" y="60" width="104" height="18" rx="8" />
       </g>
     )
   },
-  // AT-AT walker striding across the snow — long hull, a neck angling down to a
-  // boxy head with twin chin guns, and four knee-bent legs mid-stride.
+  // AT-AT walker — towering stance: boxy hull on four near-vertical column
+  // legs (total height ≈ hull length), head leading right at hull level.
   walker: {
     band: 'ground',
-    viewBox: '0 0 150 100',
+    viewBox: '0 0 132 100',
     body: (
       <g>
-        {/* hull with a sloped nose */}
-        <path d="M22 30 L94 30 L106 38 L106 42 L94 48 L22 48 Z" />
-        {/* neck angling down-forward to the head */}
-        <path d="M96 36 L104 34 L120 50 L112 53 Z" />
-        {/* command head */}
-        <path d="M110 46 L134 47 L138 52 L137 58 L112 59 Z" />
-        {/* twin chin guns */}
-        <rect x="122" y="59" width="3" height="6" /><rect x="128" y="59" width="3" height="6" />
-        {/* four knee-bent legs, splayed mid-stride */}
-        <path d="M29 48 L36 48 L33 66 L28 84 L21 84 L26 66 Z" />
-        <path d="M47 48 L54 48 L55 66 L53 84 L46 84 L48 66 Z" />
-        <path d="M74 48 L81 48 L82 66 L80 84 L73 84 L75 66 Z" />
-        <path d="M92 48 L99 48 L104 66 L108 84 L101 84 L97 66 Z" />
-        {/* feet */}
-        <rect x="19" y="84" width="13" height="5" /><rect x="43" y="84" width="13" height="5" />
-        <rect x="70" y="84" width="13" height="5" /><rect x="98" y="84" width="13" height="5" />
+        {/* hull */}
+        <path d="M8 8 L16 2 L86 2 L96 8 L96 34 L88 40 L14 40 L8 34 Z" />
+        {/* neck from the upper-front shoulder */}
+        <path d="M87 9 L106 13 L106 23 L87 19 Z" />
+        {/* faceted command head + chin-gun mass */}
+        <path d="M102 7 L125 7 L131 13 L131 22 L125 27 L102 27 Z" />
+        <path d="M118 23 L127 24 L130 33 L121 33 Z" />
+        {/* four vertical column legs, roots buried in the hull */}
+        <rect x="10" y="37" width="9" height="57" />
+        <rect x="30" y="37" width="9" height="57" />
+        <rect x="56" y="37" width="9" height="57" />
+        <rect x="80" y="37" width="9" height="57" />
+        {/* flared foot pads */}
+        <path d="M9 91 L20 91 L23 100 L6 100 Z" />
+        <path d="M29 91 L40 91 L43 100 L26 100 Z" />
+        <path d="M55 91 L66 91 L69 100 L52 100 Z" />
+        <path d="M79 91 L90 91 L93 100 L76 100 Z" />
       </g>
     )
   },
-  // Pooh's red balloon drifting (Hundred Acre Wood)
+  // Pooh's red balloon (Hundred Acre Wood) — teardrop leaning into the drift,
+  // chunky knot, thick string trailing down-left.
   balloon: {
     band: 'high',
-    viewBox: '0 0 60 90',
+    viewBox: '0 0 80 100',
     body: (
       <g>
-        <ellipse cx="30" cy="30" rx="22" ry="26" />
-        <path d="M27 55 L33 55 L30 62 Z" />
-        <line x1="30" y1="62" x2="30" y2="88" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M40 64 C26 56 18 42 18 26 C18 10 31 1 48 1 C65 1 79 12 79 28 C79 46 56 58 40 64 Z" />
+        <circle cx="41" cy="66" r="7" />
+        <path d="M41 70 C38 82 27 90 11 95" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
       </g>
     )
   },
-  // Banshee wheeling over Pandora — overhead: body, crested head, two swept
-  // wings, a forked tail.
+  // Ikran (banshee) gliding right — long snout + backswept crest, a large
+  // raked forewing and smaller hindwing (the four-wing read), single rudder
+  // tail trailing left.
   banshee: {
     band: 'mid',
-    viewBox: '0 0 130 72',
+    viewBox: '0 0 150 80',
     body: (
       <g>
-        <ellipse cx="65" cy="40" rx="7" ry="18" />
-        <path d="M65 8 L59 18 L65 24 L71 18 Z" />
-        <path d="M62 30 C44 20 24 22 4 34 C22 38 42 40 58 45 C53 40 59 34 62 35 Z" />
-        <path d="M68 30 C86 20 106 22 126 34 C108 38 88 40 72 45 C77 40 71 34 68 35 Z" />
-        <path d="M62 55 L60 70 L65 65 L70 70 L68 55 Z" />
+        {/* head+crest+body+tail, snout leading right */}
+        <path d="M149 40 C144 35 138 31 131 28 C123 22 113 18 104 16 C100 15 99 18 102 20 C110 24 116 28 120 33 C111 38 101 45 93 49 C81 53 66 53 56 56 C50 58 50 64 54 68 C66 73 84 73 98 69 C108 66 119 57 128 50 C136 46 143 43 148 43 Z" />
+        {/* raked forewing */}
+        <path d="M72.0 62 L93.5 57 C87.0 44 72.0 22 60.0 6 C57.0 2 52.5 3 54.0 8 C55.0 14 55.0 18 54.0 22 C60.0 26 59.0 32 54.5 37 C62.0 42 66.0 50 69.0 56 Z" />
+        {/* smaller raked hindwing */}
+        <path d="M53.0 64 L65.0 60 C58.0 50 48.0 36 38.0 22 C35.0 18 31.5 19 33.5 23 C35.0 30 35.0 34 33.5 39 C40.0 44 44.5 51 49.0 58 Z" />
+        {/* tail shaft + rudder fin */}
+        <path d="M58 55 C46 60 32 63 18 64 L20 72 C36 71 48 68 60 67 Z" />
+        <ellipse cx="14" cy="64" rx="5.5" ry="16" transform="rotate(-14 14 64)" />
       </g>
     )
   },
-  // Game of Thrones dragon (Winterfell) — side profile, gliding right: an
-  // open-jawed head on a long neck, a big raised bat wing, a spade-tipped tail
-  // sweeping back, and tucked hind legs.
+  // Game of Thrones dragon gliding right — a dominant scalloped bat wing,
+  // thick neck to an open-jawed head, long tail ending in a spade tip.
   dragon: {
     band: 'mid',
-    viewBox: '0 0 190 120',
+    viewBox: '0 0 200 120',
     body: (
       <g>
-        {/* belly → neck → open jaw, back down to the back, out to the spade tail */}
-        <path d="M14 92 C40 96 70 92 96 84 C112 79 124 69 140 54 L150 60 L176 58 L160 50 L182 45 L149 43 L150 34 L141 41 C120 50 104 58 90 62 C64 70 38 78 22 84 L8 86 Z" />
-        {/* raised bat wing, finger-scalloped trailing edge */}
-        <path d="M88 60 C66 34 52 20 46 10 Q53 36 61 59 Q69 53 79 63 Q87 56 98 61 Z" />
+        {/* spade tail → body → neck → open-wedge jaw */}
+        <path d="M2 88 L20 76 L24 84 C40 80 56 76 74 74 C96 68 116 68 138 71 C151 64 157 52 158 42 C160 30 168 24 178 23 L198 28 L180 39 L191 50 L164 51 C153 58 147 68 144 80 C139 98 120 106 97 103 C74 99 58 96 44 94 C34 93 28 92 24 91 L20 100 Z" />
+        {/* huge raised bat wing, scalloped trailing edge */}
+        <path d="M118 84 C127 62 134 44 137 30 C142 20 147 12 152 4 Q126 28 114 28 Q104 54 82 50 Q78 70 64 80 Z" />
         {/* tucked hind legs */}
-        <path d="M70 84 q-4 12 -12 18 q10 -2 16 -10 Z" />
-        <path d="M92 82 q-2 12 -10 17 q10 -2 15 -9 Z" />
+        <path d="M92 94 Q79 101 66 112 Q62 117 69 116 Q83 110 98 100 Z" />
+        <path d="M122 97 Q110 104 100 114 Q97 119 104 118 Q116 112 128 103 Z" />
       </g>
     )
   },
-  // Long-necked dinosaur (Jurassic Park)
+  // Brachiosaurus (Jurassic Park) — thick up-swept neck to a tiny crested
+  // head; near/far leg pairs; giraffe-sloped back; lifted tail.
   dino: {
     band: 'ground',
-    viewBox: '0 0 150 100',
+    viewBox: '0 0 148 100',
     body: (
       <g>
-        {/* tail tapering to the ground */}
-        <path d="M46 58 Q20 62 4 82 Q20 72 48 68 Z" />
-        {/* long neck — a thick round stroke tapers naturally up into the head */}
-        <path fill="none" stroke="currentColor" strokeWidth="14" strokeLinecap="round" d="M104 54 Q127 36 128 15" />
-        {/* body */}
-        <ellipse cx="72" cy="58" rx="36" ry="21" />
-        {/* four sturdy legs */}
-        <rect x="46" y="72" width="14" height="27" rx="3" />
-        <rect x="64" y="74" width="14" height="25" rx="3" />
-        <rect x="84" y="74" width="14" height="25" rx="3" />
-        <rect x="98" y="70" width="14" height="29" rx="3" />
-        {/* small head with a snout */}
-        <ellipse cx="129" cy="13" rx="10" ry="8" />
-        <path d="M138 9 q8 1 9 5 q-5 4 -10 2 Z" />
+        {/* tail, tip lifted clear of the ground */}
+        <path d="M52 50 Q26 52 8 63 L4 70 Q26 70 52 74 Z" />
+        {/* neck — a thick round stroke tapers naturally up into the head */}
+        <path fill="none" stroke="currentColor" strokeWidth="14" strokeLinecap="round" d="M102 50 Q126 36 127 16" />
+        {/* body, shoulders higher than hips */}
+        <ellipse cx="75" cy="56" rx="37" ry="19" transform="rotate(-7 75 56)" />
+        {/* near/far leg pairs */}
+        <rect x="40" y="56" width="13" height="43" rx="3" />
+        <rect x="61" y="60" width="10" height="36" rx="3" />
+        <rect x="79" y="55" width="10" height="41" rx="3" />
+        <rect x="96" y="47" width="14" height="52" rx="3" />
+        {/* tiny head with the domed nasal crest */}
+        <ellipse cx="133" cy="16" rx="8" ry="5.5" />
+        <ellipse cx="129" cy="8.5" rx="6" ry="5.5" />
       </g>
     )
   },
-  // Witch on a broomstick (Halloween Town) — flying right: handle forward (right),
-  // bristle fan trailing at the back (left), cape and hat streaming behind.
+  // Witch on a broomstick (Halloween Town) — the witch dominates: pointed hat
+  // capping the head, hooked nose leading right, boot below the stick, cape
+  // streaming back, solid triangle bristle fan trailing left.
   witch: {
     band: 'mid',
-    viewBox: '0 0 170 90',
+    viewBox: '0 0 150 110',
     body: (
       <g>
-        {/* broomstick (handle to the right) + bristle fan trailing left */}
-        <path d="M164 43 L20 51 L20 56 L164 48 Z" />
-        <path d="M50 53 L18 44 L27 54 L18 67 L50 61 Z" />
-        {/* cape streaming back (leftward) */}
-        <path d="M106 47 C90 47 76 53 66 64 Q80 57 106 53 Z" />
-        {/* hunched body + head */}
-        <path d="M118 50 C122 37 113 29 101 30 C91 31 88 40 93 50 C100 55 110 55 118 50 Z" />
-        <ellipse cx="100" cy="27" rx="6" ry="6" />
-        {/* pointed hat streaming back */}
-        <path d="M110 28 L74 11 L90 31 Z" />
-        <ellipse cx="101" cy="29" rx="14" ry="2.6" />
+        {/* broomstick leading right + solid bristle fan */}
+        <path d="M55 86 L148 78 L148 86 L55 94 Z" />
+        <path d="M66 90 L2 72 L2 108 Z" />
+        {/* cape streaming back */}
+        <path d="M84 48 L38 54 L50 66 L82 76 Z" />
+        {/* hunched cloaked body + arm to the stick + leg/boot */}
+        <path d="M102 46 C86 44 70 54 67 70 C65 80 66 90 70 95 L96 95 C102 85 103 64 102 46 Z" />
+        <path d="M90 50 L99 47 L127 80 L119 88 Z" />
+        <path d="M82 82 L94 82 L99 98 L114 98 L116 107 L90 108 Z" />
+        {/* head with hooked nose, capped by the hat */}
+        <ellipse cx="106" cy="39" rx="10" ry="10" />
+        <path d="M110 35 L131 45 L110 48 Z" />
+        <path d="M84 27 L122 31 L122 38 L84 34 Z" />
+        <path d="M91 0 L87 33 L120 35 Z" />
+      </g>
+    )
+  },
+  // Gandalf's cart arriving in the Shire — pony leading right, two-wheel cart
+  // stacked with fireworks, a tall-hatted driver holding the reins.
+  cart: {
+    band: 'ground',
+    viewBox: '0 0 170 100',
+    body: (
+      <g>
+        {/* cart: big wheel, bed, shaft to the pony */}
+        <circle cx="42" cy="72" r="26" />
+        <rect x="4" y="54" width="94" height="17" rx="3" />
+        <rect x="90" y="58" width="34" height="9" rx="3" />
+        {/* fireworks load: leaning rocket + crates */}
+        <path d="M12 32 L1 8 L9 4 L20 28 Z" />
+        <rect x="6" y="30" width="26" height="28" rx="2" />
+        <rect x="9" y="15" width="20" height="18" rx="2" />
+        {/* Gandalf: torso, head, hat brim + cone, arm to the reins */}
+        <path d="M58 68 C57 50 62 38 70 34 L82 34 C86 42 86 54 84 68 Z" />
+        <circle cx="74" cy="26" r="8" />
+        <ellipse cx="75" cy="19" rx="16" ry="5" />
+        <path d="M62 21 L88 21 L82 0 Z" />
+        <path d="M76 38 L98 54 L94 62 L73 47 Z" />
+        {/* pony: body, tail, neck+head leading right, ear, legs */}
+        <ellipse cx="130" cy="60" rx="28" ry="15" />
+        <path d="M106 49 C94 55 88 66 90 80 L98 82 C97 70 103 60 112 56 Z" />
+        <path d="M132 66 C134 52 138 42 144 30 L146 20 L152 17 L168 27 L170 33 L166 39 L154 37 C152 48 150 56 149 66 Z" />
+        <path d="M146 20 L153 17 L149 6 Z" />
+        <path d="M105 60 L102 97 L110 97 L115 62 Z" />
+        <path d="M116 62 L114 97 L122 97 L126 64 Z" />
+        <path d="M135 62 L139 97 L147 97 L145 62 Z" />
+        <path d="M148 56 L158 97 L166 97 L156 56 Z" />
       </g>
     )
   }
