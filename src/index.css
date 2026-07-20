@@ -1075,15 +1075,6 @@ h2 {
 }
 
 /* ── Footer ────────────────────────────────────────────────── */
-.app-footer {
-  width: 100%;
-  max-width: 1600px;
-  margin-top: 20px;
-  padding: 16px 20px 0;
-  text-align: center;
-  color: rgba(255,255,255,0.25);
-  font-size: clamp(0.7rem, 1vw, 0.82rem);
-}
 
 
 /* ╔═══════════════════════════════════════════════════════════╗
