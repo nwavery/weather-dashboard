@@ -92,10 +92,6 @@ export default function App() {
             />
           ))}
         </div>
-        <footer className="app-footer">
-          Weather &amp; air quality via Open-Meteo · Pollen via Google Pollen API · Icons via OpenWeatherMap
-          · Background: tonight's sky (Yale Bright Star Catalog via d3-celestial)
-        </footer>
       </div>
     </UnitsProvider>
   );
