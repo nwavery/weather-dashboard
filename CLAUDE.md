@@ -15,3 +15,9 @@ Before describing a PR or reasoning about what a branch actually changes:
   `get_files` / `get_diff`, which GitHub computes against the live base.
 
 Write the PR body from that real diff, not from `git log` against a stale ref.
+
+## Live deployment
+
+The app is deployed to Firebase Hosting at **https://skyglance.web.app** with
+continuous deployment from `main`. Use this URL to verify changes have landed
+after merging PRs.
