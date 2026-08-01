@@ -9,14 +9,32 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0b1020" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <!--
+      The web font and the icon font live on third-party CDNs, and a stylesheet
+      is render-blocking by default: if either CDN is slow or unreachable, an
+      always-on display sits on a blank page waiting for it. `media="print"`
+      makes the browser fetch them at low priority without blocking the first
+      paint, and the onload handler promotes them to `all` once they arrive.
+      Text paints immediately in the fallback face (the font URL already asks
+      for display=swap) and the icon slots hold their width (see `.metric i`),
+      so nothing jumps when they land. The service worker caches both, so on
+      every load after the first they're already local.
+      No <noscript> fallback: the dashboard is a React app and renders nothing
+      without JS, so there's no scenario where these matter but scripts don't.
+    -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      media="print"
+      onload="this.media='all'"
     />
   </head>
   <body>

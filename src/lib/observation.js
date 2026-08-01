@@ -8,11 +8,16 @@
 // points (no station) and any API hiccup resolve to null, leaving the model's
 // value untouched.
 
+import { persistentCache } from './persistentCache.js';
+
 const STATION_TTL_MS = 24 * 60 * 60 * 1000; // the nearest station is stable
 const OBS_TTL_MS = 2 * 60 * 1000; // don't re-pull the obs faster than this
 export const OBS_MAX_AGE_MS = 90 * 60 * 1000; // ignore observations older than this
 
-const stationCache = new Map();
+// Which station is nearest a point doesn't change, and resolving it costs two
+// chained API calls — so it outlives a reload. The observations themselves
+// stay in memory: a 2-minute TTL is worth nothing across a restart.
+const stationCache = persistentCache('sg:station', { ttlMs: STATION_TTL_MS });
 const obsCache = new Map();
 const NWS_HEADERS = { Accept: 'application/geo+json' };
 const FETCH_TIMEOUT_MS = 8000; // never let a slow NWS call stall the whole refresh
@@ -30,8 +35,10 @@ async function nwsFetch(url) {
 // Resolve (and cache) the nearest observation station for a point.
 async function nearestStation(latitude, longitude) {
   const key = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+  // Wrapped rather than stored bare so a cached "no station here" (every
+  // non-US point) is a hit and not re-queried on every refresh.
   const hit = stationCache.get(key);
-  if (hit && hit.expires > Date.now()) return hit.data;
+  if (hit) return hit.station;
 
   const ptRes = await nwsFetch(`https://api.weather.gov/points/${latitude.toFixed(4)},${longitude.toFixed(4)}`);
   if (!ptRes.ok) throw new Error(`points ${ptRes.status}`);
@@ -45,7 +52,7 @@ async function nearestStation(latitude, longitude) {
     ? { id: props.stationIdentifier, name: props.name || props.stationIdentifier }
     : null;
 
-  stationCache.set(key, { expires: Date.now() + STATION_TTL_MS, data: station });
+  stationCache.set(key, { station });
   return station;
 }
 

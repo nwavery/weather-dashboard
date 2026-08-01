@@ -2,13 +2,16 @@
 // forward/reverse geocoding. Lightweight in-memory caches keep refreshes cheap.
 import { formatDateYYYYMMDD } from './format.js';
 import { fetchWithTimeout } from './fetchTimeout.js';
+import { persistentCache } from './persistentCache.js';
 
 const HISTORICAL_LOOKBACK_YEARS = 10;
 const AQ_TTL_MS = 15 * 60 * 1000; // 15 min
 const HIST_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
 
 const aqCache = new Map();
-const histCache = new Map();
+// The decade-wide archive scan is the most expensive call we make and its
+// answer doesn't change for the rest of the day, so it outlives a reload.
+const histCache = persistentCache('sg:hist', { ttlMs: HIST_TTL_MS });
 
 // Open-Meteo requires a valid IANA timezone. A missing/blank value would be
 // serialized as the literal string "undefined" and rejected with HTTP 400, so
@@ -51,14 +54,17 @@ export async function fetchAirQuality(location) {
 
 // Average mean temp on today's month/day over the last N years (excludes this year).
 export async function fetchHistoricalAverage(location) {
-  const cacheKey = `${location.latitude},${location.longitude}:${location.timeZone}`;
-  const cached = histCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.data;
-
   const tz = location.timeZone;
   const todayStr = formatDateYYYYMMDD(new Date(), tz);
   const mmdd = todayStr.substring(5);
   const currentYear = parseInt(todayStr.substring(0, 4), 10);
+
+  // The date is part of the key, not just the TTL: this is the average for
+  // *today's* month/day, so an entry cached last night must not be reused
+  // after local midnight even though its 12 h TTL hasn't run out.
+  const cacheKey = `${location.latitude},${location.longitude}:${tz}:${todayStr}`;
+  const cached = histCache.get(cacheKey);
+  if (cached) return cached;
 
   const end = new Date();
   end.setDate(end.getDate() - 1); // yesterday, to avoid a partial current day
@@ -91,9 +97,7 @@ export async function fetchHistoricalAverage(location) {
   }
   if (count === 0) throw new Error('No matching historical days');
 
-  const result = { baseline: sum / count, years: count };
-  histCache.set(cacheKey, { expires: Date.now() + HIST_TTL_MS, data: result });
-  return result;
+  return histCache.set(cacheKey, { baseline: sum / count, years: count });
 }
 
 export async function geocodeCity(name) {

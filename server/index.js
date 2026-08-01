@@ -17,6 +17,16 @@ app.get('/api/healthz', (_req, res) => res.json({ ok: true }));
 // Pollen proxy — the only endpoint that touches the Google API key.
 app.get('/api/pollen', pollenHandler);
 
+// The service worker decides how everything else is cached, so a stale copy is
+// the one file another deploy can't fix. Modern browsers already bypass the
+// HTTP cache when checking a worker for updates; this makes it explicit.
+app.get('/sw.js', (_req, res) => {
+  res.sendFile(path.join(DIST, 'sw.js'), {
+    cacheControl: false,
+    headers: { 'Cache-Control': 'no-cache' }
+  });
+});
+
 // Content-hashed build assets (dist/assets/*) are immutable — cache hard.
 app.use(
   '/assets',

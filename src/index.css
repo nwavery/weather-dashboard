@@ -701,6 +701,17 @@ h2 {
   font-size: clamp(0.78rem, 1.3vw, 0.88rem);
 }
 
+/* Font Awesome is loaded asynchronously so a slow CDN can't block the first
+   paint (see index.html). Until it lands these <i> elements have no glyph and
+   would collapse to zero width, reflowing every icon row when it arrives — so
+   reserve the slot up front. */
+i.fas {
+  display: inline-block;
+  min-width: 1.05em;
+  text-align: center;
+  font-style: normal;
+}
+
 .metric i {
   font-size: clamp(1rem, 1.8vw, 1.3rem);
   margin-bottom: 1px;
