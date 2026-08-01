@@ -1,0 +1,6 @@
+<resources>
+    <color name="sky_top">#FF0B1020</color>
+    <color name="sky_bottom">#FF111A33</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#FF1E63B5</color>
+</resources>
