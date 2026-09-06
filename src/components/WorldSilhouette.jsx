@@ -181,6 +181,28 @@ const SHAPES = {
         <path d="M148 56 L158 97 L166 97 L156 56 Z" />
       </g>
     )
+  },
+  // DeLorean time machine (Hill Valley) — low wedge profile with the nose
+  // leading right, flat roof, Mr. Fusion drum + cap and a vent stack on the
+  // rear deck, two wheels sunk into the body. The fire trails are world-scoped
+  // CSS (.fic-hill-valley) so the single-colour fill rule holds.
+  delorean: {
+    band: 'ground',
+    viewBox: '0 0 160 64',
+    body: (
+      <g>
+        {/* rear face → rear deck → cabin → windshield → hood → nose */}
+        <path d="M4 52 L4 34 L34 30 L54 12 L90 12 L116 28 L150 34 L156 40 L156 52 Z" />
+        {/* Mr. Fusion drum (sunk into the deck) + cap */}
+        <rect x="8" y="18" width="18" height="18" rx="3" />
+        <rect x="12" y="8" width="10" height="12" rx="2" />
+        {/* flux vent stack behind the cabin */}
+        <rect x="27" y="20" width="9" height="13" rx="2" />
+        {/* wheels */}
+        <circle cx="36" cy="50" r="12" />
+        <circle cx="122" cy="50" r="12" />
+      </g>
+    )
   }
 };
 

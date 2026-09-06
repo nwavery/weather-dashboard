@@ -1260,8 +1260,36 @@ i.fas {
   0%   { transform: translateX(-15%) translateY(22px); }
   100% { transform: translateX(calc(100vw + 15%)) translateY(-46px); }
 }
+/* Hill Valley: twin fire trails streaming LEFT (behind) the DeLorean. They ride
+   the animated container so they travel with the car, and sit behind the svg
+   (z-index -1 inside the container's filter stacking context) so they pour out
+   from under the rear wheel. Two tracks at slightly different heights = near/far
+   tyre in perspective. Plain alpha, no blend mode: the container's drop-shadow
+   filter isolates blending anyway. */
+.fic-hill-valley .world-silhouette--ground::before,
+.fic-hill-valley .world-silhouette--ground::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: 84%;
+  width: 220%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to left, rgba(255, 220, 120, 0.95), rgba(255, 140, 30, 0.8) 25%, rgba(255, 70, 10, 0.35) 60%, rgba(255, 60, 10, 0) 100%);
+  box-shadow: 0 0 6px 1px rgba(255, 140, 40, 0.5);
+  transform-origin: right center;
+  animation: fx-trail-flicker 0.28s ease-in-out infinite alternate;
+}
+.fic-hill-valley .world-silhouette--ground::before { top: 63%; }
+.fic-hill-valley .world-silhouette--ground::after  { top: 72%; animation-delay: -0.14s; }
+@keyframes fx-trail-flicker {
+  from { opacity: 0.7; transform: scaleX(0.96); }
+  to   { opacity: 1;   transform: scaleX(1); }
+}
 @media (prefers-reduced-motion: reduce) {
   .world-silhouette { animation: none; left: 8%; }
+  .fic-hill-valley .world-silhouette--ground::before,
+  .fic-hill-valley .world-silhouette--ground::after { animation: none; }
 }
 
 .world-effects-wrap {
@@ -2293,6 +2321,107 @@ html.tv .event-banner-name { font-size: clamp(1.25rem, 2.1vw, 2rem); }
   100% { transform: translate(var(--fx-drift, 20px), 114vh) rotate(320deg); opacity: 0; }
 }
 
+/* ── New fx kinds: courthouse / clocktower (Hill Valley) ─────────
+   The courthouse tower is the ambient landmark (hands stopped at 10:04);
+   with the strike parts added it is the "Lightning strikes the clock tower"
+   event. Tower, bolt column and spark origin share one size so the bolt tip
+   always lands on the spire, whatever the card size. */
+.fx-clock-tower, .fx-clock-strike, .fx-clock-sparks {
+  /* Sized to the strip below the frosted section boxes (≈9% of a card): the
+     boxes' backdrop blur erases anything behind them, so the courthouse is
+     wide and squat (5:3, the tower viewBox) rather than tall. */
+  --tower-h: clamp(54px, 7.5vw, 84px);
+  --tower-w: calc(var(--tower-h) * 5 / 3);
+  --tower-y: 1%;                           /* base sits just above the card edge */
+  right: 4%;
+}
+.fx-clock-tower {
+  bottom: var(--tower-y);
+  width: var(--tower-w);
+  height: var(--tower-h);
+  /* rim light so the dark stone still reads under the bottom scrim */
+  filter: drop-shadow(0 0 5px rgba(var(--event-rgb, 120, 200, 255), 0.45));
+}
+/* During the strike the breathing .event-glow (screen blend, strongest at the
+   bottom corners) lightens dark stone until the shaft disappears into the sky.
+   Screen can never lighten past white, so a crisp white rim keeps the tower's
+   outline through every beat — lit by the lightning, as it should be. */
+.card--event .fx-clock-tower {
+  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 8px rgba(var(--event-rgb, 120, 200, 255), 0.8));
+}
+.fx-clock-tower svg, .fx-clock-strike svg { display: block; width: 100%; height: 100%; }
+.fx-clock-stone { fill: rgb(8, 10, 20); }                 /* same ink as .world-silhouette */
+.fx-clock-face  { fill: rgba(236, 242, 255, 0.92); }
+.fx-clock-hands { fill: none; stroke: rgb(8, 10, 20); stroke-width: 3; stroke-linecap: round; }
+
+.fx-clock-strike {
+  top: -2%;
+  bottom: calc(var(--tower-y) + var(--tower-h));
+  width: var(--tower-w);
+  mix-blend-mode: screen;
+}
+.fx-clock-strike svg { overflow: visible; }
+.fx-clock-bolt {
+  fill: none;
+  stroke: #fff;                              /* white core reads on a day sky and a night sky alike */
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px rgba(var(--event-rgb, 120, 200, 255), 1)) drop-shadow(0 0 14px rgba(var(--event-rgb, 120, 200, 255), 0.8));
+  animation: fx-clock-burst-a 5s linear infinite;
+}
+.fx-clock-bolt--b { stroke-width: 2px; stroke: rgb(220, 240, 255); animation-name: fx-clock-burst-b; }
+/* Each bolt: 2-3 quick flashes, then dark. The wash is the union of both
+   bursts on the same 5 s clock, so every flash has a bolt. */
+@keyframes fx-clock-burst-a {
+  0%, 5.9% { opacity: 0; }  6% { opacity: 1; }  7.6% { opacity: 0; }
+  9% { opacity: 0.85; }  10.4% { opacity: 0; }  12.6% { opacity: 1; }
+  15.5%, 100% { opacity: 0; }
+}
+@keyframes fx-clock-burst-b {
+  0%, 55.9% { opacity: 0; }  56% { opacity: 1; }  57.8% { opacity: 0; }
+  60.2% { opacity: 0.9; }  63%, 100% { opacity: 0; }
+}
+.fx-clock-wash {
+  inset: 0;
+  background: rgba(var(--event-rgb, 120, 200, 255), 0.5);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: fx-clock-wash-strobe 5s linear infinite;
+}
+@keyframes fx-clock-wash-strobe {
+  0%, 5.9% { opacity: 0; }  6% { opacity: 0.7; }  7.6% { opacity: 0; }
+  9% { opacity: 0.45; }  10.4% { opacity: 0; }  12.6% { opacity: 0.8; }
+  15.5%, 55.9% { opacity: 0; }  56% { opacity: 0.7; }  57.8% { opacity: 0; }
+  60.2% { opacity: 0.5; }  63%, 100% { opacity: 0; }
+}
+.fx-clock-sparks {
+  right: calc(4% + var(--tower-w) / 2);
+  bottom: calc(var(--tower-y) + var(--tower-h));
+  width: 0;
+  height: 0;
+}
+.fx-clock-spark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle, #fff 0%, rgb(var(--event-rgb, 120, 200, 255)) 50%, transparent 100%);
+  box-shadow: 0 0 6px 1px rgba(var(--event-rgb, 120, 200, 255), 0.85);
+  animation: fx-clock-scatter 5s ease-out var(--fx-delay, 0s) infinite;
+}
+@keyframes fx-clock-scatter {
+  0%, 6%    { transform: translate(0, 0); opacity: 0; }
+  6.5%      { opacity: 1; }
+  20%, 100% { transform: translate(var(--fx-dx), calc(var(--fx-dy) + 16px)); opacity: 0; }
+}
+/* The bolts ARE the lightning: drop the generic 7 s sky strobe during the
+   strike so no flash lacks a bolt. */
+.fic-hill-valley.card--event .lightning-flash { display: none; }
+
 /* ── Per-world event reskins (existing kinds, new costumes) ─────── */
 /* Podracers: Coruscant's skylane streaks become engine-glow racers.
    Scoped by world class, so Coruscant's own traffic is untouched. */
@@ -2337,4 +2466,7 @@ html.tv .event-banner-name { font-size: clamp(1.25rem, 2.1vw, 2rem); }
   .event-glow { opacity: 0.85; }
   .fx-beam, .fx-jelly, .fx-donut { animation: none; opacity: 0.5; }
   .fic-jurassic-park.card--event .sky-bg { animation: none; }
+  /* one frozen bolt on the spire, the tower stays */
+  .fx-clock-bolt, .fx-clock-wash, .fx-clock-spark { animation: none; }
+  .fx-clock-bolt--a { opacity: 0.55; }
 }
