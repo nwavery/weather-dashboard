@@ -645,6 +645,69 @@ function Donuts() {
   );
 }
 
+// Hill Valley's courthouse clock tower, hands stopped at 10:04 since 1955 —
+// the town's landmark, anchored bottom-right. With `strike` it becomes the
+// "Lightning strikes the clock tower" takeover: two bolts strobe onto the
+// spire, a screen-blended wash flashes the whole card in sync, and electric
+// sparks scatter from the impact. Colour keys off --event-rgb like Beams.
+// Tower, bolt column and spark origin share --tower-w/--tower-h in CSS, so the
+// bolt tip stays on the spire at every card size.
+function Clocktower({ strike }) {
+  const sparks = useMemo(
+    () =>
+      Array.from({ length: 16 }, (_, i) => {
+        const a = ((-165 + Math.random() * 150) * Math.PI) / 180; // fan up and left of the spire
+        const d = 22 + Math.random() * 46;
+        return { id: i, size: 2 + Math.random() * 2.5, dx: Math.cos(a) * d, dy: Math.sin(a) * d, delay: Math.random() * 0.25 };
+      }),
+    []
+  );
+  return (
+    <>
+      {strike ? <div className="fx-clock-wash" /> : null}
+      {strike ? (
+        <div className="fx-clock-strike">
+          {/* both bolts end at the column's bottom-centre = the spire */}
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polyline className="fx-clock-bolt fx-clock-bolt--a" vectorEffect="non-scaling-stroke" points="62,0 44,28 64,38 38,66 58,74 50,100" />
+            <polyline className="fx-clock-bolt fx-clock-bolt--b" vectorEffect="non-scaling-stroke" points="24,0 50,26 34,46 60,68 46,84 50,100" />
+          </svg>
+        </div>
+      ) : null}
+      {strike ? (
+        <div className="fx-clock-sparks">
+          {sparks.map((s) => (
+            <i
+              key={s.id}
+              className="fx-clock-spark"
+              style={{ width: `${s.size}px`, height: `${s.size}px`, '--fx-dx': `${s.dx}px`, '--fx-dy': `${s.dy}px`, '--fx-delay': `${s.delay}s` }}
+            />
+          ))}
+        </div>
+      ) : null}
+      <div className="fx-clock-tower">
+        {/* Wide and squat on purpose: the tower lives in the strip below the
+            frosted section boxes (anything behind them blurs away), so the
+            courthouse spreads sideways and the clock face stays large. */}
+        <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMax meet">
+          <g className="fx-clock-stone">
+            {/* courthouse block, pediment, tower shaft, pyramid roof, spire (tip at 100,0) */}
+            <path d="M0 120 L0 80 L200 80 L200 120 Z" />
+            <path d="M10 82 L10 72 L190 72 L190 82 Z" />
+            <path d="M82 84 L82 30 L118 30 L118 84 Z" />
+            <path d="M76 34 L100 6 L124 34 Z" />
+            <rect x="97" y="0" width="6" height="12" />
+          </g>
+          {/* 10:04 — minute hand 24° past twelve, hour hand just past ten */}
+          <circle className="fx-clock-face" cx="100" cy="56" r="14" />
+          <path className="fx-clock-hands" d="M100 56 L104.1 46.9 M100 56 L94.1 52.3" />
+          <circle className="fx-clock-stone" cx="100" cy="56" r="2" />
+        </svg>
+      </div>
+    </>
+  );
+}
+
 const EFFECTS = {
   bubbles: Bubbles,
   embers: Embers,
@@ -665,6 +728,8 @@ const EFFECTS = {
   beams: Beams,
   jellies: Jellies,
   donuts: Donuts,
+  courthouse: () => <Clocktower strike={false} />,
+  clocktower: () => <Clocktower strike />,
 };
 
 export function WorldEffects({ kind }) {

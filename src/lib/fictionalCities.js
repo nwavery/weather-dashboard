@@ -11,14 +11,15 @@ import { worldDayFraction } from './sun.js';
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-// "Now" expressed as the wall-clock in `tz`, so generated hourly/daily times match
-// the location's local time — exactly like Open-Meteo returns for real cities.
-function nowInZone(tz) {
-  if (!tz) return new Date();
+// The instant `ms` expressed as the wall-clock in `tz`, so generated hourly/daily
+// times match the location's local time — exactly like Open-Meteo returns for
+// real cities.
+function nowInZone(tz, ms = Date.now()) {
+  if (!tz) return new Date(ms);
   try {
-    return new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+    return new Date(new Date(ms).toLocaleString('en-US', { timeZone: tz }));
   } catch {
-    return new Date();
+    return new Date(ms);
   }
 }
 
@@ -96,7 +97,11 @@ const clampN = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 // Each event carries a takeover skin: `accent` ('R,G,B') re-keys the card frame,
 // glow, banner, and hourly tick; `pulse` is the breathing-glow period (each
 // event's heartbeat — a 5s whalesong swell vs a 1.15s containment klaxon); and
-// every event has an `effect` so all twelve read as their OWN spectacle.
+// every event has an `effect` so each one reads as its OWN spectacle.
+// Optional extras: `always` lists local 'MM-DD' dates on which the event is
+// guaranteed (the chance gate is skipped), and `mood` is a WMO code the world's
+// weather is held at while the event runs — for spectacles that ARE weather (a
+// lightning storm), so the sky, the hourly strip and the banner all agree.
 const EVENTS = {
   mordor: { chance: 1.0, window: [8, 22], emoji: '🌋', name: 'Mt. Doom erupts', tagline: 'ERUPTION · Mt. Doom Awakens', effect: 'eruption', accent: '255,90,31', pulse: '2.4s' },
   'mos-eisley': { chance: 0.5, window: [11, 16], emoji: '🏁', name: 'Podrace day', tagline: 'PODRACE · Watch For Banking Racers', effect: 'traffic', accent: '255,196,72', pulse: '1.6s' },
@@ -109,7 +114,10 @@ const EVENTS = {
   'the-shire': { chance: 0.4, window: [20, 23], emoji: '🎆', name: "Gandalf's fireworks", tagline: 'FIREWORKS · A Long-Expected Party', effect: 'fireworks', accent: '199,125,255', pulse: '2.6s' },
   'bikini-bottom': { chance: 0.5, window: [10, 16], emoji: '🐙', name: 'Jellyfish bloom', tagline: 'JELLYFISH FIELDS · Bloom Migration', effect: 'jellies', accent: '255,138,194', pulse: '4s' },
   'halloween-town': { chance: 1.0, window: [19, 23], emoji: '🎃', name: 'Lighting of the Pumpkin', tagline: 'PUMPKIN LIT · The Town Gathers', effect: 'pumpkin', accent: '255,140,26', pulse: '1.8s' },
-  springfield: { chance: 0.5, window: [8, 12], emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts', effect: 'donuts', accent: '255,122,184', pulse: '2.4s' }
+  springfield: { chance: 0.5, window: [8, 12], emoji: '🍩', name: 'Donut day', tagline: 'DONUT DAY · Mmm… Donuts', effect: 'donuts', accent: '255,122,184', pulse: '2.4s' },
+  // window [22, 23] pins the start to exactly 10 PM; `always` makes it certain
+  // on Nov 12 (the 1955 storm); `mood` 95 makes the storm real while it runs.
+  'hill-valley': { chance: 0.35, window: [22, 23], always: ['11-12'], mood: 95, emoji: '⚡', name: 'Lightning strikes the clock tower', tagline: '10:04 PM · 1.21 GIGAWATTS', effect: 'clocktower', accent: '120,200,255', pulse: '1.21s' }
 };
 
 const EVENT_GATE = 0xabcdef01;
@@ -133,23 +141,30 @@ function hourInZone(ms, tz) {
   }
 }
 
-// Day number for `ms` in the given timezone. The event gate/start must be keyed
-// on the world's LOCAL day: keying on the UTC day flips mid-evening for zones
-// whose window straddles UTC midnight (e.g. New York), which could schedule two
-// adjacent starts and merge into a 3-4 hour run.
+// Local calendar date ('YYYY-MM-DD') for `ms` in the given timezone, or null
+// when the zone is missing/invalid (callers fall back to UTC).
 const dayFmtCache = new Map();
-function dayInZone(ms, tz) {
-  if (!tz) return Math.floor(ms / 86400e3);
+function localDate(ms, tz) {
+  if (!tz) return null;
   try {
     let fmt = dayFmtCache.get(tz);
     if (!fmt) {
       fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
       dayFmtCache.set(tz, fmt);
     }
-    return Math.floor(Date.parse(`${fmt.format(new Date(ms))}T00:00:00Z`) / 86400e3);
+    return fmt.format(new Date(ms));
   } catch {
-    return Math.floor(ms / 86400e3);
+    return null;
   }
+}
+
+// Day number for `ms` in the given timezone. The event gate/start must be keyed
+// on the world's LOCAL day: keying on the UTC day flips mid-evening for zones
+// whose window straddles UTC midnight (e.g. New York), which could schedule two
+// adjacent starts and merge into a 3-4 hour run.
+function dayInZone(ms, tz) {
+  const date = localDate(ms, tz);
+  return date ? Math.floor(Date.parse(`${date}T00:00:00Z`) / 86400e3) : Math.floor(ms / 86400e3);
 }
 
 // Is `ms` inside the event's START hour for its day? The start is picked from
@@ -160,7 +175,11 @@ function eventStartAt(id, ms) {
   const seed = hashStr(id);
   const tz = byId(id)?.timeZone;
   const day = dayInZone(ms, tz);
-  if (rand01(seed ^ EVENT_GATE, day) >= spec.chance) return null;
+  // `always`: local 'MM-DD' dates on which the chance gate is skipped and the
+  // event is guaranteed (Hill Valley's Nov 12). Falls back to the gate when the
+  // local date can't be resolved.
+  const sure = !!spec.always?.includes(localDate(ms, tz)?.slice(5));
+  if (!sure && rand01(seed ^ EVENT_GATE, day) >= spec.chance) return null;
   const [lo, hi] = spec.window || [0, 23];
   const target = lo + Math.floor(rand01(seed ^ EVENT_HOUR, day) * Math.max(1, hi - lo));
   return hourInZone(ms, tz) === target ? spec : null;
@@ -176,7 +195,10 @@ export function eventForHour(id, ms) {
   return eventStartAt(id, ms) || eventStartAt(id, ms - 3600e3);
 }
 
-function makeWeather(c) {
+// `nowMs` is the instant to generate for (defaults to the real clock; tests pin
+// it). `forced` is a preview event (?worldevent=) that the schedule wouldn't
+// produce on its own — it gets the same weather treatment as a scheduled one.
+function makeWeather(c, nowMs = Date.now(), forced = null) {
   const { temp, code, feels, humidity, dew, wind, windDir, uv, precipProb } = c.weather;
   const dyn = c.dyn || {};
   const seed = hashStr(c.id);
@@ -190,8 +212,7 @@ function makeWeather(c) {
   const drift = dyn.drift ?? 4;
   const moods = dyn.moods || [code];
 
-  const nowMs = Date.now();
-  const now = nowInZone(c.timeZone);
+  const now = nowInZone(c.timeZone, nowMs);
 
   // Cycling worlds interpolate between their day temp (`weather.temp`) and a
   // `tempNight`, tracking the sun's height so warmth and the day/night label move
@@ -209,7 +230,9 @@ function makeWeather(c) {
     return temp + (amp / 2) * diurnal(zoned) + jitter;
   };
 
-  const curCode = moodAt(seed, nowMs, moods);
+  // An event with a `mood` (Hill Valley's storm) overrides the mood beat while
+  // it runs, so the sky shows the spectacle's weather rather than a random beat.
+  const curCode = forced?.mood ?? eventForHour(c.id, nowMs)?.mood ?? moodAt(seed, nowMs, moods);
   const curTemp = tempAt(nowMs, now);
   const wob = noise1(seed ^ 0x77f3, nowMs / (4 * 3600e3)); // humidity/wind channel
 
@@ -254,7 +277,8 @@ function makeWeather(c) {
   for (let i = 0; i < 24; i++) {
     const t = new Date(base.getTime() + i * 3600 * 1000);
     const hMs = baseMs + i * 3600e3;
-    const hCode = moodAt(seed, hMs, moods);
+    const ev = eventForHour(c.id, hMs);
+    const hCode = ev?.mood ?? moodAt(seed, hMs, moods);
     hourly.time.push(`${isoDate(t)}T${pad(t.getHours())}:00`);
     hourly.temperature_2m.push(Math.round(tempAt(hMs, t)));
     hourly.weather_code.push(hCode);
@@ -264,7 +288,6 @@ function makeWeather(c) {
       prob = Math.max(prob, Math.round(curProb * TAPER[i]));
     }
     hourly.precipitation_probability.push(prob);
-    const ev = eventForHour(c.id, hMs);
     hourly.special.push(ev ? { emoji: ev.emoji, name: ev.name } : null);
   }
 
@@ -508,6 +531,20 @@ const CITIES = [
     air: { us_aqi: 18, pm2_5: 4, ozone: 26 }, pollen: pollen(2, 1, 4), historical: { baseline: 52, years: 10 }
   },
   {
+    // Back to the Future — the one town whose whole story is a clock and a
+    // lightning storm, on a clock-and-weather display. Petaluma, CA (the filming
+    // stand-in) supplies the real sun. The courthouse tower (hands stopped at
+    // 10:04) is the ambient effect; the 10 PM strike is the rare event.
+    id: 'hill-valley', name: 'Hill Valley', world: 'California, 1985', timeZone: 'America/Los_Angeles',
+    aliases: ['hill valley', 'back to the future', 'bttf', 'delorean', 'mcfly', 'doc brown'], realSun: true, lat: 38.23, lon: -122.64,
+    gradient: 'linear-gradient(to bottom,#1b3d7a 0%,#3f7fc4 28%,#8ec2e8 52%,#f2c78a 76%,#f08a4b 100%)',
+    anim: null, phase: 'day', condition: 'Cruising · 88 MPH', conditionNight: 'Electric · Save The Clock Tower', effect: 'courthouse',
+    weather: ({ temp: 72, code: 1, feels: 72, humidity: 48, dew: 50, wind: 9, windDir: 290, uv: 7 }),
+    dyn: { amp: 12, drift: 4, moods: [1, 0, 2, 3, 61] },
+    // years: 30 on purpose — the card reads "vs 30y avg", the 1955 ↔ 1985 gap.
+    air: { us_aqi: 34, pm2_5: 8, ozone: 44 }, pollen: pollen(2, 3, 2), historical: { baseline: 70, years: 30 }
+  },
+  {
     // Hidden Easter egg: "Springfield" is a real city (many of them), so it must
     // geocode normally. Reachable only via the 'simpsons'/'homer' aliases, kept
     // off the datalist and out of the rotation (see `hidden`).
@@ -577,20 +614,21 @@ function forcedEvent(id) {
   }
 }
 
-export function fictionalStateFor(id) {
+export function fictionalStateFor(id, nowMs = Date.now()) {
   const c = byId(id);
   if (!c) return null;
+  const forced = forcedEvent(id);
   return {
     loading: false,
-    weather: makeWeather(c),
+    weather: makeWeather(c, nowMs, forced),
     weatherError: null,
     air: c.air,
     pollen: c.pollen,
     pollenError: null,
     historical: c.historical,
     // The rare world event happening RIGHT NOW (Mt. Doom mid-eruption), if any.
-    event: forcedEvent(id) || eventForHour(id, Date.now()),
-    updatedAt: new Date()
+    event: forced || eventForHour(id, nowMs),
+    updatedAt: new Date(nowMs)
   };
 }
 
@@ -737,6 +775,13 @@ const WORLD_EXTRAS = {
     air: { title: 'Crisp Air & Spirits', aqi: 'Spookiness', pm: 'Fog', ozone: 'Mist' },
     pollen: { tree: 'Deadwood', grass: 'Cobweb', weed: 'Ragweed' },
     dispatches: ['Jack is planning something big', 'The pumpkins are grinning wider', 'Something wicked this way comes', 'Trick-or-treaters on the prowl', "Zero's out for a midnight flight", "The Mayor can't make up his mind", 'Bats in the belfry tonight', 'Boils and ghouls assembling in the square']
+  },
+  'hill-valley': {
+    silhouette: 'delorean',
+    metrics: { humidity: 'Humidity', dew: 'Dew Point', wind: 'Tailwind', uv: 'Sun Glare' },
+    air: { title: 'Air & Plutonium', aqi: 'Plutonium', pm: 'Tire Smoke', ozone: 'Ozone' },
+    pollen: { tree: 'Twin Pines', grass: 'Lawn', weed: 'Ragweed' },
+    dispatches: ['Save the clock tower!', 'Doc is up to something in the garage', 'Biff is waxing the car again', 'Enchantment Under the Sea dance tonight', 'The courthouse clock still reads 10:04', 'Fresh skid marks and fire on the county road', "Where we're going, we don't need roads", 'Great Scott!']
   },
   springfield: {
     metrics: { uv: 'UV Index' },
