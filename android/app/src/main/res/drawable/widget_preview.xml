@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="110dp"
+    android:height="110dp"
+    android:viewportWidth="110"
+    android:viewportHeight="110">
+    <!-- Full-bleed sky (launcher rounds the corners) -->
+    <path
+        android:fillColor="#FF2E6FB5"
+        android:pathData="M0,0 H110 V110 H0 Z" />
+    <!-- Sun -->
+    <path
+        android:fillColor="#FFFFE082"
+        android:pathData="M30,32 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0z" />
+    <!-- Temperature placeholder -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16,62 H64 V74 H16 Z" />
+    <path
+        android:fillColor="#CCFFFFFF"
+        android:pathData="M16,82 H86 V90 H16 Z" />
+</vector>
