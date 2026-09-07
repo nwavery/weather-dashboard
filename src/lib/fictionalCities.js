@@ -7,6 +7,7 @@
 
 import { effectiveWeatherCode } from '../data/weatherCodes.js';
 import { worldDayFraction } from './sun.js';
+import { hashStr, rand01 } from './hash.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -41,23 +42,6 @@ function probFor(code) {
 // hour to hour and day to day, but every viewer sees the same Mordor at the same
 // moment, and a reload doesn't reroll it. Each world's `dyn` config keeps the
 // evolution inside its signature envelope (it still never rains on Tatooine).
-
-function hashStr(s) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h;
-}
-
-// Integer-keyed hash → [0,1)
-function rand01(seed, k) {
-  let h = (seed ^ Math.imul(k | 0, 2654435761)) >>> 0;
-  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b) >>> 0;
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
 
 // Smooth 1-D value noise in [0,1), continuous in u
 function noise1(seed, u) {
