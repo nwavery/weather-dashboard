@@ -1,12 +1,43 @@
 import { useEffect, useRef } from 'react';
 import { STARS, CON_LINES } from '../data/starCatalog.js';
 import { lstDegrees, altAz, projectDome, starTint } from '../lib/skymap.js';
+import { skyBodies, parallaxAltitude, stepToward } from '../lib/planets.js';
 
 // The page background: the real night sky currently above `latitude/longitude`,
 // drawn as a dim zenith-centered dome (planisphere) behind the cards. North is
 // up; the horizon circle extends past the viewport so the screen sits "inside"
 // the dome. Redraws once a minute — the sky wheels with the Earth.
 const REDRAW_MS = 60 * 1000;
+const MOON_RADIUS = 6.5; // px — about twice true scale, like the stars' dots
+
+// The Moon as it looks tonight: an earthshine disc with the lit part turned
+// toward the Sun's real direction on the map (`angle`, radians) — a right-limb
+// semicircle joined to a terminator ellipse, the same construction as the
+// card's moon.
+function drawPhasedMoon(ctx, x, y, r, illum, angle) {
+  const m = 1 - 2 * illum; // > 0 crescent, < 0 gibbous
+  ctx.save();
+  ctx.translate(x, y);
+  const glow = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 3.2);
+  glow.addColorStop(0, `rgba(225,232,255,${0.06 + 0.16 * illum})`);
+  glow.addColorStop(1, 'rgba(225,232,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(150,160,195,0.16)';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  ctx.ellipse(0, 0, r * Math.abs(m), r, 0, Math.PI / 2, -Math.PI / 2, m > 0);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(248,246,236,0.9)';
+  ctx.fill();
+  ctx.restore();
+}
 
 export function SkyMapBackground({ latitude, longitude }) {
   const canvasRef = useRef(null);
@@ -26,7 +57,8 @@ export function SkyMapBackground({ latitude, longitude }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      const lst = lstDegrees(new Date(), longitude);
+      const now = new Date();
+      const lst = lstDegrees(now, longitude);
       const cx = w / 2;
       const cy = h / 2;
       // Dome radius: past the corners so the whole screen is sky (horizon
@@ -78,6 +110,52 @@ export function SkyMapBackground({ latitude, longitude }) {
           ctx.beginPath();
           ctx.arc(p.x, p.y, radius * 2.6, 0, Math.PI * 2);
           ctx.fill();
+        }
+      }
+
+      // Planets: brighter than any star (Venus ~15x Sirius), so they're drawn
+      // over the stars with a halo, sized by their real magnitude, and quietly
+      // labelled — "what's that bright star?" is the question people ask most.
+      const { sun, moon, planets } = skyBodies(now);
+      ctx.font = '11px system-ui, sans-serif';
+      for (const pl of planets) {
+        const p = place(pl.ra, pl.dec);
+        if (!p) continue;
+        const [r, g, b] = pl.tint;
+        const radius = Math.max(1.7, 2.3 - pl.mag * 0.33);
+        const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius * 4);
+        halo.addColorStop(0, `rgba(${r},${g},${b},0.32)`);
+        halo.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(${r},${g},${b},0.95)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        // Label on the side with room (flip near the right edge).
+        const right = p.x < w - 80;
+        ctx.textAlign = right ? 'left' : 'right';
+        ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
+        ctx.fillText(pl.name, p.x + (right ? 1 : -1) * (radius + 6), p.y + 4);
+      }
+      ctx.textAlign = 'start';
+
+      // The Moon, at its real place among the stars with tonight's phase. It's
+      // near enough that parallax drops it up to ~1° below its geocentric spot.
+      const mGeo = altAz(moon.ra, moon.dec, latitude, lst);
+      const mAlt = parallaxAltitude(mGeo.alt, moon.hp);
+      if (mAlt > 0) {
+        const mp = projectDome(mAlt, mGeo.az, cx, cy, R);
+        if (mp.x > -20 && mp.x < w + 20 && mp.y > -20 && mp.y < h + 20) {
+          // Which way the lit limb faces: a short step from the Moon toward the
+          // Sun, measured on the map itself.
+          const step = stepToward(moon.ra, moon.dec, sun.ra, sun.dec, 3);
+          const sAA = altAz(step.ra, step.dec, latitude, lst);
+          const from = projectDome(mGeo.alt, mGeo.az, cx, cy, R);
+          const to = projectDome(sAA.alt, sAA.az, cx, cy, R);
+          drawPhasedMoon(ctx, mp.x, mp.y, MOON_RADIUS, moon.illum, Math.atan2(to.y - from.y, to.x - from.x));
         }
       }
 
