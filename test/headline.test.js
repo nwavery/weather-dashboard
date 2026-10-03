@@ -63,6 +63,80 @@ test('not flagged when it is already precipitating (effCode is a precip code)', 
   assert.notEqual(f?.label, 'Rain imminent');
 });
 
+// ── Trace precip needs the odds behind it ─────────────────────────────────
+// Whole-hour series spanning the look-ahead, each hour at `pct` % chance.
+function hourly(pct) {
+  const h0 = base();
+  h0.setMinutes(0, 0, 0);
+  const time = [];
+  const precipitation_probability = [];
+  for (let k = -1; k <= 5; k++) {
+    time.push(naive(new Date(h0.getTime() + k * 3600000)));
+    precipitation_probability.push(pct);
+  }
+  return { time, precipitation_probability };
+}
+const labelWith = (mn, code, mm, pct) => flavor({ minutely: minutely(mn, code, mm), hourly: hourly(pct) })?.label;
+
+test('a trace of drizzle at negligible odds is not "Rain imminent" (Oct 3, Rohan)', () => {
+  // The real case: one 15-min slot of 0.1 mm WMO 51 drizzle, 2% hourly chance.
+  assert.equal(labelWith(15, 51, 0.1, 2), 'Quite dry'); // falls through to the comfort word
+});
+
+test('a trace still counts when the odds back it up', () => {
+  assert.equal(labelWith(15, 61, 0.1, 60), 'Rain imminent');
+  assert.equal(labelWith(15, 61, 0.1, 30), 'Rain imminent'); // the floor itself counts
+  assert.equal(labelWith(15, 61, 0.1, 29), 'Quite dry'); // just under it does not
+});
+
+test('a real amount still fires at low odds (the downpour exception survives)', () => {
+  assert.equal(labelWith(15, 61, 0.6, 5), 'Rain imminent');
+  assert.equal(labelWith(120, 95, 8, 5), 'Storm approaching');
+});
+
+test('snow is trusted by its code, odds or not', () => {
+  assert.equal(labelWith(15, 71, 0, 5), 'Snow imminent');
+});
+
+test('a trace thunderstorm at low odds is not a storm warning', () => {
+  assert.equal(labelWith(15, 95, 0.2, 10), 'Quite dry');
+});
+
+test('unknown odds keep the heads-up rather than hide it', () => {
+  assert.equal(label(15, 51, 0.1), 'Rain imminent'); // no hourly series at all
+  const h = hourly(2);
+  h.precipitation_probability = h.precipitation_probability.map(() => null);
+  assert.equal(flavor({ minutely: minutely(15, 51, 0.1), hourly: h })?.label, 'Rain imminent');
+});
+
+test('a slot takes the odds of the hour that contains it, not the hour before', () => {
+  // Open-Meteo labels intervals by their END: the 15-min slot "hh+1:15" covers
+  // hh+1:00-hh+1:15, which belongs to the hourly entry "hh+2:00", not "hh+1:00".
+  // (Odds stay under 70% so the separate probability-only fallback can't fire.)
+  const h0 = base();
+  h0.setMinutes(0, 0, 0);
+  const at = (min) => naive(new Date(h0.getTime() + min * 60000));
+  const slot = at(75); // hh+1:15 — never on the hour, 15-75 min from now
+  const series = (govPct, prevPct) => {
+    const minutelyS = { time: [], precipitation: [], weather_code: [] };
+    for (let k = 0; k <= 16; k++) {
+      const t = at(k * 15);
+      minutelyS.time.push(t);
+      minutelyS.precipitation.push(t === slot ? 0.1 : 0);
+      minutelyS.weather_code.push(t === slot ? 61 : 1);
+    }
+    const hourlyS = { time: [], precipitation_probability: [] };
+    for (let k = -1; k <= 5; k++) {
+      const t = at(k * 60);
+      hourlyS.time.push(t);
+      hourlyS.precipitation_probability.push(t === at(120) ? govPct : t === at(60) ? prevPct : 0);
+    }
+    return { minutely: minutelyS, hourly: hourlyS };
+  };
+  assert.equal(flavor(series(2, 60))?.label, 'Quite dry'); // its own hour says 2%
+  assert.match(flavor(series(60, 2))?.label, /^Rain (imminent|incoming)$/); // its own hour says 60%
+});
+
 test('higher-priority flavors outrank the heads-up', () => {
   assert.equal(flavor({ air: { us_aqi: 200 }, minutely: minutely(15) }).label, 'Smoky haze');
   assert.equal(

@@ -21,6 +21,9 @@ const BREWING_PROB = 70; // % chance that flags incoming precip…
 const BREWING_MM = 0.5; // …or this much forecast precip in an upcoming slot — a real
 //                          downpour can arrive on deceptively low stated odds, so the
 //                          forecast amount and weather code count too, not just the %.
+const TRACE_MIN_PROB = 30; // …but a mere trace (< BREWING_MM) of rain/drizzle/thunder needs
+//                            at least these odds. The model sprinkles 0.1 mm drizzle blips
+//                            at 1-2% chance; "Rain imminent" on one of those is a false alarm.
 const LOOKAHEAD_MIN = 180; // look this far ahead (minutes) for incoming precip
 
 const THUNDER_CODES = new Set([95, 96, 99]);
@@ -74,11 +77,29 @@ function upcomingProb(hourly, now) {
   return max;
 }
 
+// Hourly precipitation probability that governs a slot, or null when unknown.
+// Open-Meteo labels every interval by its END: the 13:00 hourly entry covers
+// 12:00-13:00, i.e. the 15-min slots labelled 12:15 through 13:00 (verified: the
+// hourly amount is exactly the sum of those four slots). So a slot belongs to the
+// first hourly entry at or after it — which, for an hourly series, is itself.
+function slotProb(hourly, slotTime) {
+  if (!hourly?.time || !hourly?.precipitation_probability) return null;
+  const t = new Date(slotTime);
+  for (let j = 0; j < hourly.time.length; j++) {
+    if (new Date(hourly.time[j]) >= t) {
+      const p = hourly.precipitation_probability[j];
+      return typeof p === 'number' ? p : null;
+    }
+  }
+  return null;
+}
+
 // Soonest upcoming precipitation the current (still-benign) sky doesn't show yet
 // — from 15-minute data when available (so "<30 min" is real, not guessed from an
 // hour bucket), falling back to hourly. Triggers on a rain/snow/thunder code or a
 // meaningful forecast amount, not just probability (a real downpour can sit at a
-// low stated chance). Returns { kind, leadMin, maxMm, maxProb } or null when the
+// low stated chance) — though a mere trace of rain/drizzle/thunder must also have
+// the odds behind it. Returns { kind, leadMin, maxMm, maxProb } or null when the
 // next few hours look dry.
 function upcomingPrecip(minutely, hourly, timeZone) {
   const now = zoneNow(timeZone);
@@ -106,7 +127,14 @@ function upcomingPrecip(minutely, hourly, timeZone) {
     // thunder codes carrying 0 mm (a forecast "thunderstorm" with no precip), so a
     // rain/thunder code only counts when it's actually wet. Snow legitimately
     // reports ~0 mm liquid-equivalent, so trust its code.
-    const wet = isSnow || m >= BREWING_MM || ((isRain || isThunder) && m > 0);
+    let wet = isSnow || m >= BREWING_MM || ((isRain || isThunder) && m > 0);
+    // A trace of rain/drizzle/thunder is a forecast blip unless the odds back it
+    // up. A real amount (>= BREWING_MM) still counts at any odds, snow is trusted
+    // by its code, and unknown odds keep the heads-up rather than hide it.
+    if (wet && !isSnow && m < BREWING_MM) {
+      const p = slotProb(hourly, times[i]);
+      if (p !== null && p < TRACE_MIN_PROB) wet = false;
+    }
     if (kind === null && wet) {
       kind = isThunder ? 'thunder' : isSnow ? 'snow' : 'rain';
       leadMin = Math.max(0, Math.round(min));
