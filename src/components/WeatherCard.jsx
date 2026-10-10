@@ -29,37 +29,7 @@ import { DailyForecast } from './DailyForecast.jsx';
 import { HourlyForecast } from './HourlyForecast.jsx';
 import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
-
-// Compact alert timing in the card's local zone. A weekday is shown whenever
-// the time isn't today, and an alert that hasn't started yet reads as an
-// upcoming window — so e.g. a heat advisory for tomorrow evening doesn't look
-// like it "ended" tonight (it used to print just "until 8:00 PM").
-function fmtTime(date, timeZone) {
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
-}
-function dayPrefix(date, timeZone, nowMs) {
-  try {
-    const dayOf = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone });
-    if (dayOf(date.getTime()) === dayOf(nowMs)) return '';
-    return `${date.toLocaleDateString('en-US', { weekday: 'short', timeZone })} `;
-  } catch {
-    return '';
-  }
-}
-function alertTiming(onsetStr, endsStr, timeZone, nowMs) {
-  try {
-    const ends = endsStr ? new Date(endsStr) : null;
-    const onset = onsetStr ? new Date(onsetStr) : null;
-    if (onset && onset.getTime() > nowMs) {
-      const start = `${dayPrefix(onset, timeZone, nowMs)}${fmtTime(onset, timeZone)}`;
-      return ends ? ` · ${start}–${fmtTime(ends, timeZone)}` : ` · from ${start}`;
-    }
-    if (ends) return ` until ${dayPrefix(ends, timeZone, nowMs)}${fmtTime(ends, timeZone)}`;
-    return '';
-  } catch {
-    return '';
-  }
-}
+import { alertTiming } from '../lib/alerts.js';
 
 // "3h 12m" / "45m" for a positive duration in ms.
 function formatDuration(ms) {
