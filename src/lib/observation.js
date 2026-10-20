@@ -13,6 +13,11 @@ import { persistentCache } from './persistentCache.js';
 const STATION_TTL_MS = 24 * 60 * 60 * 1000; // the nearest station is stable
 const OBS_TTL_MS = 2 * 60 * 1000; // don't re-pull the obs faster than this
 export const OBS_MAX_AGE_MS = 90 * 60 * 1000; // ignore observations older than this
+// …except that a "dry" report keeps some weight for longer: when the NWS feed
+// stalls, a station that said dry within this window still outweighs a weak
+// radar echo (see radarToCode). 4 h, because routine reports are hourly and an
+// outage of 2-3 h leaves the last one up to an hour older than the outage.
+export const OBS_DRY_TRUST_MS = 240 * 60 * 1000;
 
 // Which station is nearest a point doesn't change, and resolving it costs two
 // chained API calls — so it outlives a reload. The observations themselves
@@ -110,6 +115,14 @@ function precipCodeFromObservation(props) {
   if (has('rain', '\\bra\\b|shra')) return heavy ? 65 : light ? 61 : 63;
   if (has('drizzle', '\\bdz\\b')) return heavy ? 55 : light ? 51 : 53;
   return null; // fog / mist / haze / clear / cloudy → let the model keep the sky
+}
+
+// True when the station's latest report said dry within OBS_DRY_TRUST_MS, even
+// if it's too old for freshObservation. Used only to gate the radar fallback.
+export function recentDryObservation(obs, nowMs = Date.now()) {
+  if (!obs || !obs.dry || !obs.observedAt) return false;
+  const age = nowMs - new Date(obs.observedAt).getTime();
+  return age >= 0 && age <= OBS_DRY_TRUST_MS;
 }
 
 // The observation to trust *now*, or null when there's none or it's gone stale
