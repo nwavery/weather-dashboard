@@ -1,0 +1,10 @@
+<resources>
+    <!-- Plain platform theme; Compose paints the actual UI. A dark window
+         background avoids a white flash before the first frame. -->
+    <style name="Theme.WeatherGlance" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sky_top</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
