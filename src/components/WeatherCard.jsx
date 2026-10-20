@@ -6,7 +6,7 @@ import { weatherInfo, effectiveWeatherCode, iconVariant, isPrecipCode } from '..
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import { feelsLike } from '../lib/feelsLike.js';
-import { freshObservation } from '../lib/observation.js';
+import { freshObservation, recentDryObservation } from '../lib/observation.js';
 import { radarToCode } from '../lib/radar.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
@@ -90,9 +90,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   // Global fallback: with no authoritative station observation, if neither the
   // model nor we already show precip but live radar sees an echo overhead, add
   // it (rain vs snow by temperature). Radar only adds — "no echo" can mean "no
-  // coverage", so it never suppresses.
+  // coverage", so it never suppresses. If the station said dry in the last few
+  // hours (its feed stalled), only a strong echo may override that.
   if (current && !obs && typeof effCode === 'number' && !isPrecipCode(effCode)) {
-    const rc = radarToCode(wx.radar, current.temperature_2m);
+    const rc = radarToCode(wx.radar, current.temperature_2m, {
+      recentDry: recentDryObservation(wx.observation, now?.getTime ? now.getTime() : Date.now())
+    });
     if (rc != null) effCode = rc;
   }
   const info = current ? weatherInfo(effCode) : null;
