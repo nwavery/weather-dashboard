@@ -10,7 +10,7 @@ import { freshObservation, recentDryObservation } from '../lib/observation.js';
 import { radarToCode } from '../lib/radar.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
-import { daylightInfo, sunTimes } from '../lib/sunTimes.js';
+import { daylightInfo } from '../lib/sunTimes.js';
 import { seasonalEffect } from '../lib/seasonal.js';
 import {
   WeatherAnimation,
@@ -177,10 +177,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
   }
   const sun = useMemo(() => {
     if (fic || typeof lat !== 'number' || typeof lon !== 'number') return null;
-    const di = daylightInfo(now, lat, lon, tz);
-    if (!di) return null;
-    const tomorrow = sunTimes(new Date(now.getTime() + 86400e3), lat, lon, tz);
-    return { ...di, nextSunrise: tomorrow?.sunrise || null };
+    return daylightInfo(now, lat, lon, tz);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fic, lat, lon, tz, localDay]);
   // Meteor showers and the aurora need a genuinely clear sky — you can't see

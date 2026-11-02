@@ -42,6 +42,16 @@ function localMidnight(date, timeZone) {
   return new Date(midnight);
 }
 
+// A Date inside the calendar day `days` away from `date`'s local day in `tz`.
+// Steps by calendar day, not by 24 h: across a DST change a day is 23 or 25
+// hours long, so "midnight + 24 h" on the fall-back day is still 11 PM the
+// same day. That once made the always-on card treat that morning's sunrise
+// as tomorrow's and show "sunrise in 0m" all evening (Nov 1 2026). Local noon
+// sits at least 11 h from either midnight, so it's always on the right day.
+function localDay(date, timeZone, days) {
+  return new Date(localMidnight(date, timeZone).getTime() + (days * 24 + 12) * 3600e3);
+}
+
 // Bisect the altitude=HORIZON crossing between two times (~ms precision).
 function refine(loMs, hiMs, lat, lon) {
   const above = (ms) => solarAltitude(new Date(ms), lat, lon) >= HORIZON;
@@ -75,11 +85,13 @@ export function sunTimes(date, lat, lon, timeZone) {
   return { sunrise, sunset, polar };
 }
 
-// Today's sun times + daylight length and the change vs. yesterday (minutes).
+// Today's sun times + daylight length, the change vs. yesterday (seconds), and
+// tomorrow's sunrise (for the after-sunset countdown).
 export function daylightInfo(date, lat, lon, timeZone) {
   const today = sunTimes(date, lat, lon, timeZone);
   if (!today) return null;
-  const yest = sunTimes(new Date(date.getTime() - 86400e3), lat, lon, timeZone);
+  const yest = sunTimes(localDay(date, timeZone, -1), lat, lon, timeZone);
+  const tomorrow = sunTimes(localDay(date, timeZone, 1), lat, lon, timeZone);
   const lenOf = (t) => (t && t.sunrise && t.sunset ? t.sunset.getTime() - t.sunrise.getTime() : null);
   const dayMs = lenOf(today);
   const yestMs = lenOf(yest);
@@ -87,5 +99,12 @@ export function daylightInfo(date, lat, lon, timeZone) {
   // carry ~a minute of model slop, but it's systematic and cancels in the
   // day-to-day difference, so seconds here are trustworthy.
   const deltaSec = dayMs != null && yestMs != null ? Math.round((dayMs - yestMs) / 1000) : null;
-  return { sunrise: today.sunrise, sunset: today.sunset, polar: today.polar, dayMs, deltaSec };
+  return {
+    sunrise: today.sunrise,
+    sunset: today.sunset,
+    polar: today.polar,
+    dayMs,
+    deltaSec,
+    nextSunrise: tomorrow?.sunrise || null
+  };
 }
