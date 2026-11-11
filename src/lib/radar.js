@@ -11,8 +11,10 @@
 //
 // Outside a browser: the tile maths (radarTile, echoPatchOrigin, radarTileUrl),
 // summarizeEcho and radarReading are pure, so a server can fetch the frame
-// list, download the PNG, decode the 3x3 patch itself, and get
+// with fetchRadarFrame, download the PNG, decode the 3x3 patch itself, and get
 // the same reading the card gets. Only sampleTile needs a canvas.
+
+import { baseOf, initFor } from './fetchTimeout.js';
 
 const MAPS_TTL_MS = 4 * 60 * 1000; // the frame list refreshes ~every 10 min
 const RADAR_Z = 7; // ~1 km/pixel at 256-px tiles — matches radar's native resolution
@@ -22,7 +24,8 @@ const ALPHA_ON = 40; // pixel alpha above this counts as a radar echo
 // served as Universal Blue anyway, Oct 2026.)
 const COLOR_SCHEME = 2;
 const TILE_PX = 256;
-let mapsCache = null;
+const RAINVIEWER_BASE = 'https://api.rainviewer.com';
+const mapsCache = new Map(); // base -> { expires, data }
 
 // Universal Blue colours for 40 dBZ and up, rain and snow ramps, from
 // RainViewer's published table (rainviewer.com/files/rainviewer_api_colors_table.csv).
@@ -59,18 +62,25 @@ export function summarizeEcho(data) {
   return { precip: true, intensity, strong };
 }
 
-// Latest radar frame { host, path, time } from the public maps index, cached.
-async function latestFrame() {
-  if (mapsCache && mapsCache.expires > Date.now()) return mapsCache.data;
+// Latest radar frame { host, path, time } from the public maps index, cached,
+// or null on any failure. Optional { baseUrl, headers, fetch } (see
+// fetchTimeout.js); baseUrl replaces https://api.rainviewer.com.
+export async function fetchRadarFrame(opts) {
+  const base = baseOf(opts, RAINVIEWER_BASE);
+  const hit = mapsCache.get(base);
+  if (hit && hit.expires > Date.now()) return hit.data;
+  // Its own abort rather than fetchWithTimeout's, because this one also
+  // bounds reading the body.
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json', { signal: ctrl.signal });
+    const { fetch: fetchImpl = fetch, ...init } = initFor(opts);
+    const res = await fetchImpl(`${base}/public/weather-maps.json`, { ...init, signal: ctrl.signal });
     const meta = await res.json();
     const past = meta?.radar?.past || [];
     const frame = past[past.length - 1];
     const data = frame && meta.host ? { host: meta.host, path: frame.path, time: frame.time } : null;
-    mapsCache = { expires: Date.now() + MAPS_TTL_MS, data };
+    mapsCache.set(base, { expires: Date.now() + MAPS_TTL_MS, data });
     return data;
   } catch {
     return null;
@@ -157,13 +167,13 @@ function sampleTile(url, px, py) {
 
 // Radar echo over a location as { precip, intensity, strong, observedAt }, or
 // null when radar is unavailable. precip:false means "no echo here" (which may
-// also be "no coverage", so the caller must not treat it as 'dry'). Without a
-// DOM this is always null; see the top of the file.
-export async function fetchRadar(location) {
+// also be "no coverage", so the caller must not treat it as 'dry'). `opts` go to
+// fetchRadarFrame. Without a DOM this is always null; see the top of the file.
+export async function fetchRadar(location, opts) {
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
   if (typeof document === 'undefined') return null; // non-browser context
-  const frame = await latestFrame();
+  const frame = await fetchRadarFrame(opts);
   if (!frame) return null;
   const tile = radarTile(latitude, longitude);
   const data = await sampleTile(radarTileUrl(frame, tile), tile.px, tile.py);

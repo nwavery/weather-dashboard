@@ -1,12 +1,20 @@
 // Keyless Open-Meteo clients: forecast, air quality, historical archive, and
 // forward/reverse geocoding. Lightweight in-memory caches keep refreshes cheap.
+// Each takes optional { baseUrl, headers, fetch } last (see fetchTimeout.js);
+// baseUrl replaces that endpoint's own host, listed below.
 import { formatDateYYYYMMDD } from './format.js';
-import { fetchWithTimeout } from './fetchTimeout.js';
+import { fetchWithTimeout, baseOf, cacheKeyFor, initFor } from './fetchTimeout.js';
 import { persistentCache } from './persistentCache.js';
 
 const HISTORICAL_LOOKBACK_YEARS = 10;
 const AQ_TTL_MS = 15 * 60 * 1000; // 15 min
 const HIST_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
+
+const FORECAST_BASE = 'https://api.open-meteo.com';
+const AIR_BASE = 'https://air-quality-api.open-meteo.com';
+const ARCHIVE_BASE = 'https://archive-api.open-meteo.com';
+const GEOCODING_BASE = 'https://geocoding-api.open-meteo.com';
+const BIGDATACLOUD_BASE = 'https://api.bigdatacloud.net';
 
 const aqCache = new Map();
 // The decade-wide archive scan is the most expensive call we make and its
@@ -20,31 +28,32 @@ function tzParam(timeZone) {
   return timeZone && typeof timeZone === 'string' ? encodeURIComponent(timeZone) : 'auto';
 }
 
-export async function fetchWeather(location) {
+export async function fetchWeather(location, opts) {
   const { latitude, longitude, timeZone } = location;
   const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+    `${baseOf(opts, FORECAST_BASE)}/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
     `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,dew_point_2m,precipitation,cloud_cover` +
     `&hourly=temperature_2m,weather_code,precipitation,cloud_cover,precipitation_probability` +
     `&minutely_15=precipitation,weather_code&forecast_minutely_15=16` +
     `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${tzParam(timeZone)}&forecast_days=6`;
-  const res = await fetchWithTimeout(url);
+  const res = await fetchWithTimeout(url, initFor(opts));
   if (!res.ok) throw new Error(`Weather API ${res.status}`);
   const data = await res.json();
   if (!data?.current || !data?.daily || !data?.hourly) throw new Error('Incomplete weather data');
   return data;
 }
 
-export async function fetchAirQuality(location) {
-  const key = `${location.latitude},${location.longitude}`;
+export async function fetchAirQuality(location, opts) {
+  const base = baseOf(opts, AIR_BASE);
+  const key = cacheKeyFor(base, AIR_BASE, `${location.latitude},${location.longitude}`);
   const cached = aqCache.get(key);
   if (cached && cached.expires > Date.now()) return cached.data;
 
   const url =
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${location.latitude}&longitude=${location.longitude}` +
+    `${base}/v1/air-quality?latitude=${location.latitude}&longitude=${location.longitude}` +
     `&current=us_aqi,pm2_5,ozone&timezone=${tzParam(location.timeZone)}`;
-  const res = await fetchWithTimeout(url);
+  const res = await fetchWithTimeout(url, initFor(opts));
   if (!res.ok) throw new Error(`Air quality API ${res.status}`);
   const data = await res.json();
   if (!data?.current) throw new Error('Incomplete air quality data');
@@ -53,7 +62,8 @@ export async function fetchAirQuality(location) {
 }
 
 // Average mean temp on today's month/day over the last N years (excludes this year).
-export async function fetchHistoricalAverage(location) {
+export async function fetchHistoricalAverage(location, opts) {
+  const base = baseOf(opts, ARCHIVE_BASE);
   const tz = location.timeZone;
   const todayStr = formatDateYYYYMMDD(new Date(), tz);
   const mmdd = todayStr.substring(5);
@@ -62,7 +72,7 @@ export async function fetchHistoricalAverage(location) {
   // The date is part of the key, not just the TTL: this is the average for
   // *today's* month/day, so an entry cached last night must not be reused
   // after local midnight even though its 12 h TTL hasn't run out.
-  const cacheKey = `${location.latitude},${location.longitude}:${tz}:${todayStr}`;
+  const cacheKey = cacheKeyFor(base, ARCHIVE_BASE, `${location.latitude},${location.longitude}:${tz}:${todayStr}`);
   const cached = histCache.get(cacheKey);
   if (cached) return cached;
 
@@ -72,10 +82,10 @@ export async function fetchHistoricalAverage(location) {
   start.setFullYear(start.getFullYear() - HISTORICAL_LOOKBACK_YEARS);
 
   const url =
-    `https://archive-api.open-meteo.com/v1/archive?latitude=${location.latitude}&longitude=${location.longitude}` +
+    `${base}/v1/archive?latitude=${location.latitude}&longitude=${location.longitude}` +
     `&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=${tzParam(tz)}` +
     `&start_date=${formatDateYYYYMMDD(start, tz)}&end_date=${formatDateYYYYMMDD(end, tz)}`;
-  const res = await fetchWithTimeout(url);
+  const res = await fetchWithTimeout(url, initFor(opts));
   if (!res.ok) throw new Error(`Archive API ${res.status}`);
   const data = await res.json();
   const dates = data?.daily?.time;
@@ -100,10 +110,11 @@ export async function fetchHistoricalAverage(location) {
   return histCache.set(cacheKey, { baseline: sum / count, years: count });
 }
 
-export async function geocodeCity(name) {
+export async function geocodeCity(name, opts) {
   if (!name || !name.trim()) return null;
   const res = await fetchWithTimeout(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name.trim())}&count=1&language=en&format=json`
+    `${baseOf(opts, GEOCODING_BASE)}/v1/search?name=${encodeURIComponent(name.trim())}&count=1&language=en&format=json`,
+    initFor(opts)
   );
   if (!res.ok) throw new Error(`Geocoding API ${res.status}`);
   const data = await res.json();
@@ -113,10 +124,13 @@ export async function geocodeCity(name) {
 }
 
 // Open-Meteo reverse first, BigDataCloud as a CORS-friendly fallback.
-export async function reverseGeocode(latitude, longitude) {
+// `baseUrl` replaces the Open-Meteo host and `fallbackBaseUrl` the
+// BigDataCloud one; `headers` and `fetch` apply to both.
+export async function reverseGeocode(latitude, longitude, opts) {
   try {
     const res = await fetchWithTimeout(
-      `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`
+      `${baseOf(opts, GEOCODING_BASE)}/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`,
+      initFor(opts)
     );
     if (res.ok) {
       const data = await res.json();
@@ -128,7 +142,8 @@ export async function reverseGeocode(latitude, longitude) {
   }
   try {
     const res = await fetchWithTimeout(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+      `${baseOf({ baseUrl: opts?.fallbackBaseUrl }, BIGDATACLOUD_BASE)}/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+      initFor(opts)
     );
     if (res.ok) {
       const data = await res.json();

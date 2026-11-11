@@ -3,7 +3,9 @@
 // (and any API hiccup) just resolve to no alerts. Cached briefly per point —
 // the hook refreshes on its normal cadence anyway.
 
-import { fetchWithTimeout } from './fetchTimeout.js';
+import { fetchWithTimeout, baseOf, cacheKeyFor, initFor } from './fetchTimeout.js';
+
+const NWS_BASE = 'https://api.weather.gov';
 
 const ALERTS_TTL_MS = 5 * 60 * 1000;
 const cache = new Map();
@@ -78,16 +80,19 @@ export function alertTiming(onsetStr, endsStr, timeZone, nowMs) {
   }
 }
 
-export async function fetchAlerts(location) {
+// Optional { baseUrl, headers, fetch } (see fetchTimeout.js). A server caller
+// should send a User-Agent, which NWS asks every client for.
+export async function fetchAlerts(location, opts) {
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return [];
-  const key = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+  const base = baseOf(opts, NWS_BASE);
+  const key = cacheKeyFor(base, NWS_BASE, `${latitude.toFixed(3)},${longitude.toFixed(3)}`);
   const hit = cache.get(key);
   if (hit && hit.expires > Date.now()) return hit.data;
 
   const res = await fetchWithTimeout(
-    `https://api.weather.gov/alerts/active?point=${latitude.toFixed(4)},${longitude.toFixed(4)}`,
-    { headers: { Accept: 'application/geo+json' } }
+    `${base}/alerts/active?point=${latitude.toFixed(4)},${longitude.toFixed(4)}`,
+    initFor(opts, { Accept: 'application/geo+json' })
   );
   if (!res.ok) throw new Error(`Alerts API ${res.status}`);
   const data = await res.json();

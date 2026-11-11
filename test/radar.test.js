@@ -138,3 +138,26 @@ test('radarTileUrl and radarReading build what fetchRadar returns', () => {
   const reading = radarReading(patch(...Array(9).fill(C.rain40)), frame);
   assert.deepEqual(reading, { precip: true, intensity: 'moderate', strong: true, observedAt: '2025-10-20T02:00:00.000Z' });
 });
+
+test('fetchRadarFrame’s 8 s abort also covers reading the body, as before the move', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { fetchRadarFrame } = await import('../src/lib/radar.js');
+  // Headers arrive at once; the body never does unless the signal aborts it.
+  const fetcher = async (_url, { signal }) => ({
+    json: () =>
+      new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted body')), { once: true }))
+  });
+  let settled = false;
+  const pending = fetchRadarFrame({ baseUrl: 'https://slow-body.test', fetch: fetcher }).finally(() => (settled = true));
+  const turns = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r));
+  };
+  await turns();
+  t.mock.timers.tick(7999);
+  await turns();
+  assert.equal(settled, false, 'gave up before 8 s');
+  t.mock.timers.tick(1);
+  await turns();
+  assert.equal(settled, true, 'still waiting on the body after 8 s');
+  assert.equal(await pending, null);
+});
