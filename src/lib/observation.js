@@ -127,9 +127,11 @@ export function recentDryObservation(obs, nowMs = Date.now()) {
 
 // The observation to trust *now*, or null when there's none or it's gone stale
 // (NWS issues special obs on precip changes and we re-pull every refresh, so a
-// fresh reading reflects onset/cessation within minutes).
-export function freshObservation(obs) {
+// fresh reading reflects onset/cessation within minutes). Exactly 90 min old is
+// still fresh. A future-stamped report counts as fresh, unlike in
+// recentDryObservation.
+export function freshObservation(obs, nowMs = Date.now()) {
   if (!obs || !obs.observedAt) return null;
-  if (Date.now() - new Date(obs.observedAt).getTime() > OBS_MAX_AGE_MS) return null;
+  if (nowMs - new Date(obs.observedAt).getTime() > OBS_MAX_AGE_MS) return null;
   return obs;
 }
