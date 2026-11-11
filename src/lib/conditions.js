@@ -2,6 +2,14 @@
 // inside WeatherCard.jsx; it is here so another app (the Avery Home dashboard's
 // Node server) can import the same rules instead of copying them. No React, no
 // DOM, no ambient clock: every time rule takes `nowMs` from the caller.
+//
+// What a server gets out of the box: the forecast, station and alert rules
+// work in Node with the fetchers' results as they are. Radar does not.
+// fetchRadar needs a page and a canvas, and in Node it always returns null, so
+// effectiveConditionCode then runs without the radar fallback. A server gets
+// that input only by decoding the tile itself: fetchRadarFrame for the frame,
+// radarTile and radarTileUrl for the PNG, its own PNG decoder for the 3x3 RGBA
+// patch at echoPatchOrigin, then radarReading(patch, frame).
 
 import { effectiveWeatherCode, isPrecipCode } from '../data/weatherCodes.js';
 import { freshObservation, recentDryObservation } from './observation.js';
@@ -33,6 +41,15 @@ function requireClock(nowMs) {
 //
 // Snow codes are not in isPrecipCode, so rule 3 can replace a model snow code
 // with radar's rain or snow code.
+//
+// Both station windows are measured against `nowMs`. Before the move, the
+// 90-minute one read Date.now() while the 4 h one read the card's clock, so
+// they now agree. The card passes its clock tick, and in a background tab
+// Chrome runs that one-second tick as rarely as once a minute after five
+// minutes hidden, and not at all if it freezes the tab. A render that happens between ticks, such as a fetch
+// landing, then judges freshness against the last tick: a report can stay
+// fresh up to about a minute past 90 minutes of real time. The next tick
+// corrects it.
 export function effectiveConditionCode({ current, observation, radar, nowMs }) {
   requireClock(nowMs);
   if (!current) return undefined;
