@@ -30,7 +30,10 @@ import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
 import { alertTiming } from '../lib/alerts.js';
 
-export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate }) {
+// `embed` (the ?view=card frame): a still sky with no ambient particles, a
+// read-only name, and the condition detail and alert headlines as visible
+// text, since a fridge's touch screen has no hover to show a tooltip.
+export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate, embed = false }) {
   const wx = useLocationWeather(location);
   const { units } = useUnits();
   const current = wx.weather?.current;
@@ -201,11 +204,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         precip={fic ? 0 : current?.precipitation ?? 0}
         sunPos={sunPos}
         hasSkyBody={!!fic?.skyBody}
+        still={embed}
       />
 
       {/* Per-world ambient particles (bubbles, embers, spores…) — and flavor
           effects on real cards (blustery leaves, blowing dust, smoky haze) */}
-      {fic ? (
+      {embed ? null : fic ? (
         ficEffect ? <WorldEffects kind={ficEffect} /> : null
       ) : flavorEffect ? (
         <WorldEffects kind={flavorEffect} />
@@ -226,13 +230,19 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         {/* Header: city + clock */}
         <div className="time-section">
           <h2>
-            <EditableName
-              name={location.name}
-              onRename={onRename}
-              onLocate={onLocate}
-              rotating={rotating}
-              onToggleRotate={onToggleRotate}
-            />
+            {embed ? (
+              <span className="location-name-wrap">
+                <span className="location-name">{location.name}</span>
+              </span>
+            ) : (
+              <EditableName
+                name={location.name}
+                onRename={onRename}
+                onLocate={onLocate}
+                rotating={rotating}
+                onToggleRotate={onToggleRotate}
+              />
+            )}
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
           <div className="display-value clock-value">{formatClock(now, location.timeZone, units)}</div>
@@ -290,6 +300,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                       (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
+                {embed && info && flavor?.detail ? <div className="weather-detail">{flavor.detail}</div> : null}
                 {dispatch ? <div className="world-dispatch">📻 {dispatch}</div> : null}
                 <div className="temp-details">
                   <span className="feels-like">
@@ -332,6 +343,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
               pollen={wx.pollen}
               pollenError={wx.pollenError}
               labels={fic ? { ...fic.air, pollen: fic.pollenLabels } : null}
+              embed={embed}
             />
             <HourlyForecast
               hourly={wx.weather?.hourly}
@@ -372,6 +384,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                     {alerts.length > 2 && a === alerts[1] ? (
                       <span className="alert-more"> +{alerts.length - 2} more</span>
                     ) : null}
+                    {embed && a.headline ? <div className="alert-headline">{a.headline}</div> : null}
                   </div>
                 ))}
               </div>

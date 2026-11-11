@@ -35,6 +35,9 @@ Browser (React SPA)
 - Editable locations (✏️ → geocoded via Open-Meteo) and current-location detection.
 - Weather-driven animations (rain / snow / clouds), temperature-tinted cards.
 - Auto-refresh every 5 minutes; responsive on desktop and mobile.
+- `?view=card` shows the first card alone, filling its frame, for embedding in
+  an iframe (pair it with `?city=` to pin the place). The sky holds still,
+  and text the dashboard keeps in tooltips is shown on the card.
 
 ## Project structure
 

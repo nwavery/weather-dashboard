@@ -217,7 +217,9 @@ function drawMoon(ctx, cx, cy, r, phase) {
 }
 
 // ─── Star canvas (for clear/night skies) ───────────────────────────────────────
-function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false, moon = true }) {
+// `still`: draw one frame (stars at rest, no shooting star) and redraw only
+// on resize. For the ?view=card embed on a slow browser.
+function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false, moon = true, still = false }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -243,7 +245,8 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false, 
       canvas.height = canvas.offsetHeight;
     }
     resize();
-    const ro = new ResizeObserver(resize);
+    // Resizing clears a canvas, so a still sky is drawn again after each one.
+    const ro = new ResizeObserver(still ? () => (resize(), draw(0)) : resize);
     ro.observe(canvas);
 
     // Bright twinkling stars
@@ -375,15 +378,16 @@ function StarCanvas({ dimmed = false, meteorActive = false, meteorPeak = false, 
       }
 
       ctx.globalAlpha = 1;
-      rafRef.current = requestAnimationFrame(draw);
+      if (!still) rafRef.current = requestAnimationFrame(draw);
     }
 
-    rafRef.current = requestAnimationFrame(draw);
+    if (still) draw(0);
+    else rafRef.current = requestAnimationFrame(draw);
     return () => {
       ro.disconnect();
       cancelAnimationFrame(rafRef.current);
     };
-  }, [dimmed, meteorActive, meteorPeak, moon]);
+  }, [dimmed, meteorActive, meteorPeak, moon, still]);
 
   return (
     <canvas
@@ -612,6 +616,7 @@ export function WeatherAnimation({
   precip = 0,
   sunPos = null,
   hasSkyBody = false,
+  still = false,
 }) {
   const isThunder = weatherCode === 95 || weatherCode === 96 || weatherCode === 99;
   const isFog = weatherCode === 45 || weatherCode === 48;
@@ -665,7 +670,7 @@ export function WeatherAnimation({
     if (isNight) {
       return (
         <div className="sky-anim-wrap" aria-hidden="true">
-          <StarCanvas dimmed={true} moon={!hasSkyBody} />
+          <StarCanvas dimmed={true} moon={!hasSkyBody} still={still} />
           <CloudLayers cover={cover} windX={windX} />
         </div>
       );
@@ -690,7 +695,7 @@ export function WeatherAnimation({
     return (
       <div className="sky-anim-wrap" aria-hidden="true">
         {aurora ? <AuroraLayer /> : null}
-        <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} moon={!hasSkyBody} />
+        <StarCanvas dimmed={false} meteorActive={!!shower} meteorPeak={!!shower?.peak} moon={!hasSkyBody} still={still} />
         {wisps}
       </div>
     );
