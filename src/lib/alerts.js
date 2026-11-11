@@ -3,12 +3,12 @@
 // (and any API hiccup) just resolve to no alerts. Cached briefly per point —
 // the hook refreshes on its normal cadence anyway.
 
-import { fetchWithTimeout, baseOf, cacheKeyFor, initFor } from './fetchTimeout.js';
+import { fetchWithTimeout, baseOf, cacheFor, ttlMap, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
 
 const NWS_BASE = 'https://api.weather.gov';
 
 const ALERTS_TTL_MS = 5 * 60 * 1000;
-const cache = new Map();
+const shared = ttlMap(ALERTS_TTL_MS);
 
 // Warnings outrank watches outrank advisories; NWS severity breaks ties.
 const SEVERITY_RANK = { Extreme: 4, Severe: 3, Moderate: 2, Minor: 1 };
@@ -80,19 +80,25 @@ export function alertTiming(onsetStr, endsStr, timeZone, nowMs) {
   }
 }
 
-// Optional { baseUrl, headers, fetch } (see fetchTimeout.js). A server caller
-// should send a User-Agent, which NWS asks every client for.
+// Optional { baseUrl, headers, fetch, cache, signal, timeoutMs } (see
+// fetchTimeout.js). A server caller should send a User-Agent, which NWS asks
+// every client for.
 export async function fetchAlerts(location, opts) {
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return [];
   const base = baseOf(opts, NWS_BASE);
-  const key = cacheKeyFor(base, NWS_BASE, `${latitude.toFixed(3)},${longitude.toFixed(3)}`);
+  const cache = cacheFor(opts, { shared, name: 'alerts', base, ttlMs: ALERTS_TTL_MS });
+  const key = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
   const hit = cache.get(key);
-  if (hit && hit.expires > Date.now()) return hit.data;
+  if (hit !== undefined) return hit;
+  return withDeadline(opts, (signal) => fetchAlertsNow(latitude, longitude, base, opts, signal, cache, key));
+}
 
+async function fetchAlertsNow(latitude, longitude, base, opts, signal, cache, key) {
   const res = await fetchWithTimeout(
     `${base}/alerts/active?point=${latitude.toFixed(4)},${longitude.toFixed(4)}`,
-    initFor(opts, { Accept: 'application/geo+json' })
+    initFor(opts, { Accept: 'application/geo+json' }, signal),
+    headerTimeout(opts)
   );
   if (!res.ok) throw new Error(`Alerts API ${res.status}`);
   const data = await res.json();
@@ -128,6 +134,5 @@ export async function fetchAlerts(location, opts) {
         (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0)
     );
 
-  cache.set(key, { expires: Date.now() + ALERTS_TTL_MS, data: alerts });
-  return alerts;
+  return cache.set(key, alerts);
 }

@@ -8,12 +8,22 @@
 // points (no station) and any API hiccup resolve to null, leaving the model's
 // value untouched.
 //
-// fetchObservation takes optional { baseUrl, headers, fetch } (see
-// fetchTimeout.js). NWS asks every client for a User-Agent, so a server caller
-// should send one in `headers`.
+// fetchObservation takes optional { baseUrl, headers, fetch, cache, signal,
+// timeoutMs } (see fetchTimeout.js). NWS asks every client for a User-Agent,
+// so a server caller should send one in `headers`.
 
 import { persistentCache } from './persistentCache.js';
-import { fetchWithTimeout, baseOf, cacheKeyFor, initFor } from './fetchTimeout.js';
+import {
+  fetchWithTimeout,
+  baseOf,
+  cacheFor,
+  changesResult,
+  checkDeadline,
+  ttlMap,
+  initFor,
+  headerTimeout,
+  withDeadline
+} from './fetchTimeout.js';
 
 const STATION_TTL_MS = 24 * 60 * 60 * 1000; // the nearest station is stable
 const OBS_TTL_MS = 2 * 60 * 1000; // don't re-pull the obs faster than this
@@ -28,41 +38,52 @@ export const OBS_DRY_TRUST_MS = 240 * 60 * 1000;
 // chained API calls — so it outlives a reload. The observations themselves
 // stay in memory: a 2-minute TTL is worth nothing across a restart.
 const stationCache = persistentCache('sg:station', { ttlMs: STATION_TTL_MS });
-const obsCache = new Map();
+const stationShared = { get: (key) => stationCache.get(key) ?? undefined, set: (key, data) => stationCache.set(key, data) };
+const obsCache = ttlMap(OBS_TTL_MS);
 const NWS_HEADERS = { Accept: 'application/geo+json' };
 const NWS_BASE = 'https://api.weather.gov';
-const FETCH_TIMEOUT_MS = 8000; // never let a slow NWS call stall the whole refresh
+// Each NWS request gets 8 s to start answering. The timer stops when headers
+// arrive, so a body that stalls after that is not bounded here: in the app the
+// hook's 12 s race unblocks the card, and a server caller should pass
+// `timeoutMs`, which covers the whole call.
+const FETCH_TIMEOUT_MS = 8000;
 
-function nwsFetch(url, opts) {
-  return fetchWithTimeout(url, initFor(opts, NWS_HEADERS), FETCH_TIMEOUT_MS);
+function nwsFetch(url, opts, signal) {
+  return fetchWithTimeout(url, initFor(opts, NWS_HEADERS, signal), headerTimeout(opts, FETCH_TIMEOUT_MS));
+}
+
+// The stations link to follow. NWS answers with an absolute api.weather.gov
+// link: under another base it is followed through that base, so a proxy sees
+// every call. A call with caller options never follows a link outside its own
+// base, so the caller's headers can't reach a host it didn't name.
+function stationsLink(stationsUrl, base, opts) {
+  if (base !== NWS_BASE && stationsUrl.startsWith(`${NWS_BASE}/`)) return base + stationsUrl.slice(NWS_BASE.length);
+  if (changesResult(opts) && !stationsUrl.startsWith(`${base}/`)) throw new Error('stations link outside base');
+  return stationsUrl;
 }
 
 // Resolve (and cache) the nearest observation station for a point.
-async function nearestStation(latitude, longitude, base, opts) {
-  const key = cacheKeyFor(base, NWS_BASE, `${latitude.toFixed(3)},${longitude.toFixed(3)}`);
+async function nearestStation(latitude, longitude, base, opts, signal) {
+  const cache = cacheFor(opts, { shared: stationShared, name: 'station', base, ttlMs: STATION_TTL_MS });
+  const key = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
   // Wrapped rather than stored bare so a cached "no station here" (every
   // non-US point) is a hit and not re-queried on every refresh.
-  const hit = stationCache.get(key);
+  const hit = cache.get(key);
   if (hit) return hit.station;
 
-  const ptRes = await nwsFetch(`${base}/points/${latitude.toFixed(4)},${longitude.toFixed(4)}`, opts);
+  const ptRes = await nwsFetch(`${base}/points/${latitude.toFixed(4)},${longitude.toFixed(4)}`, opts, signal);
   if (!ptRes.ok) throw new Error(`points ${ptRes.status}`);
   const stationsUrl = (await ptRes.json())?.properties?.observationStations;
   if (!stationsUrl) throw new Error('no stations url');
 
-  // NWS answers with an absolute api.weather.gov link. Under another base,
-  // follow it through that base so a proxy sees every call.
-  const stRes = await nwsFetch(
-    base !== NWS_BASE && stationsUrl.startsWith(`${NWS_BASE}/`) ? base + stationsUrl.slice(NWS_BASE.length) : stationsUrl,
-    opts
-  );
+  const stRes = await nwsFetch(stationsLink(stationsUrl, base, opts), opts, signal);
   if (!stRes.ok) throw new Error(`stations ${stRes.status}`);
   const props = (await stRes.json())?.features?.[0]?.properties;
   const station = props?.stationIdentifier
     ? { id: props.stationIdentifier, name: props.name || props.stationIdentifier }
     : null;
 
-  stationCache.set(key, { station });
+  cache.set(key, { station });
   return station;
 }
 
@@ -75,27 +96,31 @@ export async function fetchObservation(location, opts) {
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
   const base = baseOf(opts, NWS_BASE);
+  checkDeadline(opts);
   try {
-    const station = await nearestStation(latitude, longitude, base, opts);
-    if (!station) return null;
-
-    const obsKey = cacheKeyFor(base, NWS_BASE, station.id);
-    const hit = obsCache.get(obsKey);
-    if (hit && hit.expires > Date.now()) return hit.data;
-
-    const res = await nwsFetch(`${base}/stations/${station.id}/observations/latest`, opts);
-    if (!res.ok) throw new Error(`obs ${res.status}`);
-    const props = (await res.json())?.properties;
-    const observedAt = props?.timestamp || null;
-    const precipCode = precipCodeFromObservation(props);
-    // Without a timestamp we can't trust freshness, so don't let it override.
-    const data = observedAt ? { precipCode, dry: precipCode == null, observedAt, station: station.name } : null;
-
-    obsCache.set(obsKey, { expires: Date.now() + OBS_TTL_MS, data });
-    return data;
+    return await withDeadline(opts, (signal) => latestObservation(latitude, longitude, base, opts, signal));
   } catch {
-    return null; // non-US, network, or parse failure — fall back to the model
+    return null; // non-US, network, timeout or parse failure: fall back to the model
   }
+}
+
+async function latestObservation(latitude, longitude, base, opts, signal) {
+  const station = await nearestStation(latitude, longitude, base, opts, signal);
+  if (!station) return null;
+
+  const cache = cacheFor(opts, { shared: obsCache, name: 'obs', base, ttlMs: OBS_TTL_MS });
+  const hit = cache.get(station.id);
+  if (hit !== undefined) return hit;
+
+  const res = await nwsFetch(`${base}/stations/${station.id}/observations/latest`, opts, signal);
+  if (!res.ok) throw new Error(`obs ${res.status}`);
+  const props = (await res.json())?.properties;
+  const observedAt = props?.timestamp || null;
+  const precipCode = precipCodeFromObservation(props);
+  // Without a timestamp we can't trust freshness, so don't let it override.
+  const data = observedAt ? { precipCode, dry: precipCode == null, observedAt, station: station.name } : null;
+
+  return cache.set(station.id, data);
 }
 
 // Closest WMO code for *precipitation* in an NWS observation (rain / drizzle /

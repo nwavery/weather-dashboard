@@ -14,7 +14,7 @@
 // with fetchRadarFrame, download the PNG, decode the 3x3 patch itself, and get
 // the same reading the card gets. Only sampleTile needs a canvas.
 
-import { baseOf, initFor } from './fetchTimeout.js';
+import { baseOf, cacheFor, checkDeadline, ttlMap, initFor } from './fetchTimeout.js';
 
 const MAPS_TTL_MS = 4 * 60 * 1000; // the frame list refreshes ~every 10 min
 const RADAR_Z = 7; // ~1 km/pixel at 256-px tiles — matches radar's native resolution
@@ -25,7 +25,7 @@ const ALPHA_ON = 40; // pixel alpha above this counts as a radar echo
 const COLOR_SCHEME = 2;
 const TILE_PX = 256;
 const RAINVIEWER_BASE = 'https://api.rainviewer.com';
-const mapsCache = new Map(); // base -> { expires, data }
+const mapsCache = ttlMap(MAPS_TTL_MS);
 
 // Universal Blue colours for 40 dBZ and up, rain and snow ramps, from
 // RainViewer's published table (rainviewer.com/files/rainviewer_api_colors_table.csv).
@@ -63,29 +63,42 @@ export function summarizeEcho(data) {
 }
 
 // Latest radar frame { host, path, time } from the public maps index, cached,
-// or null on any failure. Optional { baseUrl, headers, fetch } (see
-// fetchTimeout.js); baseUrl replaces https://api.rainviewer.com.
+// or null on any failure, timeouts included. Optional { baseUrl, headers,
+// fetch, cache, signal, timeoutMs } (see fetchTimeout.js); baseUrl replaces
+// https://api.rainviewer.com.
 export async function fetchRadarFrame(opts) {
+  checkDeadline(opts);
   const base = baseOf(opts, RAINVIEWER_BASE);
-  const hit = mapsCache.get(base);
-  if (hit && hit.expires > Date.now()) return hit.data;
+  const cache = cacheFor(opts, { shared: mapsCache, name: 'radar', base, ttlMs: MAPS_TTL_MS });
+  const hit = cache.get('frame');
+  if (hit !== undefined) return hit;
   // Its own abort rather than fetchWithTimeout's, because this one also
-  // bounds reading the body.
+  // bounds reading the body: 8 s, or the caller's timeoutMs instead. A
+  // caller's signal aborts it too.
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
+  const timer = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 8000);
+  const outer = opts?.signal;
+  const fromCaller = () => ctrl.abort(outer.reason);
+  if (outer) {
+    if (outer.aborted) fromCaller();
+    else outer.addEventListener('abort', fromCaller, { once: true });
+  }
+  const aborted = new Promise((_, reject) => ctrl.signal.addEventListener('abort', () => reject(ctrl.signal.reason), { once: true }));
+  aborted.catch(() => {});
   try {
     const { fetch: fetchImpl = fetch, ...init } = initFor(opts);
-    const res = await fetchImpl(`${base}/public/weather-maps.json`, { ...init, signal: ctrl.signal });
-    const meta = await res.json();
+    // Raced, so a custom fetch or a body that ignores the signal still ends.
+    const res = await Promise.race([fetchImpl(`${base}/public/weather-maps.json`, { ...init, signal: ctrl.signal }), aborted]);
+    const meta = await Promise.race([res.json(), aborted]);
     const past = meta?.radar?.past || [];
     const frame = past[past.length - 1];
     const data = frame && meta.host ? { host: meta.host, path: frame.path, time: frame.time } : null;
-    mapsCache.set(base, { expires: Date.now() + MAPS_TTL_MS, data });
-    return data;
+    return cache.set('frame', data);
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
+    outer?.removeEventListener('abort', fromCaller);
   }
 }
 

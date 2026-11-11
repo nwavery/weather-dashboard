@@ -203,17 +203,18 @@ test('a trailing slash on the base does not double the path separator', async ()
   }
 });
 
-test('caches are per base: a second base is asked, not answered from the first', async () => {
+test('with a caller cache, a second base is asked and the same base is answered from it', async () => {
   const a = await standIn();
   const b = await standIn();
   try {
     const loc = freshPoint();
+    const cache = new Map();
     for (const s of [a, b]) {
-      await fetchAlerts(loc, { baseUrl: s.base });
-      await fetchAirQuality(loc, { baseUrl: s.base });
-      await fetchHistoricalAverage(loc, { baseUrl: s.base });
-      await fetchObservation(loc, { baseUrl: s.base });
-      await fetchRadarFrame({ baseUrl: s.base });
+      await fetchAlerts(loc, { baseUrl: s.base, cache });
+      await fetchAirQuality(loc, { baseUrl: s.base, cache });
+      await fetchHistoricalAverage(loc, { baseUrl: s.base, cache });
+      await fetchObservation(loc, { baseUrl: s.base, cache });
+      await fetchRadarFrame({ baseUrl: s.base, cache });
     }
     const paths = (s) => s.seen.map((r) => r.url.split('?')[0].replace(/\/points\/.*/, '/points/…'));
     const expected = [
@@ -227,16 +228,58 @@ test('caches are per base: a second base is asked, not answered from the first',
     ];
     assert.deepEqual(paths(a), expected);
     assert.deepEqual(paths(b), expected);
-    // And within one base the cache still holds.
     const before = a.seen.length;
-    await fetchAlerts(loc, { baseUrl: a.base });
-    await fetchObservation(loc, { baseUrl: a.base });
-    await fetchRadarFrame({ baseUrl: a.base });
+    await fetchAlerts(loc, { baseUrl: a.base, cache });
+    await fetchAirQuality(loc, { baseUrl: a.base, cache });
+    await fetchHistoricalAverage(loc, { baseUrl: a.base, cache });
+    await fetchObservation(loc, { baseUrl: a.base, cache });
+    await fetchRadarFrame({ baseUrl: a.base, cache });
     assert.equal(a.seen.length, before);
   } finally {
     a.close();
     b.close();
   }
+});
+
+test('the stations link is never followed outside the caller\'s base', async () => {
+  const calls = [];
+  const fetcher = (link) => async (url) => {
+    calls.push(url);
+    const p = new URL(url).pathname;
+    if (p.startsWith('/points/')) return new Response(JSON.stringify({ properties: { observationStations: link } }));
+    if (p.endsWith('/stations')) return new Response(JSON.stringify({ features: [{ properties: { stationIdentifier: 'KX' } }] }));
+    return new Response(JSON.stringify({ properties: { timestamp: new Date().toISOString(), textDescription: 'Rain' } }));
+  };
+  // A caller base, and a link to a host it didn't name.
+  assert.equal(await fetchObservation(freshPoint(), { baseUrl: 'https://proxy.test', fetch: fetcher('https://elsewhere.test/x/stations') }), null);
+  assert.deepEqual(calls.map((u) => new URL(u).host), ['proxy.test']);
+  // Caller headers on the default base: a link off api.weather.gov is refused too.
+  calls.length = 0;
+  const headers = { 'User-Agent': UA };
+  assert.equal(await fetchObservation(freshPoint(), { headers, fetch: fetcher('https://elsewhere.test/x/stations') }), null);
+  assert.deepEqual(calls.map((u) => new URL(u).host), ['api.weather.gov']);
+  // A link inside the caller's base is followed as it is.
+  calls.length = 0;
+  const ok = await fetchObservation(freshPoint(), { baseUrl: 'https://proxy.test', fetch: fetcher('https://proxy.test/y/stations') });
+  assert.equal(ok.precipCode, 63);
+  assert.deepEqual(calls.map((u) => new URL(u).pathname), ['/points/' + calls[0].split('/points/')[1], '/y/stations', '/stations/KX/observations/latest']);
+  // A look-alike host that only starts with the base's text is outside it.
+  calls.length = 0;
+  assert.equal(await fetchObservation(freshPoint(), { baseUrl: 'https://proxy.test', fetch: fetcher('https://proxy.test.evil/x/stations') }), null);
+  assert.equal(calls.length, 1);
+});
+
+test('the default path still follows whatever stations link NWS gives', async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    calls.push(url);
+    const p = new URL(url).pathname;
+    if (p.startsWith('/points/')) return new Response(JSON.stringify({ properties: { observationStations: 'https://mirror.weather.test/s' } }));
+    if (p === '/s') return new Response(JSON.stringify({ features: [] }));
+    return new Response('{}');
+  });
+  assert.equal(await fetchObservation(freshPoint()), null); // no station there
+  assert.deepEqual(calls.map((u) => new URL(u).host), ['api.weather.gov', 'mirror.weather.test']);
 });
 
 // ── With no options, nothing changed ────────────────────────────────────────

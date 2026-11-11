@@ -1,9 +1,9 @@
 // Keyless Open-Meteo clients: forecast, air quality, historical archive, and
 // forward/reverse geocoding. Lightweight in-memory caches keep refreshes cheap.
-// Each takes optional { baseUrl, headers, fetch } last (see fetchTimeout.js);
-// baseUrl replaces that endpoint's own host, listed below.
+// Each takes optional { baseUrl, headers, fetch, cache, signal, timeoutMs } last
+// (see fetchTimeout.js); baseUrl replaces that endpoint's own host, listed below.
 import { formatDateYYYYMMDD } from './format.js';
-import { fetchWithTimeout, baseOf, cacheKeyFor, initFor } from './fetchTimeout.js';
+import { fetchWithTimeout, baseOf, cacheFor, checkDeadline, ttlMap, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
 import { persistentCache } from './persistentCache.js';
 
 const HISTORICAL_LOOKBACK_YEARS = 10;
@@ -16,10 +16,11 @@ const ARCHIVE_BASE = 'https://archive-api.open-meteo.com';
 const GEOCODING_BASE = 'https://geocoding-api.open-meteo.com';
 const BIGDATACLOUD_BASE = 'https://api.bigdatacloud.net';
 
-const aqCache = new Map();
+const aqCache = ttlMap(AQ_TTL_MS);
 // The decade-wide archive scan is the most expensive call we make and its
 // answer doesn't change for the rest of the day, so it outlives a reload.
 const histCache = persistentCache('sg:hist', { ttlMs: HIST_TTL_MS });
+const histShared = { get: (key) => histCache.get(key) ?? undefined, set: (key, data) => histCache.set(key, data) };
 
 // Open-Meteo requires a valid IANA timezone. A missing/blank value would be
 // serialized as the literal string "undefined" and rejected with HTTP 400, so
@@ -28,7 +29,11 @@ function tzParam(timeZone) {
   return timeZone && typeof timeZone === 'string' ? encodeURIComponent(timeZone) : 'auto';
 }
 
-export async function fetchWeather(location, opts) {
+export function fetchWeather(location, opts) {
+  return withDeadline(opts, (signal) => fetchWeatherNow(location, opts, signal));
+}
+
+async function fetchWeatherNow(location, opts, signal) {
   const { latitude, longitude, timeZone } = location;
   const url =
     `${baseOf(opts, FORECAST_BASE)}/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
@@ -37,7 +42,7 @@ export async function fetchWeather(location, opts) {
     `&minutely_15=precipitation,weather_code&forecast_minutely_15=16` +
     `&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code` +
     `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${tzParam(timeZone)}&forecast_days=6`;
-  const res = await fetchWithTimeout(url, initFor(opts));
+  const res = await fetchWithTimeout(url, initFor(opts, undefined, signal), headerTimeout(opts));
   if (!res.ok) throw new Error(`Weather API ${res.status}`);
   const data = await res.json();
   if (!data?.current || !data?.daily || !data?.hourly) throw new Error('Incomplete weather data');
@@ -46,19 +51,22 @@ export async function fetchWeather(location, opts) {
 
 export async function fetchAirQuality(location, opts) {
   const base = baseOf(opts, AIR_BASE);
-  const key = cacheKeyFor(base, AIR_BASE, `${location.latitude},${location.longitude}`);
-  const cached = aqCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.data;
+  const cache = cacheFor(opts, { shared: aqCache, name: 'air', base, ttlMs: AQ_TTL_MS });
+  const key = `${location.latitude},${location.longitude}`;
+  const cached = cache.get(key);
+  if (cached !== undefined) return cached;
+  return withDeadline(opts, (signal) => fetchAirQualityNow(location, opts, signal, base, cache, key));
+}
 
+async function fetchAirQualityNow(location, opts, signal, base, cache, key) {
   const url =
     `${base}/v1/air-quality?latitude=${location.latitude}&longitude=${location.longitude}` +
     `&current=us_aqi,pm2_5,ozone&timezone=${tzParam(location.timeZone)}`;
-  const res = await fetchWithTimeout(url, initFor(opts));
+  const res = await fetchWithTimeout(url, initFor(opts, undefined, signal), headerTimeout(opts));
   if (!res.ok) throw new Error(`Air quality API ${res.status}`);
   const data = await res.json();
   if (!data?.current) throw new Error('Incomplete air quality data');
-  aqCache.set(key, { expires: Date.now() + AQ_TTL_MS, data: data.current });
-  return data.current;
+  return cache.set(key, data.current);
 }
 
 // Average mean temp on today's month/day over the last N years (excludes this year).
@@ -72,9 +80,15 @@ export async function fetchHistoricalAverage(location, opts) {
   // The date is part of the key, not just the TTL: this is the average for
   // *today's* month/day, so an entry cached last night must not be reused
   // after local midnight even though its 12 h TTL hasn't run out.
-  const cacheKey = cacheKeyFor(base, ARCHIVE_BASE, `${location.latitude},${location.longitude}:${tz}:${todayStr}`);
-  const cached = histCache.get(cacheKey);
-  if (cached) return cached;
+  const cache = cacheFor(opts, { shared: histShared, name: 'hist', base, ttlMs: HIST_TTL_MS });
+  const cacheKey = `${location.latitude},${location.longitude}:${tz}:${todayStr}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  return withDeadline(opts, (signal) => fetchHistoricalNow(location, opts, signal, base, cache, cacheKey, mmdd, currentYear));
+}
+
+async function fetchHistoricalNow(location, opts, signal, base, cache, cacheKey, mmdd, currentYear) {
+  const tz = location.timeZone;
 
   const end = new Date();
   end.setDate(end.getDate() - 1); // yesterday, to avoid a partial current day
@@ -85,7 +99,7 @@ export async function fetchHistoricalAverage(location, opts) {
     `${base}/v1/archive?latitude=${location.latitude}&longitude=${location.longitude}` +
     `&daily=temperature_2m_mean&temperature_unit=fahrenheit&timezone=${tzParam(tz)}` +
     `&start_date=${formatDateYYYYMMDD(start, tz)}&end_date=${formatDateYYYYMMDD(end, tz)}`;
-  const res = await fetchWithTimeout(url, initFor(opts));
+  const res = await fetchWithTimeout(url, initFor(opts, undefined, signal), headerTimeout(opts));
   if (!res.ok) throw new Error(`Archive API ${res.status}`);
   const data = await res.json();
   const dates = data?.daily?.time;
@@ -107,14 +121,19 @@ export async function fetchHistoricalAverage(location, opts) {
   }
   if (count === 0) throw new Error('No matching historical days');
 
-  return histCache.set(cacheKey, { baseline: sum / count, years: count });
+  return cache.set(cacheKey, { baseline: sum / count, years: count });
 }
 
 export async function geocodeCity(name, opts) {
   if (!name || !name.trim()) return null;
+  return withDeadline(opts, (signal) => geocodeCityNow(name, opts, signal));
+}
+
+async function geocodeCityNow(name, opts, signal) {
   const res = await fetchWithTimeout(
     `${baseOf(opts, GEOCODING_BASE)}/v1/search?name=${encodeURIComponent(name.trim())}&count=1&language=en&format=json`,
-    initFor(opts)
+    initFor(opts, undefined, signal),
+    headerTimeout(opts)
   );
   if (!res.ok) throw new Error(`Geocoding API ${res.status}`);
   const data = await res.json();
@@ -125,12 +144,23 @@ export async function geocodeCity(name, opts) {
 
 // Open-Meteo reverse first, BigDataCloud as a CORS-friendly fallback.
 // `baseUrl` replaces the Open-Meteo host and `fallbackBaseUrl` the
-// BigDataCloud one; `headers` and `fetch` apply to both.
+// BigDataCloud one; `headers` and `fetch` apply to both. Like the rest of this
+// function, running out of `timeoutMs` or an aborted `signal` gives null.
 export async function reverseGeocode(latitude, longitude, opts) {
+  checkDeadline(opts);
+  try {
+    return await withDeadline(opts, (signal) => reverseGeocodeNow(latitude, longitude, opts, signal));
+  } catch {
+    return null;
+  }
+}
+
+async function reverseGeocodeNow(latitude, longitude, opts, signal) {
   try {
     const res = await fetchWithTimeout(
       `${baseOf(opts, GEOCODING_BASE)}/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1&language=en&format=json`,
-      initFor(opts)
+      initFor(opts, undefined, signal),
+      headerTimeout(opts)
     );
     if (res.ok) {
       const data = await res.json();
@@ -143,7 +173,8 @@ export async function reverseGeocode(latitude, longitude, opts) {
   try {
     const res = await fetchWithTimeout(
       `${baseOf({ baseUrl: opts?.fallbackBaseUrl }, BIGDATACLOUD_BASE)}/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
-      initFor(opts)
+      initFor(opts, undefined, signal),
+      headerTimeout(opts)
     );
     if (res.ok) {
       const data = await res.json();

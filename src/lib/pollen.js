@@ -6,12 +6,17 @@
 // server. Anywhere else pass `baseUrl` (e.g. https://skyglance.web.app, whose
 // proxy then wants an allowlisted Origin or Referer in `headers`), or a
 // `fetch` that answers /api/pollen itself.
-import { fetchWithTimeout, baseOf, initFor } from './fetchTimeout.js';
+import { fetchWithTimeout, baseOf, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
 
-export async function fetchPollen(location, opts) {
+export function fetchPollen(location, opts) {
+  return withDeadline(opts, (signal) => fetchPollenNow(location, opts, signal));
+}
+
+async function fetchPollenNow(location, opts, signal) {
   const res = await fetchWithTimeout(
     `${baseOf(opts, '')}/api/pollen?lat=${location.latitude}&lng=${location.longitude}`,
-    initFor(opts)
+    initFor(opts, undefined, signal),
+    headerTimeout(opts)
   );
   if (!res.ok) {
     let code = `http_${res.status}`;
