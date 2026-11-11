@@ -64,3 +64,77 @@ test('without a recent dry report the radar rule is unchanged', () => {
   assert.equal(radarToCode(weak, 62), 61);
   assert.equal(radarToCode(weak, 62, { recentDry: false }), 61);
 });
+
+// ── Tile maths, usable without a page ───────────────────────────────────────
+import { radarTile, radarTileUrl, echoPatchOrigin, radarReading } from '../src/lib/radar.js';
+
+// The formula as it stood inline in fetchRadar before it was exported, kept
+// here to prove the move changed nothing but the pixel clamp.
+function tileAsItWas(latitude, longitude) {
+  const lat = Math.max(-85, Math.min(85, latitude));
+  const n = 2 ** 7;
+  const fx = ((longitude + 180) / 360) * n;
+  const latR = (lat * Math.PI) / 180;
+  const fy = ((1 - Math.asinh(Math.tan(latR)) / Math.PI) / 2) * n;
+  const xt = Math.min(Math.max(Math.floor(fx), 0), n - 1);
+  const yt = Math.min(Math.max(Math.floor(fy), 0), n - 1);
+  return { xt, yt, px: Math.floor((fx - xt) * 256), py: Math.floor((fy - yt) * 256) };
+}
+
+test('radarTile finds the standard slippy-map tile', () => {
+  // London is tile 511/340 at z10, so 63/42 at z7.
+  const london = radarTile(51.5074, -0.1278);
+  assert.deepEqual([london.z, london.x, london.y], [7, 63, 42]);
+  assert.deepEqual(radarTile(0, 0), { z: 7, x: 64, y: 64, px: 0, py: 0 });
+  assert.equal(radarTile(51.5074, -0.1278, 10).x, 511);
+  assert.equal(radarTile(51.5074, -0.1278, 10).y, 340);
+});
+
+test('radarTile keeps the tile and the pixel inside the grid at every edge', () => {
+  assert.deepEqual(radarTile(0, 180), { z: 7, x: 127, y: 64, px: 255, py: 0 }); // antimeridian
+  assert.deepEqual(radarTile(0, -180), { z: 7, x: 0, y: 64, px: 0, py: 0 });
+  assert.deepEqual(radarTile(90, 10), radarTile(85, 10)); // poles clamp to ±85
+  assert.deepEqual(radarTile(-90, 10), radarTile(-85, 10));
+  for (let lat = -90; lat <= 90; lat += 2.5) {
+    for (let lon = -185; lon <= 185; lon += 2.5) {
+      const t = radarTile(lat, lon);
+      for (const [k, max] of [['x', 127], ['y', 127], ['px', 255], ['py', 255]]) {
+        assert.ok(Number.isInteger(t[k]) && t[k] >= 0 && t[k] <= max, `${k}=${t[k]} at ${lat},${lon}`);
+      }
+    }
+  }
+});
+
+test('radarTile matches the old inline maths, the sampled patch included', () => {
+  for (let lat = -89; lat <= 89; lat += 0.77) {
+    for (let lon = -181; lon <= 181; lon += 0.93) {
+      const now = radarTile(lat, lon);
+      const was = tileAsItWas(lat, lon);
+      assert.equal(now.x, was.xt, `x at ${lat},${lon}`);
+      assert.equal(now.y, was.yt, `y at ${lat},${lon}`);
+      // The pixel can differ only where it was off the tile, and the patch
+      // read around it is the same either way.
+      assert.deepEqual(echoPatchOrigin(now.px, now.py), echoPatchOrigin(was.px, was.py), `patch at ${lat},${lon}`);
+      if (was.px >= 0 && was.px <= 255) assert.equal(now.px, was.px);
+      if (was.py >= 0 && was.py <= 255) assert.equal(now.py, was.py);
+    }
+  }
+});
+
+test('echoPatchOrigin centres a 3×3 patch and keeps it on the image', () => {
+  assert.deepEqual(echoPatchOrigin(128, 64), { x0: 127, y0: 63 });
+  assert.deepEqual(echoPatchOrigin(0, 0), { x0: 0, y0: 0 });
+  assert.deepEqual(echoPatchOrigin(255, 255), { x0: 253, y0: 253 });
+  assert.deepEqual(echoPatchOrigin(1, 254), { x0: 0, y0: 253 });
+  assert.deepEqual(echoPatchOrigin(10, 10, 8, 8), { x0: 5, y0: 5 }); // a smaller image
+});
+
+test('radarTileUrl and radarReading build what fetchRadar returns', () => {
+  const frame = { host: 'https://tilecache.rainviewer.com', path: '/v2/radar/1760925600', time: 1760925600 };
+  assert.equal(
+    radarTileUrl(frame, radarTile(51.5074, -0.1278)),
+    'https://tilecache.rainviewer.com/v2/radar/1760925600/256/7/63/42/2/0_1.png'
+  );
+  const reading = radarReading(patch(...Array(9).fill(C.rain40)), frame);
+  assert.deepEqual(reading, { precip: true, intensity: 'moderate', strong: true, observedAt: '2025-10-20T02:00:00.000Z' });
+});
