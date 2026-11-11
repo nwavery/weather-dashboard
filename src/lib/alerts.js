@@ -3,7 +3,17 @@
 // (and any API hiccup) just resolve to no alerts. Cached briefly per point —
 // the hook refreshes on its normal cadence anyway.
 
-import { fetchWithTimeout, baseOf, cacheFor, ttlMap, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
+import {
+  fetchWithTimeout,
+  baseOf,
+  cacheFor,
+  checkDeadline,
+  alreadyAborted,
+  ttlMap,
+  initFor,
+  headerTimeout,
+  withDeadline
+} from './fetchTimeout.js';
 
 const NWS_BASE = 'https://api.weather.gov';
 
@@ -84,6 +94,8 @@ export function alertTiming(onsetStr, endsStr, timeZone, nowMs) {
 // fetchTimeout.js). A server caller should send a User-Agent, which NWS asks
 // every client for.
 export async function fetchAlerts(location, opts) {
+  checkDeadline(opts);
+  if (alreadyAborted(opts)) throw opts.signal.reason;
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return [];
   const base = baseOf(opts, NWS_BASE);

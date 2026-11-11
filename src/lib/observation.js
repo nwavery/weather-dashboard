@@ -19,6 +19,7 @@ import {
   cacheFor,
   changesResult,
   checkDeadline,
+  alreadyAborted,
   ttlMap,
   initFor,
   headerTimeout,
@@ -93,10 +94,11 @@ async function nearestStation(latitude, longitude, base, opts, signal) {
 // station reported and saw none — so the caller can both add missed rain and
 // drop model rain the station contradicts.
 export async function fetchObservation(location, opts) {
+  checkDeadline(opts);
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
+  if (alreadyAborted(opts)) return null;
   const base = baseOf(opts, NWS_BASE);
-  checkDeadline(opts);
   try {
     return await withDeadline(opts, (signal) => latestObservation(latitude, longitude, base, opts, signal));
   } catch {

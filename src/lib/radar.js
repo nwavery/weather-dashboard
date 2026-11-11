@@ -14,7 +14,7 @@
 // with fetchRadarFrame, download the PNG, decode the 3x3 patch itself, and get
 // the same reading the card gets. Only sampleTile needs a canvas.
 
-import { baseOf, cacheFor, checkDeadline, ttlMap, initFor } from './fetchTimeout.js';
+import { baseOf, cacheFor, checkDeadline, alreadyAborted, ttlMap, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
 
 const MAPS_TTL_MS = 4 * 60 * 1000; // the frame list refreshes ~every 10 min
 const RADAR_Z = 7; // ~1 km/pixel at 256-px tiles — matches radar's native resolution
@@ -68,6 +68,7 @@ export function summarizeEcho(data) {
 // https://api.rainviewer.com.
 export async function fetchRadarFrame(opts) {
   checkDeadline(opts);
+  if (alreadyAborted(opts)) return null;
   const base = baseOf(opts, RAINVIEWER_BASE);
   const cache = cacheFor(opts, { shared: mapsCache, name: 'radar', base, ttlMs: MAPS_TTL_MS });
   const hit = cache.get('frame');
@@ -142,20 +143,30 @@ export function radarReading(patch, frame) {
 }
 
 // Read the 3×3 RGBA neighbourhood around (px,py) of a tile image, or null on
-// any failure.
-function sampleTile(url, px, py) {
+// any failure. Gives up after `ms` (8 s; null for none) or when `signal`
+// aborts, and stops the image load either way.
+function sampleTile(url, px, py, signal, ms = 8000) {
   return new Promise((resolve) => {
     if (typeof document === 'undefined' || typeof Image === 'undefined') return resolve(null);
+    if (signal?.aborted) return resolve(null);
     const img = new Image();
     img.crossOrigin = 'anonymous';
     let settled = false;
+    let timer = null;
     const done = (v) => {
       if (!settled) {
         settled = true;
+        if (timer !== null) clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         resolve(v);
       }
     };
-    const timer = setTimeout(() => done(null), 8000);
+    const onAbort = () => {
+      done(null);
+      img.src = '';
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (ms != null) timer = setTimeout(() => done(null), ms);
     img.onload = () => {
       clearTimeout(timer);
       try {
@@ -182,16 +193,27 @@ function sampleTile(url, px, py) {
 // null when radar is unavailable. precip:false means "no echo here" (which may
 // also be "no coverage", so the caller must not treat it as 'dry'). `opts` go to
 // fetchRadarFrame. Without a DOM this is always null; see the top of the file.
+//
+// `signal` and `timeoutMs` bound the whole call, the tile image included,
+// which otherwise gets its own 8 s.
 export async function fetchRadar(location, opts) {
+  checkDeadline(opts);
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
   if (typeof document === 'undefined') return null; // non-browser context
-  const frame = await fetchRadarFrame(opts);
-  if (!frame) return null;
-  const tile = radarTile(latitude, longitude);
-  const data = await sampleTile(radarTileUrl(frame, tile), tile.px, tile.py);
-  if (!data) return null;
-  return radarReading(data, frame);
+  if (alreadyAborted(opts)) return null;
+  try {
+    return await withDeadline(opts, async (signal) => {
+      const frame = await fetchRadarFrame(signal ? { ...opts, signal } : opts);
+      if (!frame) return null;
+      const tile = radarTile(latitude, longitude);
+      const data = await sampleTile(radarTileUrl(frame, tile), tile.px, tile.py, signal, headerTimeout(opts, 8000));
+      if (!data) return null;
+      return radarReading(data, frame);
+    });
+  } catch {
+    return null; // timed out or aborted
+  }
 }
 
 // WMO code for a radar echo, using temperature to tell rain from snow. Capped at

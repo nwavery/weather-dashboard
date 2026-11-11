@@ -3,7 +3,17 @@
 // Each takes optional { baseUrl, headers, fetch, cache, signal, timeoutMs } last
 // (see fetchTimeout.js); baseUrl replaces that endpoint's own host, listed below.
 import { formatDateYYYYMMDD } from './format.js';
-import { fetchWithTimeout, baseOf, cacheFor, checkDeadline, ttlMap, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
+import {
+  fetchWithTimeout,
+  baseOf,
+  cacheFor,
+  checkDeadline,
+  alreadyAborted,
+  ttlMap,
+  initFor,
+  headerTimeout,
+  withDeadline
+} from './fetchTimeout.js';
 import { persistentCache } from './persistentCache.js';
 
 const HISTORICAL_LOOKBACK_YEARS = 10;
@@ -50,6 +60,8 @@ async function fetchWeatherNow(location, opts, signal) {
 }
 
 export async function fetchAirQuality(location, opts) {
+  checkDeadline(opts);
+  if (alreadyAborted(opts)) throw opts.signal.reason;
   const base = baseOf(opts, AIR_BASE);
   const cache = cacheFor(opts, { shared: aqCache, name: 'air', base, ttlMs: AQ_TTL_MS });
   const key = `${location.latitude},${location.longitude}`;
@@ -71,6 +83,8 @@ async function fetchAirQualityNow(location, opts, signal, base, cache, key) {
 
 // Average mean temp on today's month/day over the last N years (excludes this year).
 export async function fetchHistoricalAverage(location, opts) {
+  checkDeadline(opts);
+  if (alreadyAborted(opts)) throw opts.signal.reason;
   const base = baseOf(opts, ARCHIVE_BASE);
   const tz = location.timeZone;
   const todayStr = formatDateYYYYMMDD(new Date(), tz);
@@ -125,6 +139,7 @@ async function fetchHistoricalNow(location, opts, signal, base, cache, cacheKey,
 }
 
 export async function geocodeCity(name, opts) {
+  checkDeadline(opts);
   if (!name || !name.trim()) return null;
   return withDeadline(opts, (signal) => geocodeCityNow(name, opts, signal));
 }

@@ -121,14 +121,25 @@ export function headerTimeout(opts, ms) {
   return opts?.timeoutMs === undefined ? ms : null;
 }
 
-// Throws on a timeoutMs that isn't a positive finite number. The fetchers that
-// answer null on any failure call this first, so a bad option is an error and
-// not a silent null.
+// Throws on a timeoutMs that isn't a positive finite number, or a signal that
+// isn't an AbortSignal. Every fetcher calls this before anything else, a cache
+// lookup included, so a bad option is an error on a hit too, and the ones that
+// answer null on any failure don't turn it into a silent null.
 export function checkDeadline(opts) {
   const t = opts?.timeoutMs;
   if (t !== undefined && !(typeof t === 'number' && t > 0 && Number.isFinite(t))) {
     throw new TypeError(`timeoutMs must be a positive number of ms, got ${t}`);
   }
+  const s = opts?.signal;
+  if (s !== undefined && !(s && typeof s.aborted === 'boolean' && typeof s.addEventListener === 'function')) {
+    throw new TypeError('signal must be an AbortSignal');
+  }
+}
+
+// True when the caller's signal has already aborted. Checked before a cache
+// lookup, so an aborted call never gets an answer.
+export function alreadyAborted(opts) {
+  return opts?.signal?.aborted === true;
 }
 
 // Run `work(signal)` under the caller's signal and timeoutMs, which bound the
