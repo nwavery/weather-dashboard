@@ -14,7 +14,7 @@ function PollenItem({ icon, label, info, embed }) {
       ? `${label} pollen — out of season`
       : `${label} pollen — none right now (out of season)`;
   return (
-    <div className="metric pollen-metric" title={title}>
+    <div className="metric pollen-metric" title={embed ? undefined : title}>
       <i className={`fas ${icon}`}></i>{' '}
       <span>
         {label}: <strong className={`pollen-level ${cls}`}>{text}</strong>
@@ -63,7 +63,7 @@ export function AirQuality({ air, pollen, pollenError, labels, embed = false }) 
           <i className="fas fa-lungs"></i> {L.title || 'Air Quality & Allergens'}
         </span>
         {air ? (
-          <span className={`aqi-badge ${aq.cls}`} title="US Air Quality Index">
+          <span className={`aqi-badge ${aq.cls}`} title={embed ? undefined : 'US Air Quality Index'}>
             {L.aqi || 'AQI'} {Math.round(air.us_aqi)} · {aq.label}
           </span>
         ) : null}
@@ -71,10 +71,10 @@ export function AirQuality({ air, pollen, pollenError, labels, embed = false }) 
 
       {air ? (
         <div className="aq-metrics">
-          <div className="metric" title="Fine particulate matter (PM2.5), µg/m³">
+          <div className="metric" title={embed ? undefined : 'Fine particulate matter (PM2.5), µg/m³'}>
             <i className="fas fa-smog"></i> <span>{L.pm || 'PM2.5'} {Math.round(air.pm2_5)}</span>
           </div>
-          <div className="metric" title="Ground-level ozone (O₃), µg/m³">
+          <div className="metric" title={embed ? undefined : 'Ground-level ozone (O₃), µg/m³'}>
             <i className="fas fa-cloud"></i> <span>{L.ozone || 'O₃'} {Math.round(air.ozone)}</span>
           </div>
         </div>
@@ -82,6 +82,10 @@ export function AirQuality({ air, pollen, pollenError, labels, embed = false }) 
         <div className="pollen-note">Air quality unavailable right now.</div>
       )}
 
+      {embed && air ? (
+        // What the badge and the two readings are, otherwise only in tooltips.
+        <div className="aq-legend">US Air Quality Index · fine particulate matter (PM2.5) and ground-level ozone (O₃) in µg/m³</div>
+      ) : null}
       <PollenRow pollen={pollen} pollenError={pollenError} pollenLabels={L.pollen} embed={embed} />
     </div>
   );

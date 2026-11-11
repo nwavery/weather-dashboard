@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 // test/support/renderViews.mjs with the clock frozen, Math.random seeded and
 // TZ=UTC. Regenerate it only from a commit whose default view is meant to
 // change.
+//
+// A first render runs no effects, so this can't see the ?city= pin, rotation
+// or the canvases' frame loops; test/domEffects.test.js covers those.
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/default-view.json', import.meta.url), 'utf8'));
@@ -28,7 +31,6 @@ function render(searches) {
 const SAME_AS = {
   '?demo=1': '?demo=1',
   '': '',
-  '?city=Gotham': '?city=Gotham',
   '?demo=1&view=': '?demo=1',
   '?demo=1&view=list': '?demo=1',
   '?demo=1&view=CARD': '?demo=1'

@@ -94,3 +94,13 @@ test('the scan catches every unscoped shape', () => {
     assert.deepEqual(unscoped(ok), [], ok);
   }
 });
+
+test('the card never traps the wheel: no overscroll containment', () => {
+  // A contained card with nothing to scroll swallows the wheel, so the page
+  // around the frame can't be scrolled with the pointer over it. Checked in
+  // a real browser for the change that removed it; this keeps it removed.
+  const css = readFileSync(new URL('../src/cardView.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // A boolean, not doesNotMatch: a failure would print the whole stylesheet.
+  const trapped = /overscroll-behavior(-[xy])?\s*:\s*(contain|none)/.test(css.replace(/\s+/g, ' '));
+  assert.ok(!trapped, 'cardView.css sets overscroll-behavior: contain or none');
+});

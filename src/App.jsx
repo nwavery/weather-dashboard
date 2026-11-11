@@ -28,7 +28,7 @@ function CardView() {
   const loc = locations[0];
   return (
     <UnitsProvider>
-      <UnitsToggle />
+      <UnitsToggle embed />
       <div className="container">
         <div className="cards-container">
           {loc ? <WeatherCard key={loc.key} location={loc} now={now} status={status} embed /> : null}

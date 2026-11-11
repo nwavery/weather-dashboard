@@ -137,7 +137,8 @@ function drawHarvestMoon(ctx, w, h, t) {
 
 const RENDERERS = { gasgiant: drawGasGiant, dustsun: drawDustSun, moon: drawMoon, harvestmoon: drawHarvestMoon };
 
-export function WorldSky({ kind }) {
+// `still`: draw one frame and redraw only on resize, for the ?view=card embed.
+export function WorldSky({ kind, still = false }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -154,7 +155,8 @@ export function WorldSky({ kind }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resize();
-    const ro = new ResizeObserver(resize);
+    // Resizing clears a canvas, so a still sky is drawn again after each one.
+    const ro = new ResizeObserver(still ? () => (resize(), frame(0)) : resize);
     ro.observe(canvas);
 
     function frame(now) {
@@ -162,14 +164,15 @@ export function WorldSky({ kind }) {
       const h = canvas.offsetHeight;
       ctx.clearRect(0, 0, w, h);
       render(ctx, w, h, now);
-      rafRef.current = requestAnimationFrame(frame);
+      if (!still) rafRef.current = requestAnimationFrame(frame);
     }
-    rafRef.current = requestAnimationFrame(frame);
+    if (still) frame(0);
+    else rafRef.current = requestAnimationFrame(frame);
     return () => {
       ro.disconnect();
       cancelAnimationFrame(rafRef.current);
     };
-  }, [kind]);
+  }, [kind, still]);
 
   return <canvas ref={canvasRef} className="world-sky-canvas" aria-hidden="true" />;
 }

@@ -59,28 +59,101 @@ test('the card view renders the first card alone, without the dashboard around i
   assert.equal(count(realDash, 'class="card '), 2);
 });
 
-test('what the dashboard only shows on hover, the card view shows as text', { timeout: 120000 }, () => {
-  // Demo card 2 has a condition detail and an alert with a headline.
-  const { 'card:2:plain': plain, 'card:2:embed': embed } = render(['card:2:plain', 'card:2:embed']);
-  const descTitle = unescape(/<div class="weather-desc" title="([^"]*)"/.exec(plain)[1]);
-  const alertTitles = [...plain.matchAll(/class="weather-alert [^"]*" title="([^"]*)"/g)].map((m) => unescape(m[1]));
-  assert.ok(descTitle.length > 0 && alertTitles.length > 0, 'the fixture lost its tooltips');
-  assert.deepEqual(textOf(embed, 'weather-detail'), [descTitle]);
-  assert.deepEqual(textOf(embed, 'alert-headline'), alertTitles);
-  // The pollen index, otherwise only in each pollen tooltip.
-  const plainIdx = [...plain.matchAll(/pollen \u2014 [^"(]*\(index (\d)\/5\)/g)].map((m) => `${m[1]}/5`);
-  const embedIdx = [...embed.matchAll(/<span class="pollen-index"> (\d\/5)<\/span>/g)].map((m) => m[1]);
-  assert.ok(plainIdx.length > 0);
-  assert.deepEqual(embedIdx, plainIdx);
-  // And none of it leaks into the dashboard's card.
-  for (const cls of ['weather-detail', 'alert-headline', 'pollen-index']) assert.equal(count(plain, cls), 0, cls);
+// Visible text of a render, tags stripped and whitespace collapsed.
+const visible = (html) => unescape(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
+// Every element carrying a title: { tag, cls, title, alt }.
+const titled = (html) =>
+  [...html.matchAll(/<(\w+)([^>]*?)\stitle="([^"]*)"([^>]*)>/g)].map((m) => {
+    const attrs = m[2] + m[4];
+    const alt = /alt="([^"]*)"/.exec(attrs);
+    return { tag: m[1], cls: /class="([^"]*)"/.exec(attrs)?.[1] ?? '', title: unescape(m[3]), alt: alt ? unescape(alt[1]) : null };
+  });
+// An icon image's title repeats its alt: the image is the content.
+const isIcon = (t) => t.tag === 'img' && t.alt === t.title;
+
+// For each kind of tooltip the dashboard's card has, where the embed shows the
+// same information instead. A tooltip of a kind not listed here fails the
+// test: add it once the embed shows it.
+const SHOWN_IN_EMBED = [
+  ['weather-desc', (t, embed) => textOf(embed, 'weather-detail').includes(t.title)],
+  ['weather-alert', (t, embed) =>
+    [...embed.matchAll(/<span class="alert-headline-text">([^<]*)<\/span>/g)].some((m) => unescape(m[1]) === t.title)],
+  ['pollen-metric', (t, embed) => {
+    const idx = /\(index (\d)\/5\)/.exec(t.title);
+    return idx ? visible(embed).includes(`${idx[1]}/5`) : true; // no index: the category is already on the card
+  }],
+  ['metric', (t, embed) => t.title.split(', ').every((part) => visible(embed).toLowerCase().includes(part.toLowerCase()))],
+  ['aqi-badge', (t, embed) => visible(embed).includes(t.title)],
+  ['hourly-precip', (t, embed) => visible(embed).toLowerCase().includes(t.title.toLowerCase())],
+  ['hourly-event', (t, embed) => [...embed.matchAll(/<span class="hourly-event-name">([^<]*)<\/span>/g)].some((m) => unescape(m[1]) === t.title)],
+  ['twin-badge', (t, embed) => visible(embed).toLowerCase().includes(t.title.toLowerCase().replace(/^your /, ''))],
+  ['moon-sign', (t, embed) => visible(embed).includes(t.title.replace('The Moon is currently in ', 'Moon in '))],
+  // The embed drops the Sun x Moon blurb to fit the frame. The title only
+  // named that blurb, so what has to stay is the season it is a blend of.
+  ['sky-vibe', (_t, embed) => /☉ \S+ season/.test(visible(embed))]
+];
+const kindOf = (t) => SHOWN_IN_EMBED.find(([cls]) => t.cls.split(/\s+/).includes(cls));
+
+// Demo cards (rain, snow, a storm with an alert, clear) and fictional cities
+// with their own metric names and, for Pandora, a world event in the hourly.
+const PAIRS = ['card:0', 'card:1', 'card:2', 'card:3', 'fic:Pandora', 'fic:Mordor', 'fic:Arrakis'];
+
+test("the card view has no hover-only text: no title but an icon image's own alt", { timeout: 120000 }, () => {
+  const embeds = render([...PAIRS.map((p) => `${p}:embed`), '?demo=1&view=card', '?view=card&city=Gotham']);
+  for (const [k, html] of Object.entries(embeds)) {
+    const hover = titled(html).filter((t) => !isIcon(t));
+    assert.deepEqual(hover.map((t) => `${t.cls}: ${t.title}`), [], k);
+  }
+});
+
+test("every tooltip on the dashboard's card is shown as text on the embed", { timeout: 120000 }, () => {
+  const views = render(PAIRS.flatMap((p) => [`${p}:plain`, `${p}:embed`]));
+  const covered = new Set();
+  for (const p of PAIRS) {
+    const plain = views[`${p}:plain`];
+    const embed = views[`${p}:embed`];
+    for (const t of titled(plain).filter((x) => !isIcon(x))) {
+      if (t.cls.includes('edit-location-btn')) continue; // the embed has no edit controls at all
+      const kind = kindOf(t);
+      assert.ok(kind, `${p}: no rule for the tooltip on "${t.cls}" ("${t.title}")`);
+      assert.ok(kind[1](t, embed), `${p}: "${t.title}" (${t.cls}) is not shown on the embed`);
+      covered.add(kind[0]);
+    }
+  }
+  // The kinds the review named must have been met, or this proved nothing.
+  for (const kind of ['weather-desc', 'weather-alert', 'pollen-metric', 'metric', 'aqi-badge', 'hourly-precip', 'hourly-event', 'moon-sign']) {
+    assert.ok(covered.has(kind), `no card had a ${kind} tooltip`);
+  }
+});
+
+test('fictional cards show the real name under each renamed metric, and only those', { timeout: 120000 }, () => {
+  const { 'fic:Arrakis:embed': embed, 'fic:Arrakis:plain': plain } = render(['fic:Arrakis:embed', 'fic:Arrakis:plain']);
+  const labels = [...plain.matchAll(/<span class="metric-label">([^<]*)<\/span>/g)].map((m) => m[1]);
+  const renamed = labels.filter((l) => !['Humidity', 'Dew Pt', 'UV Index'].includes(l) && !/^[↑↓←→↖↗↘↙] /.test(l));
+  assert.ok(renamed.length > 0, 'Arrakis lost its own metric names, so this proves nothing');
+  assert.equal(count(embed, 'class="metric-real"'), renamed.length);
+  // Pandora keeps "Humidity" as its own label: no second "Humidity" under it.
+  const { 'fic:Pandora:embed': pandora } = render(['fic:Pandora:embed']);
+  const pairs = [...pandora.matchAll(/<span class="metric-label">([^<]*)<\/span>(?:<span class="metric-real">([^<]*)<\/span>)?/g)];
+  assert.ok(pairs.length === 4);
+  for (const [, label, real] of pairs) assert.ok(!real || real.toLowerCase() !== label.toLowerCase(), `${label} repeated`);
+  assert.ok(pairs.some(([, label]) => label === 'Humidity'), 'Pandora renamed Humidity, so the repeat case is untested');
+});
+
+test('an embed alert is a button with its headline, closed to start', { timeout: 120000 }, () => {
+  const { 'card:2:embed': embed } = render(['card:2:embed']);
+  assert.match(embed, /<button type="button" class="weather-alert weather-alert--\w+ alert-toggle" aria-expanded="false">/);
+  assert.equal(count(embed, 'class="alert-headline-text"'), count(embed, ' alert-toggle"'));
 });
 
 test('a card with no detail or headline gets no empty lines', { timeout: 120000 }, () => {
-  const cards = render(['card:0:embed', 'card:1:embed', 'card:3:embed']);
+  const cards = render(['card:0:embed', 'card:1:embed', 'card:3:embed', 'fic:Pandora:embed']);
   for (const [k, html] of Object.entries(cards)) {
-    for (const cls of ['weather-detail', 'alert-headline']) {
+    for (const cls of ['weather-detail']) {
       for (const t of textOf(html, cls)) assert.ok(t.trim().length > 0, `${k} has an empty ${cls}`);
+    }
+    for (const cls of ['alert-headline-text', 'hourly-event-name', 'metric-real']) {
+      assert.ok(!new RegExp(`<span class="${cls}"></span>`).test(html), `${k} has an empty ${cls}`);
     }
   }
 });

@@ -6,7 +6,8 @@
 //   TZ=UTC node test/support/renderViews.mjs '?demo=1' ''
 //
 // An argument `card:<i>:embed` (or `card:<i>:plain`) renders demo card i on
-// its own instead of the App, with or without WeatherCard's `embed`.
+// its own instead of the App, with or without WeatherCard's `embed`, and
+// `fic:<name>:embed` does the same for a fictional city.
 //
 // Only the first render is captured, the way a server render sees it: no
 // effects run, so no fetch, no geolocation, no timers. Run with TZ=UTC: the
@@ -87,13 +88,15 @@ try {
     // so every URL gets fresh modules.
     server.moduleGraph.invalidateAll();
     seed = 1;
-    const card = /^card:(\d+):(embed|plain)$/.exec(search);
+    const card = /^(card|fic):([^:]+):(embed|plain)$/.exec(search);
     if (card) {
-      globalThis.window.location.search = '?demo=1';
+      globalThis.window.location.search = card[1] === 'card' ? '?demo=1' : '';
       const { WeatherCard } = await server.ssrLoadModule('/src/components/WeatherCard.jsx');
       const { UnitsProvider } = await server.ssrLoadModule('/src/context/UnitsContext.jsx');
       const { DEMO_LOCATIONS } = await server.ssrLoadModule('/src/lib/demoData.js');
-      const el = createElement(WeatherCard, { location: DEMO_LOCATIONS[Number(card[1])], now: new Date(), embed: card[2] === 'embed' });
+      const { findFictional } = await server.ssrLoadModule('/src/lib/fictionalCities.js');
+      const location = card[1] === 'card' ? DEMO_LOCATIONS[Number(card[2])] : { key: 'current', ...findFictional(card[2]) };
+      const el = createElement(WeatherCard, { location, now: new Date(), embed: card[3] === 'embed' });
       out[search] = renderToStaticMarkup(createElement(UnitsProvider, null, el));
       continue;
     }
