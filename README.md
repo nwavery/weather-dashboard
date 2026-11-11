@@ -37,8 +37,9 @@ Browser (React SPA)
 - Auto-refresh every 5 minutes; responsive on desktop and mobile.
 - `?view=card` shows the first card alone, filling its frame, for embedding in
   an iframe (pair it with `?city=` to pin the place). Nothing on it moves, and
-  everything the dashboard keeps in tooltips is shown as text (icon images
-  keep their alt text). A typical card, two alerts included, fits a 720 x 960
+  everything the dashboard keeps in tooltips is shown as text, with one
+  exception: the daily and hourly forecast icons keep a tooltip that repeats
+  their own alt text. A typical card, two alerts included, fits a 720 x 960
   frame; a longer one scrolls by wheel or by mouse drag, and an alert opens on
   a tap. It picks up new deploys overnight like a kiosk does.
 

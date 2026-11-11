@@ -291,7 +291,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                       className="weather-icon"
                       src={`https://openweathermap.org/img/wn/${iconVariant(info.icon, isDark)}@2x.png`}
                       alt={info.description}
-                      title={info.description}
+                      title={embed ? undefined : info.description}
                     />
                   ) : null}
                   <div className="display-value temp-value">

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attachDragScroll, DRAG_THRESHOLD_PX } from '../src/hooks/useDragScroll.js';
+import { attachDragScroll, DRAG_THRESHOLD_PX, CLICK_GRACE_MS } from '../src/hooks/useDragScroll.js';
 
 // The rule: on the embed, a mouse drag scrolls the card like a finger would
 // (the fridge sends taps as mouse events); a tap is still a tap; touch and pen
@@ -18,7 +18,19 @@ function target() {
     listeners
   };
 }
-const ev = (over) => ({ pointerType: 'mouse', button: 0, pointerId: 1, clientY: 500, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...over });
+// A pointer event with the left button held, or a mouse click (detail 1).
+const ev = (over) => ({ pointerType: 'mouse', button: 0, buttons: 1, detail: 1, pointerId: 1, clientY: 500, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...over });
+const swallowed = (e) => e.prevented && e.stopped;
+const setup = () => {
+  const el = target();
+  const win = target();
+  attachDragScroll(el, win);
+  const drag = () => {
+    el.fire('pointerdown', ev());
+    win.fire('pointermove', ev({ clientY: 400 }));
+  };
+  return { el, win, drag };
+};
 
 test('a mouse drag scrolls by the distance dragged, both ways', () => {
   const el = target();
@@ -90,4 +102,73 @@ test('detaching removes every listener', () => {
   detach();
   assert.deepEqual(Object.keys(el.listeners), []);
   assert.deepEqual(Object.keys(win.listeners), []);
+});
+
+// ── The swallowed click is only ever the one that ends the drag ─────────────
+
+test('a release anywhere ends the drag, and only its own click is swallowed', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { el, win, drag } = setup();
+  drag();
+  win.fire('pointerup', ev({ pointerId: 7, clientY: 400 })); // another pointer's release still ends it
+  assert.ok(!el.classList.has('drag-scrolling'));
+  const first = ev();
+  el.fire('click', first, true); // the release's own click, same task
+  assert.ok(swallowed(first));
+  t.mock.timers.tick(0);
+  const next = ev();
+  el.fire('click', next, true);
+  assert.ok(!swallowed(next));
+});
+
+test('released where we never hear it: the flag dies after the grace period', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { el, drag } = setup();
+  drag(); // no pointerup: let go outside the frame
+  t.mock.timers.tick(CLICK_GRACE_MS);
+  const later = ev();
+  el.fire('click', later, true);
+  assert.ok(!swallowed(later), 'a click well after a lost release was swallowed');
+});
+
+test('a keyboard click is never swallowed, even right after a drag', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { el, win, drag } = setup();
+  drag();
+  const key = ev({ detail: 0 });
+  el.fire('click', key, true);
+  assert.ok(!swallowed(key));
+  // ...and it doesn't use up the swallow meant for the release's click.
+  win.fire('pointerup', ev({ clientY: 400 }));
+  const mouse = ev();
+  el.fire('click', mouse, true);
+  assert.ok(swallowed(mouse));
+});
+
+test('a cancelled pointer ends the drag and clears the flag', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { el, win, drag } = setup();
+  drag();
+  win.fire('pointercancel', ev());
+  assert.ok(!el.classList.has('drag-scrolling'));
+  t.mock.timers.tick(0);
+  const next = ev();
+  el.fire('click', next, true);
+  assert.ok(!swallowed(next));
+});
+
+test('a move with no button held ends the drag without scrolling', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { el, win, drag } = setup();
+  drag();
+  assert.equal(el.scrollTop, 400);
+  win.fire('pointermove', ev({ buttons: 0, clientY: 100 })); // the release was lost
+  assert.equal(el.scrollTop, 400);
+  assert.ok(!el.classList.has('drag-scrolling'));
+  win.fire('pointermove', ev({ clientY: 50 })); // a later hover with a button: no drag without a new press
+  assert.equal(el.scrollTop, 400);
+  t.mock.timers.tick(0);
+  const next = ev();
+  el.fire('click', next, true);
+  assert.ok(!swallowed(next));
 });

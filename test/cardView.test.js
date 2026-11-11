@@ -61,20 +61,28 @@ test('the card view renders the first card alone, without the dashboard around i
 
 // Visible text of a render, tags stripped and whitespace collapsed.
 const visible = (html) => unescape(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
-// Every element carrying a title: { tag, cls, title, alt }.
+// Every element carrying a title: { tag, cls, title, alt, parent }, where
+// parent is the class of the element it sits directly inside.
 const titled = (html) =>
   [...html.matchAll(/<(\w+)([^>]*?)\stitle="([^"]*)"([^>]*)>/g)].map((m) => {
     const attrs = m[2] + m[4];
     const alt = /alt="([^"]*)"/.exec(attrs);
-    return { tag: m[1], cls: /class="([^"]*)"/.exec(attrs)?.[1] ?? '', title: unescape(m[3]), alt: alt ? unescape(alt[1]) : null };
+    const parent = /<\w+ class="([^"]*)">\s*$/.exec(html.slice(0, m.index))?.[1] ?? '';
+    return { tag: m[1], cls: /class="([^"]*)"/.exec(attrs)?.[1] ?? '', title: unescape(m[3]), alt: alt ? unescape(alt[1]) : null, parent };
   });
-// An icon image's title repeats its alt: the image is the content.
-const isIcon = (t) => t.tag === 'img' && t.alt === t.title;
+// The one exception the card view keeps: a daily or hourly forecast icon
+// whose title repeats its own alt text. The image shows it, and the alt says
+// it; the title adds nothing a touch screen misses.
+const isForecastIcon = (t) =>
+  t.tag === 'img' && t.alt === t.title && ['daily-icon', 'hourly-icon'].includes(t.parent);
 
 // For each kind of tooltip the dashboard's card has, where the embed shows the
 // same information instead. A tooltip of a kind not listed here fails the
 // test: add it once the embed shows it.
 const SHOWN_IN_EMBED = [
+  // The current-condition icon: the embed drops its title and keeps the
+  // image and its alt, which are what the title repeated.
+  ['weather-icon', (t, embed) => new RegExp(`<img class="weather-icon"[^>]*alt="${t.alt?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).test(embed)],
   ['weather-desc', (t, embed) => textOf(embed, 'weather-detail').includes(t.title)],
   ['weather-alert', (t, embed) =>
     [...embed.matchAll(/<span class="alert-headline-text">([^<]*)<\/span>/g)].some((m) => unescape(m[1]) === t.title)],
@@ -98,10 +106,25 @@ const kindOf = (t) => SHOWN_IN_EMBED.find(([cls]) => t.cls.split(/\s+/).includes
 // with their own metric names and, for Pandora, a world event in the hourly.
 const PAIRS = ['card:0', 'card:1', 'card:2', 'card:3', 'fic:Pandora', 'fic:Mordor', 'fic:Arrakis'];
 
-test("the card view has no hover-only text: no title but an icon image's own alt", { timeout: 120000 }, () => {
+test('the exception admits a forecast icon repeating its alt, and nothing else', () => {
+  const allowed = (html) => titled(html).map(isForecastIcon);
+  assert.deepEqual(allowed('<div class="daily-icon"><img src="a.png" alt="Clear sky" title="Clear sky"></div>'), [true]);
+  assert.deepEqual(allowed('<div class="hourly-icon"><img src="a.png" alt="Fog" title="Fog"></div>'), [true]);
+  for (const html of [
+    '<div class="temp-display"><img class="weather-icon" src="a.png" alt="Clear sky" title="Clear sky"></div>',
+    '<div class="daily-icon"><img src="a.png" alt="Clear sky" title="Clear sky, all day"></div>',
+    '<div class="daily-icon"><span title="Clear sky">☀</span></div>',
+    '<div class="daily-icon"><div><img src="a.png" alt="x" title="x"></div></div>',
+    '<div class="hourly-icon hourly-event"><img src="a.png" alt="x" title="x"></div>'
+  ]) {
+    assert.deepEqual(allowed(html), [false], html);
+  }
+});
+
+test('the card view has no hover-only text: no title but a forecast icon repeating its alt', { timeout: 120000 }, () => {
   const embeds = render([...PAIRS.map((p) => `${p}:embed`), '?demo=1&view=card', '?view=card&city=Gotham']);
   for (const [k, html] of Object.entries(embeds)) {
-    const hover = titled(html).filter((t) => !isIcon(t));
+    const hover = titled(html).filter((t) => !isForecastIcon(t));
     assert.deepEqual(hover.map((t) => `${t.cls}: ${t.title}`), [], k);
   }
 });
@@ -112,7 +135,7 @@ test("every tooltip on the dashboard's card is shown as text on the embed", { ti
   for (const p of PAIRS) {
     const plain = views[`${p}:plain`];
     const embed = views[`${p}:embed`];
-    for (const t of titled(plain).filter((x) => !isIcon(x))) {
+    for (const t of titled(plain).filter((x) => !isForecastIcon(x))) {
       if (t.cls.includes('edit-location-btn')) continue; // the embed has no edit controls at all
       const kind = kindOf(t);
       assert.ok(kind, `${p}: no rule for the tooltip on "${t.cls}" ("${t.title}")`);
