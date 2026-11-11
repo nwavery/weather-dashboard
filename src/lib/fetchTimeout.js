@@ -12,15 +12,13 @@ const DEFAULT_TIMEOUT_MS = 10 * 1000; // under the hook's 12s race, so the abort
 // covers the request until headers arrive, not the body read; `ms` null means
 // no timer of its own (a caller's timeoutMs is in charge, see withDeadline).
 export async function fetchWithTimeout(url, { fetch: fetchImpl = fetch, signal: outer, ...opts } = {}, ms = DEFAULT_TIMEOUT_MS) {
+  if (outer?.aborted) throw outer.reason; // never call out for a call already given up on
   const ctrl = new AbortController();
   const t = ms == null ? null : setTimeout(() => ctrl.abort(), ms);
   // Forwarded for as long as the outer signal lives, so an abort after the
   // headers still reaches the body read. The outer signal is withDeadline's
   // per-call one, never the caller's own.
-  if (outer) {
-    if (outer.aborted) ctrl.abort(outer.reason);
-    else outer.addEventListener('abort', () => ctrl.abort(outer.reason), { once: true });
-  }
+  if (outer) outer.addEventListener('abort', () => ctrl.abort(outer.reason), { once: true });
   try {
     return await fetchImpl(url, { ...opts, signal: ctrl.signal });
   } finally {
@@ -130,8 +128,9 @@ export function checkDeadline(opts) {
   if (t !== undefined && !(typeof t === 'number' && t > 0 && Number.isFinite(t))) {
     throw new TypeError(`timeoutMs must be a positive number of ms, got ${t}`);
   }
+  // null is no signal, as it was before signals were checked.
   const s = opts?.signal;
-  if (s !== undefined && !(s && typeof s.aborted === 'boolean' && typeof s.addEventListener === 'function')) {
+  if (s != null && !(typeof s.aborted === 'boolean' && typeof s.addEventListener === 'function')) {
     throw new TypeError('signal must be an AbortSignal');
   }
 }
@@ -148,7 +147,10 @@ export function alreadyAborted(opts) {
 // settles on abort even if a custom fetch, or a body, ignores the signal.
 export async function withDeadline(opts, work) {
   checkDeadline(opts);
-  const { signal, timeoutMs } = opts || {};
+  const signal = opts?.signal ?? undefined;
+  const timeoutMs = opts?.timeoutMs;
+  // Before `work` starts, so an aborted call never calls out.
+  if (signal?.aborted) throw signal.reason;
   if (signal === undefined && timeoutMs === undefined) return work(undefined);
   const ctrl = new AbortController();
   const fromCaller = () => ctrl.abort(signal.reason);
