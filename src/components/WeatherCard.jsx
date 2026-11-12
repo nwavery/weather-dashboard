@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useDragScroll } from '../hooks/useDragScroll.js';
 import { useLocationWeather, REFRESH_MS } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { useUnits } from '../context/UnitsContext.jsx';
@@ -29,10 +30,16 @@ import { HourlyForecast } from './HourlyForecast.jsx';
 import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
 import { alertTiming } from '../lib/alerts.js';
+import { EmbedAlerts } from './EmbedAlerts.jsx';
 
-export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate }) {
+// `embed` (the ?view=card frame): a still sky with no ambient particles, a
+// read-only name, and the condition detail and alert headlines as visible
+// text, since a fridge's touch screen has no hover to show a tooltip.
+export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate, embed = false }) {
   const wx = useLocationWeather(location);
   const { units } = useUnits();
+  const contentRef = useRef(null);
+  useDragScroll(contentRef, embed);
   const current = wx.weather?.current;
   // One clock for every time rule on the card (station freshness, the dry-report
   // window, the sun countdown, alert expiry).
@@ -182,7 +189,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       <div className="sky-bg" aria-hidden="true" />
 
       {/* World signature sky body (Polyphemus over Pandora, the dust-sun…) */}
-      {fic?.skyBody ? <WorldSky kind={fic.skyBody} /> : null}
+      {fic?.skyBody ? <WorldSky kind={fic.skyBody} still={embed} /> : null}
 
       {/* Animated weather layer */}
       <WeatherAnimation
@@ -201,11 +208,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
         precip={fic ? 0 : current?.precipitation ?? 0}
         sunPos={sunPos}
         hasSkyBody={!!fic?.skyBody}
+        still={embed}
       />
 
       {/* Per-world ambient particles (bubbles, embers, spores…) — and flavor
           effects on real cards (blustery leaves, blowing dust, smoky haze) */}
-      {fic ? (
+      {embed ? null : fic ? (
         ficEffect ? <WorldEffects kind={ficEffect} /> : null
       ) : flavorEffect ? (
         <WorldEffects kind={flavorEffect} />
@@ -222,17 +230,23 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       {/* Gradient scrim for text legibility */}
       <div className="card-scrim" aria-hidden="true" />
 
-      <div className="card-content">
+      <div className="card-content" ref={contentRef}>
         {/* Header: city + clock */}
         <div className="time-section">
           <h2>
-            <EditableName
-              name={location.name}
-              onRename={onRename}
-              onLocate={onLocate}
-              rotating={rotating}
-              onToggleRotate={onToggleRotate}
-            />
+            {embed ? (
+              <span className="location-name-wrap">
+                <span className="location-name">{location.name}</span>
+              </span>
+            ) : (
+              <EditableName
+                name={location.name}
+                onRename={onRename}
+                onLocate={onLocate}
+                rotating={rotating}
+                onToggleRotate={onToggleRotate}
+              />
+            )}
             {location.badge ? <span className="location-badge">{location.badge}</span> : null}
           </h2>
           <div className="display-value clock-value">{formatClock(now, location.timeZone, units)}</div>
@@ -277,7 +291,7 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                       className="weather-icon"
                       src={`https://openweathermap.org/img/wn/${iconVariant(info.icon, isDark)}@2x.png`}
                       alt={info.description}
-                      title={info.description}
+                      title={embed ? undefined : info.description}
                     />
                   ) : null}
                   <div className="display-value temp-value">
@@ -285,11 +299,12 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   </div>
                 </div>
                 {info && (
-                  <div className="weather-desc" title={flavor?.detail || undefined}>
+                  <div className="weather-desc" title={embed ? undefined : flavor?.detail || undefined}>
                     {(isDark && fic?.conditionNight ? fic.conditionNight : fic?.condition) ||
                       (flavor ? `${flavor.label} · ${info.description}` : info.description)}
                   </div>
                 )}
+                {embed && info && flavor?.detail ? <div className="weather-detail">{flavor.detail}</div> : null}
                 {dispatch ? <div className="world-dispatch">📻 {dispatch}</div> : null}
                 <div className="temp-details">
                   <span className="feels-like">
@@ -318,20 +333,22 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   </div>
                 ) : null}
                 {twin ? (
-                  <div className="twin-badge" title="Your real weather matches a fictional world">
+                  <div className="twin-badge" title={embed ? undefined : 'Your real weather matches a fictional world'}>
                     {twin.emoji} {twin.text}
+                    {embed ? <span className="twin-note"> · your real weather matches a fictional world</span> : null}
                   </div>
                 ) : null}
               </div>
               <DailyForecast daily={wx.weather?.daily} timeZone={location.timeZone} units={units} />
             </div>
 
-            <Metrics current={current} labels={fic?.metrics} units={units} />
+            <Metrics current={current} labels={fic?.metrics} units={units} embed={embed} />
             <AirQuality
               air={wx.air}
               pollen={wx.pollen}
               pollenError={wx.pollenError}
               labels={fic ? { ...fic.air, pollen: fic.pollenLabels } : null}
+              embed={embed}
             />
             <HourlyForecast
               hourly={wx.weather?.hourly}
@@ -342,10 +359,23 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
                   ? () => isDark
                   : (instant) => isSunDown(instant, location.latitude, location.longitude)
               }
+              embed={embed}
             />
 
-            {/* Astrology readout: Moon's sign + the live Sun×Moon blend */}
-            {mSign || vibe ? (
+            {/* Astrology readout: Moon's sign + the live Sun×Moon blend. The
+                embed keeps the two names on one line and drops the blurbs, to
+                fit a 960px frame. */}
+            {embed && (mSign || vibe) ? (
+              <div className="astro-section astro-line">
+                {mSign ? (
+                  <span className="moon-sign">
+                    <span className="moon-sign-glyph">{mSign.glyph}</span> Moon in {mSign.name}
+                  </span>
+                ) : null}
+                {mSign && vibe ? ' · ' : null}
+                {vibe ? <span className="sky-vibe sky-vibe-sun">☉ {vibe.sun.name} season</span> : null}
+              </div>
+            ) : mSign || vibe ? (
               <div className="astro-section">
                 {mSign ? (
                   <div className="moon-sign" title={`The Moon is currently in ${mSign.name}`}>
@@ -363,7 +393,9 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
             ) : null}
 
             {/* Official NWS alerts (Heat Advisory, Tornado Watch, …) */}
-            {alerts.length > 0 ? (
+            {embed && alerts.length > 0 ? (
+              <EmbedAlerts alerts={alerts} timeZone={location.timeZone} nowMs={nowMs} />
+            ) : alerts.length > 0 ? (
               <div className="weather-alerts">
                 {alerts.slice(0, 2).map((a) => (
                   <div key={a.id} className={`weather-alert weather-alert--${a.class}`} title={a.headline}>
@@ -381,12 +413,19 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
 
         {status ? <div className="info-display">{status}</div> : null}
 
-        <div className="refresh-info">
-          <p>Auto-refreshes every {Math.round(REFRESH_MS / 60000)} min</p>
-          <div>
-            {wx.updatedAt ? `Updated: ${formatShortTime(wx.updatedAt, location.timeZone, units)}` : 'Last updated: -'}
+        {embed ? (
+          <div className="refresh-info refresh-line">
+            {wx.updatedAt ? `Updated ${formatShortTime(wx.updatedAt, location.timeZone, units)}` : 'Not updated yet'} · refreshes
+            every {Math.round(REFRESH_MS / 60000)} min
           </div>
-        </div>
+        ) : (
+          <div className="refresh-info">
+            <p>Auto-refreshes every {Math.round(REFRESH_MS / 60000)} min</p>
+            <div>
+              {wx.updatedAt ? `Updated: ${formatShortTime(wx.updatedAt, location.timeZone, units)}` : 'Last updated: -'}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

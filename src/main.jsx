@@ -2,7 +2,14 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { startAutoReload } from './lib/autoReload.js';
+import { IS_CARD_VIEW } from './lib/view.js';
 import './index.css';
+import './cardView.css';
+
+// Set before the first paint so the embed never flashes the dashboard layout.
+// Every rule in cardView.css is under html.card-view, so without this class it
+// matches nothing.
+if (IS_CARD_VIEW) document.documentElement.classList.add('card-view');
 
 // Ask the browser to treat our site storage as persistent. TV browsers (Fire
 // TV Silk especially) evict site data aggressively between launches, which

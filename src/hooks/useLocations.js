@@ -255,18 +255,22 @@ async function resolveCurrent(setStatus) {
   }
 }
 
-export function useLocations() {
+// `single`: only the first card, and no fictional rotation (the ?view=card
+// embed). Everything else about the first card is the same: the ?city= pin,
+// a saved manual choice, auto-locate.
+export function useLocations({ single = false } = {}) {
   const demo = isDemo();
   const [locations, setLocations] = useState(() => {
-    if (demo) return DEMO_LOCATIONS;
+    if (demo) return single ? DEMO_LOCATIONS.slice(0, 1) : DEMO_LOCATIONS;
     const manual = loadManual();
-    return [
+    const cards = [
       { key: 'current', ...FALLBACK, badge: '' },
       { key: 'boston', name: 'Boston, MA', latitude: 42.3601, longitude: -71.0589, timeZone: 'America/New_York', badge: '' }
-    ].map((card) => restoreManual(card, manual));
+    ];
+    return (single ? cards.slice(0, 1) : cards).map((card) => restoreManual(card, manual));
   });
   const [status, setStatus] = useState('');
-  const [rotating, setRotating] = useState(() => initialRotation(demo)); // { [key]: true }
+  const [rotating, setRotating] = useState(() => (single ? {} : initialRotation(demo))); // { [key]: true }
   const timers = useRef({}); // key -> intervalId
   const idxRef = useRef({}); // key -> next fictional index
 
