@@ -2,12 +2,11 @@ import { useMemo } from 'react';
 import { useLocationWeather, REFRESH_MS } from '../hooks/useLocationWeather.js';
 import { formatTemperature, tempClass, formatClock, formatShortTime, getTimePhase } from '../lib/format.js';
 import { useUnits } from '../context/UnitsContext.jsx';
-import { weatherInfo, effectiveWeatherCode, iconVariant, isPrecipCode } from '../data/weatherCodes.js';
+import { weatherInfo, iconVariant } from '../data/weatherCodes.js';
 import { isFictional, fictionalTheme, fictionalTwin, worldDispatch } from '../lib/fictionalCities.js';
 import { headlineFlavor } from '../lib/headline.js';
 import { feelsLike } from '../lib/feelsLike.js';
-import { freshObservation, recentDryObservation } from '../lib/observation.js';
-import { radarToCode } from '../lib/radar.js';
+import { effectiveConditionCode, historicalText, sunCountdown, liveAlerts } from '../lib/conditions.js';
 import { isSunDown, sunPhase, solarPosition, sunScreenPosition, worldSun } from '../lib/sun.js';
 import { moonSign, skyVibe } from '../lib/moonSign.js';
 import { daylightInfo } from '../lib/sunTimes.js';
@@ -31,73 +30,17 @@ import { Metrics } from './Metrics.jsx';
 import { AirQuality } from './AirQuality.jsx';
 import { alertTiming } from '../lib/alerts.js';
 
-// "3h 12m" / "45m" for a positive duration in ms.
-function formatDuration(ms) {
-  const m = Math.max(0, Math.round(ms / 60000));
-  const h = Math.floor(m / 60);
-  return h ? `${h}h ${m % 60}m` : `${m}m`;
-}
-
-// Daylight gained/lost vs yesterday, to the second (e.g. "+1 min 47 sec vs
-// yesterday", "−12 sec vs yesterday"). Near a solstice it shrinks to a few
-// seconds rather than rounding away to "same".
-function formatDaylightDelta(sec) {
-  if (typeof sec !== 'number') return null;
-  const a = Math.abs(sec);
-  const sign = sec > 0 ? '+' : sec < 0 ? '−' : '';
-  const body = a < 60 ? `${a} sec` : `${Math.floor(a / 60)} min ${a % 60} sec`;
-  return `${sign}${body} vs yesterday`;
-}
-
-function historicalText(weather, historical, units) {
-  if (!weather?.daily) return 'vs. Historical: --';
-  // Compare like with like: the baseline is the historical daily MEAN, so today
-  // must be the daily mean too. Open-Meteo's forecast gives a full-day mean
-  // (observed + forecast hours). The (max+min)/2 midpoint runs ~1-2° warm vs the
-  // true mean, so only fall back to it when the mean field is unavailable.
-  const mean = weather.daily.temperature_2m_mean?.[0];
-  const max = weather.daily.temperature_2m_max[0];
-  const min = weather.daily.temperature_2m_min[0];
-  const predicted =
-    typeof mean === 'number' && !Number.isNaN(mean)
-      ? mean
-      : typeof max === 'number' && typeof min === 'number'
-        ? (max + min) / 2
-        : null;
-  if (predicted == null) return 'vs. Historical: --';
-  if (!historical) return `Today avg: ${formatTemperature(predicted, units)}`;
-  // The difference is the same number of degrees in °F or °C only by scale;
-  // convert the gap to the displayed unit so "5° warmer" matches the reading.
-  const diffF = predicted - historical.baseline;
-  const diff = Math.round(units === 'metric' ? diffF * (5 / 9) : diffF);
-  if (diff === 0) return `vs ${historical.years}y avg: ↔ right on average`;
-  const sym = diff > 0 ? '↑' : '↓';
-  const word = diff > 0 ? 'warmer' : 'cooler';
-  return `vs ${historical.years}y avg: ${sym} ${Math.abs(diff)}° ${word}`;
-}
-
 export function WeatherCard({ location, now, status, onRename, onLocate, rotating, onToggleRotate }) {
   const wx = useLocationWeather(location);
   const { units } = useUnits();
   const current = wx.weather?.current;
-  // The effective code drops phantom storms/rain (a code claiming precip while
-  // 0 mm is falling) and — for US points — defers to a fresh nearby NWS
-  // observation both ways (adds real precip the model missed, drops precip the
-  // station doesn't see). Use it everywhere (including the animation) so the
-  // headline and the sky never disagree.
-  const obs = freshObservation(wx.observation);
-  let effCode = current ? effectiveWeatherCode(current, obs) : undefined;
-  // Global fallback: with no authoritative station observation, if neither the
-  // model nor we already show precip but live radar sees an echo overhead, add
-  // it (rain vs snow by temperature). Radar only adds — "no echo" can mean "no
-  // coverage", so it never suppresses. If the station said dry in the last few
-  // hours (its feed stalled), only a strong echo may override that.
-  if (current && !obs && typeof effCode === 'number' && !isPrecipCode(effCode)) {
-    const rc = radarToCode(wx.radar, current.temperature_2m, {
-      recentDry: recentDryObservation(wx.observation, now?.getTime ? now.getTime() : Date.now())
-    });
-    if (rc != null) effCode = rc;
-  }
+  // One clock for every time rule on the card (station freshness, the dry-report
+  // window, the sun countdown, alert expiry).
+  const nowMs = now?.getTime ? now.getTime() : Date.now();
+  // Forecast + station + radar -> the code to show. Use it everywhere
+  // (including the animation) so the headline and the sky never disagree.
+  // The rules live in lib/conditions.js.
+  const effCode = effectiveConditionCode({ current, observation: wx.observation, radar: wx.radar, nowMs });
   const info = current ? weatherInfo(effCode) : null;
   const cardClass = current ? tempClass(current.temperature_2m) : '';
   // Fictional cities supply their own background gradient, animation, time-of-day
@@ -215,28 +158,17 @@ export function WeatherCard({ location, now, status, onRename, onLocate, rotatin
       });
   // Re-checked every clock tick so an alert drops the instant its end time
   // passes, without waiting for the next fetch (matters on always-on displays).
-  const nowMs = now?.getTime ? now.getTime() : Date.now();
-  const alerts = fic
-    ? []
-    : (wx.alerts || []).filter((a) => !a.ends || new Date(a.ends).getTime() > nowMs);
+  const alerts = fic ? [] : liveAlerts(wx.alerts, nowMs);
   // A rare world event happening right now (Mt. Doom erupting…) takes over the
   // fictional card's tagline and ambient effect for its hour.
   const worldEvent = fic ? wx.event : null;
   const ficEffect = worldEvent?.effect || fic?.effect;
   // Rotating in-world "dispatch" ticker (deterministic by the clock). Yields to
   // a rare event's tagline when one is active.
-  const dispatch = fic && !worldEvent ? worldDispatch(fic.id, now?.getTime ? now.getTime() : Date.now()) : null;
+  const dispatch = fic && !worldEvent ? worldDispatch(fic.id, nowMs) : null;
 
   // Live sun countdown + daylight-change label (recomputed each clock tick).
-  let sunUntil = null;
-  let daylightDelta = null;
-  if (sun && sun.polar == null) {
-    const t = now.getTime();
-    if (sun.sunrise && t < sun.sunrise.getTime()) sunUntil = `sunrise in ${formatDuration(sun.sunrise.getTime() - t)}`;
-    else if (sun.sunset && t < sun.sunset.getTime()) sunUntil = `sunset in ${formatDuration(sun.sunset.getTime() - t)}`;
-    else if (sun.nextSunrise) sunUntil = `sunrise in ${formatDuration(sun.nextSunrise.getTime() - t)}`;
-    daylightDelta = formatDaylightDelta(sun.deltaSec);
-  }
+  const { until: sunUntil, daylightDelta } = sunCountdown(sun, nowMs);
 
   return (
     <div

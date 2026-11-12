@@ -44,7 +44,8 @@ src/
   main.jsx, App.jsx
   components/            WeatherCard, Hourly/Daily forecasts, Metrics, AirQuality, …
   hooks/                 useClock, useLocationWeather, useLocations
-  lib/                   openMeteo.js (keyless clients), pollen.js (calls /api), format.js
+  lib/                   openMeteo.js (keyless clients), pollen.js (calls /api), format.js,
+                         conditions.js (forecast + station + radar -> what the card shows)
   data/weatherCodes.js
 server/
   index.js              Express: serves dist/ + /api/pollen + /healthz

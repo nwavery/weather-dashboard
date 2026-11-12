@@ -8,6 +8,13 @@
 // the model/observation untouched. Radar can't reliably tell rain from snow, so
 // the caller decides type by temperature; and "no echo" can also mean "no radar
 // coverage", so radar only ADDS precip, never suppresses it.
+//
+// Outside a browser: the tile maths (radarTile, echoPatchOrigin, radarTileUrl),
+// summarizeEcho and radarReading are pure, so a server can fetch the frame
+// with fetchRadarFrame, download the PNG, decode the 3x3 patch itself, and get
+// the same reading the card gets. Only sampleTile needs a canvas.
+
+import { baseOf, cacheFor, checkDeadline, alreadyAborted, ttlMap, initFor, headerTimeout, withDeadline } from './fetchTimeout.js';
 
 const MAPS_TTL_MS = 4 * 60 * 1000; // the frame list refreshes ~every 10 min
 const RADAR_Z = 7; // ~1 km/pixel at 256-px tiles — matches radar's native resolution
@@ -16,7 +23,9 @@ const ALPHA_ON = 40; // pixel alpha above this counts as a radar echo
 // test below decodes its exact colours. (Requests for scheme 4 were found to be
 // served as Universal Blue anyway, Oct 2026.)
 const COLOR_SCHEME = 2;
-let mapsCache = null;
+const TILE_PX = 256;
+const RAINVIEWER_BASE = 'https://api.rainviewer.com';
+const mapsCache = ttlMap(MAPS_TTL_MS);
 
 // Universal Blue colours for 40 dBZ and up, rain and snow ramps, from
 // RainViewer's published table (rainviewer.com/files/rainviewer_api_colors_table.csv).
@@ -53,41 +62,111 @@ export function summarizeEcho(data) {
   return { precip: true, intensity, strong };
 }
 
-// Latest radar frame { host, path, time } from the public maps index, cached.
-async function latestFrame() {
-  if (mapsCache && mapsCache.expires > Date.now()) return mapsCache.data;
+// Latest radar frame { host, path, time } from the public maps index, cached,
+// or null on any failure, timeouts included. Optional { baseUrl, headers,
+// fetch, cache, signal, timeoutMs } (see fetchTimeout.js); baseUrl replaces
+// https://api.rainviewer.com.
+export async function fetchRadarFrame(opts) {
+  checkDeadline(opts);
+  if (alreadyAborted(opts)) return null;
+  const base = baseOf(opts, RAINVIEWER_BASE);
+  const cache = cacheFor(opts, { shared: mapsCache, name: 'radar', base, ttlMs: MAPS_TTL_MS });
+  const hit = cache.get('frame');
+  if (hit !== undefined) return hit;
+  // Its own abort rather than fetchWithTimeout's, because this one also
+  // bounds reading the body: 8 s, or the caller's timeoutMs instead. A
+  // caller's signal aborts it too.
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
+  const timer = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 8000);
+  const outer = opts?.signal;
+  const fromCaller = () => ctrl.abort(outer.reason);
+  if (outer) {
+    if (outer.aborted) fromCaller();
+    else outer.addEventListener('abort', fromCaller, { once: true });
+  }
+  const aborted = new Promise((_, reject) => ctrl.signal.addEventListener('abort', () => reject(ctrl.signal.reason), { once: true }));
+  aborted.catch(() => {});
   try {
-    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json', { signal: ctrl.signal });
-    const meta = await res.json();
+    const { fetch: fetchImpl = fetch, ...init } = initFor(opts);
+    // Raced, so a custom fetch or a body that ignores the signal still ends.
+    const res = await Promise.race([fetchImpl(`${base}/public/weather-maps.json`, { ...init, signal: ctrl.signal }), aborted]);
+    const meta = await Promise.race([res.json(), aborted]);
     const past = meta?.radar?.past || [];
     const frame = past[past.length - 1];
     const data = frame && meta.host ? { host: meta.host, path: frame.path, time: frame.time } : null;
-    mapsCache = { expires: Date.now() + MAPS_TTL_MS, data };
-    return data;
+    return cache.set('frame', data);
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
+    outer?.removeEventListener('abort', fromCaller);
   }
 }
 
-// Read a 3×3 RGBA neighbourhood around (px,py) of a tile image, or null on any
-// failure. A small neighbourhood absorbs sub-pixel rounding at the coordinate.
-function sampleTile(url, px, py) {
+// Web-Mercator (slippy-map) tile { z, x, y } holding a coordinate, and the
+// pixel { px, py } inside that 256-px tile. Latitude is clamped to ±85 and
+// the tile indices to the grid, so the antimeridian (lon 180 gives fx === n)
+// and the poles don't ask for an out-of-range tile that 404s. The pixel is
+// clamped to 0-255 as well: lon 180 used to give px 256, which only worked
+// because sampleTile clamps its patch to the image.
+export function radarTile(latitude, longitude, z = RADAR_Z) {
+  const lat = Math.max(-85, Math.min(85, latitude));
+  const n = 2 ** z;
+  const fx = ((longitude + 180) / 360) * n;
+  const latR = (lat * Math.PI) / 180;
+  const fy = ((1 - Math.asinh(Math.tan(latR)) / Math.PI) / 2) * n;
+  const x = Math.min(Math.max(Math.floor(fx), 0), n - 1);
+  const y = Math.min(Math.max(Math.floor(fy), 0), n - 1);
+  const clampPx = (v) => Math.min(Math.max(v, 0), TILE_PX - 1);
+  return { z, x, y, px: clampPx(Math.floor((fx - x) * TILE_PX)), py: clampPx(Math.floor((fy - y) * TILE_PX)) };
+}
+
+// The tile PNG for a frame: Universal Blue, no smoothing, snow shown.
+export function radarTileUrl(frame, { z, x, y }) {
+  return `${frame.host}${frame.path}/${TILE_PX}/${z}/${x}/${y}/${COLOR_SCHEME}/0_1.png`;
+}
+
+// Top-left corner of the 3×3 patch to read around (px, py), kept inside an
+// image of the given size. A small neighbourhood absorbs sub-pixel rounding at
+// the coordinate.
+export function echoPatchOrigin(px, py, width = TILE_PX, height = TILE_PX) {
+  return {
+    x0: Math.max(0, Math.min(width - 3, px - 1)),
+    y0: Math.max(0, Math.min(height - 3, py - 1))
+  };
+}
+
+// The `radar` value effectiveConditionCode reads: { precip, intensity, strong,
+// observedAt } from a 3×3 RGBA patch (row-major, 36 bytes) and its frame.
+export function radarReading(patch, frame) {
+  return { ...summarizeEcho(patch), observedAt: new Date(frame.time * 1000).toISOString() };
+}
+
+// Read the 3×3 RGBA neighbourhood around (px,py) of a tile image, or null on
+// any failure. Gives up after `ms` (8 s; null for none) or when `signal`
+// aborts, and stops the image load either way.
+function sampleTile(url, px, py, signal, ms = 8000) {
   return new Promise((resolve) => {
     if (typeof document === 'undefined' || typeof Image === 'undefined') return resolve(null);
+    if (signal?.aborted) return resolve(null);
     const img = new Image();
     img.crossOrigin = 'anonymous';
     let settled = false;
+    let timer = null;
     const done = (v) => {
       if (!settled) {
         settled = true;
+        if (timer !== null) clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         resolve(v);
       }
     };
-    const timer = setTimeout(() => done(null), 8000);
+    const onAbort = () => {
+      done(null);
+      img.src = '';
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (ms != null) timer = setTimeout(() => done(null), ms);
     img.onload = () => {
       clearTimeout(timer);
       try {
@@ -96,8 +175,7 @@ function sampleTile(url, px, py) {
         cv.height = img.height;
         const ctx = cv.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(img, 0, 0);
-        const x0 = Math.max(0, Math.min(img.width - 3, px - 1));
-        const y0 = Math.max(0, Math.min(img.height - 3, py - 1));
+        const { x0, y0 } = echoPatchOrigin(px, py, img.width, img.height);
         done(ctx.getImageData(x0, y0, 3, 3).data);
       } catch {
         done(null); // tainted canvas, etc.
@@ -111,33 +189,31 @@ function sampleTile(url, px, py) {
   });
 }
 
-// Radar echo over a location as { precip, intensity, observedAt }, or null when
-// radar is unavailable. precip:false means "no echo here" (which may also be "no
-// coverage", so the caller must not treat it as 'dry').
-export async function fetchRadar(location) {
+// Radar echo over a location as { precip, intensity, strong, observedAt }, or
+// null when radar is unavailable. precip:false means "no echo here" (which may
+// also be "no coverage", so the caller must not treat it as 'dry'). `opts` go to
+// fetchRadarFrame. Without a DOM this is always null; see the top of the file.
+//
+// `signal` and `timeoutMs` bound the whole call, the tile image included,
+// which otherwise gets its own 8 s.
+export async function fetchRadar(location, opts) {
+  checkDeadline(opts);
   const { latitude, longitude } = location;
   if (typeof latitude !== 'number' || typeof longitude !== 'number') return null;
   if (typeof document === 'undefined') return null; // non-browser context
-  const frame = await latestFrame();
-  if (!frame) return null;
-
-  // Web-Mercator (slippy-map) tile + pixel for the coordinate.
-  const lat = Math.max(-85, Math.min(85, latitude));
-  const n = 2 ** RADAR_Z;
-  const fx = ((longitude + 180) / 360) * n;
-  const latR = (lat * Math.PI) / 180;
-  const fy = ((1 - Math.asinh(Math.tan(latR)) / Math.PI) / 2) * n;
-  // Clamp to valid tile indices so the antimeridian (lon ±180 → fx === n) and the
-  // poles don't ask for an out-of-range tile that 404s.
-  const xt = Math.min(Math.max(Math.floor(fx), 0), n - 1);
-  const yt = Math.min(Math.max(Math.floor(fy), 0), n - 1);
-  const px = Math.floor((fx - xt) * 256);
-  const py = Math.floor((fy - yt) * 256);
-
-  const url = `${frame.host}${frame.path}/256/${RADAR_Z}/${xt}/${yt}/${COLOR_SCHEME}/0_1.png`; // no-smooth, +snow
-  const data = await sampleTile(url, px, py);
-  if (!data) return null;
-  return { ...summarizeEcho(data), observedAt: new Date(frame.time * 1000).toISOString() };
+  if (alreadyAborted(opts)) return null;
+  try {
+    return await withDeadline(opts, async (signal) => {
+      const frame = await fetchRadarFrame(signal ? { ...opts, signal } : opts);
+      if (!frame) return null;
+      const tile = radarTile(latitude, longitude);
+      const data = await sampleTile(radarTileUrl(frame, tile), tile.px, tile.py, signal, headerTimeout(opts, 8000));
+      if (!data) return null;
+      return radarReading(data, frame);
+    });
+  } catch {
+    return null; // timed out or aborted
+  }
 }
 
 // WMO code for a radar echo, using temperature to tell rain from snow. Capped at
