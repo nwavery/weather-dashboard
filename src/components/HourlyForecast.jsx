@@ -3,7 +3,9 @@ import { weatherInfo, effectiveWeatherCode, iconVariant } from '../data/weatherC
 
 const OFFSETS = [1, 3, 5, 7, 9, 11];
 
-export function HourlyForecast({ hourly, timeZone, isNightAt, units = 'imperial' }) {
+// `embed` (the ?view=card frame): a world event's name is shown under its
+// emoji, and the label says what 💧 is, both otherwise only in tooltips.
+export function HourlyForecast({ hourly, timeZone, isNightAt, units = 'imperial', embed = false }) {
   if (!hourly?.time) {
     return (
       <div className="hourly-forecast">
@@ -58,8 +60,9 @@ export function HourlyForecast({ hourly, timeZone, isNightAt, units = 'imperial'
         <div className="hourly-time">{label}</div>
         {special ? (
           // A rare world event lands on this hour (e.g. 🌋 Mt. Doom erupts)
-          <div className="hourly-icon hourly-event" title={special.name}>
+          <div className="hourly-icon hourly-event" title={embed ? undefined : special.name}>
             {special.emoji}
+            {embed ? <span className="hourly-event-name">{special.name}</span> : null}
           </div>
         ) : (
           <div className="hourly-icon">
@@ -70,7 +73,7 @@ export function HourlyForecast({ hourly, timeZone, isNightAt, units = 'imperial'
         {/* Keep the row height uniform: render the slot even when there's no data */}
         <div
           className={`hourly-precip${typeof prob === 'number' && prob > 0 ? '' : ' hourly-precip--none'}`}
-          title="Chance of precipitation"
+          title={embed ? undefined : 'Chance of precipitation'}
         >
           {typeof prob === 'number' ? `💧${Math.round(prob)}%` : ' '}
         </div>
@@ -80,7 +83,7 @@ export function HourlyForecast({ hourly, timeZone, isNightAt, units = 'imperial'
 
   return (
     <div className="hourly-forecast">
-      <span className="section-label">Hourly</span>
+      <span className="section-label">{embed ? 'Hourly · 💧 chance of precipitation' : 'Hourly'}</span>
       <div className="hourly-forecast-container">{items}</div>
     </div>
   );

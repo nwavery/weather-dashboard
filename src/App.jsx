@@ -12,8 +12,33 @@ import { startKeepAwake, stopKeepAwake } from './lib/keepAwake.js';
 // fit-to-screen scaling. Detection lives in lib/runtime.js, shared with the
 // kiosk auto-update logic.
 import { IS_TV } from './lib/runtime.js';
+import { IS_CARD_VIEW } from './lib/view.js';
 
 export default function App() {
+  return IS_CARD_VIEW ? <CardView /> : <Dashboard />;
+}
+
+// ?view=card: just the first card, filling the frame. No star map behind it,
+// no fullscreen button (a frame can only go fullscreen if its parent page
+// allows it), no second card and no rotation. The card itself runs `embed`: still
+// sky, read-only name, and the text that is otherwise only in tooltips.
+function CardView() {
+  const { locations, status } = useLocations({ single: true });
+  const now = useClock();
+  const loc = locations[0];
+  return (
+    <UnitsProvider>
+      <UnitsToggle embed />
+      <div className="container">
+        <div className="cards-container">
+          {loc ? <WeatherCard key={loc.key} location={loc} now={now} status={status} embed /> : null}
+        </div>
+      </div>
+    </UnitsProvider>
+  );
+}
+
+function Dashboard() {
   const { locations, status, updateLocation, locateCard, rotating, toggleRotate } = useLocations();
   const now = useClock();
   const containerRef = useRef(null);
